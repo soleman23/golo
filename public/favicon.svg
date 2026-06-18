@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 132" width="132" height="132" role="img" aria-label="GoLo">
+  <defs>
+    <radialGradient id="turf" cx="30%" cy="15%" r="125%">
+      <stop offset="0%" stop-color="#2a7d4a"/>
+      <stop offset="55%" stop-color="#14532d"/>
+      <stop offset="100%" stop-color="#0a2418"/>
+    </radialGradient>
+    <clipPath id="sq"><rect width="132" height="132" rx="30"/></clipPath>
+  </defs>
+  <g clip-path="url(#sq)">
+    <rect width="132" height="132" fill="url(#turf)"/>
+    <rect width="132" height="2" fill="#ffffff" opacity="0.14"/>
+  </g>
+  <!-- centered white golf ball (Ø80, lifted 2px) with dimples per the brand spec -->
+  <g transform="translate(0,2)">
+    <circle cx="66" cy="66" r="40" fill="#ffffff"/>
+    <g fill="#142818" fill-opacity="0.32">
+      <circle cx="66" cy="50" r="3.36"/>
+      <circle cx="53.2" cy="59.6" r="3.36"/>
+      <circle cx="78.8" cy="59.6" r="3.36"/>
+      <circle cx="48.4" cy="75.6" r="3.36"/>
+      <circle cx="66" cy="70" r="3.36"/>
+      <circle cx="83.6" cy="75.6" r="3.36"/>
+      <circle cx="58" cy="85.2" r="3.36"/>
+      <circle cx="74" cy="85.2" r="3.36"/>
+    </g>
+  </g>
+</svg>

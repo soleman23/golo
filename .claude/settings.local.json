@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(cd \"c:\\\\Users\\\\reach\\\\OneDrive\\\\Pictures\\\\Desktop\\\\GoLo App\\\\golf-app\"; $job = Start-Job { Set-Location \"c:\\\\Users\\\\reach\\\\OneDrive\\\\Pictures\\\\Desktop\\\\GoLo App\\\\golf-app\"; npm run dev 2>&1 }; Start-Sleep -Seconds 8; Receive-Job $job; Stop-Job $job; Remove-Job $job)",
+      "Bash(node --input-type=module -e ' *)",
+      "Bash(npx eslint *)",
+      "Bash(npx vite *)",
+      "PowerShell(npx eslint src/pages/ScoringPage.jsx src/components/scoring src/engines/betStatus.js src/store/roundStore.js 2>&1)",
+      "PowerShell(if \\($?\\) { \"OK - no lint errors\" })",
+      "PowerShell(node _smoke.mjs)",
+      "Bash(node verify-engines.mjs)",
+      "Bash(node --experimental-loader ./resolve-hook.mjs verify-engines.mjs)",
+      "Bash(npm run *)",
+      "Bash(node --experimental-loader ./resolve-hook.mjs verify-new.mjs)",
+      "PowerShell(npm run build)",
+      "PowerShell(npx eslint src/pages/SetupWizard.jsx src/App.jsx)",
+      "Skill(run)",
+      "Skill(run:*)",
+      "Bash(command -v chromium-cli)",
+      "Bash(command -v npx)"
+    ]
+  }
+}

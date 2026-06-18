@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #15803d;
+  --color-accent: #eab308;
+  --color-surface: #ffffff;
+  --color-text: #111827;
+}
+
+/* Hide the scrollbar on horizontal scroll rows (bets bar, side-game chips). */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
