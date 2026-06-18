@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import useHistoryStore from '../store/historyStore'
 import useProfileStore from '../store/profileStore'
 import { GoloWordmark, GoloBall } from '../components/shared/Logo'
+import BackButton from '../components/shared/BackButton'
 import {
   playerKey, displayName, autoKey, namesByKey, myNetInRoundByKey, entryMatches,
 } from '../lib/identity'
@@ -118,7 +119,10 @@ export default function HistoryPage() {
       <div style={S.column}>
         {/* header --------------------------------------------------------- */}
         <div style={S.header}>
-          <GoloWordmark variant="white" fontPx={16} style={{ marginBottom: 12 }} />
+          <div style={S.headerTop}>
+            <BackButton />
+            <GoloWordmark variant="white" fontPx={16} />
+          </div>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 }}>
             <div>
               <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: ACCENT }}>YOUR ROUNDS</div>
@@ -220,6 +224,7 @@ const S = {
   },
   column: { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', width: '100%', maxWidth: 480, margin: '0 auto' },
   header: { flex: '0 0 auto', padding: 'max(10px, env(safe-area-inset-top)) 18px 10px', textShadow: '0 2px 12px rgba(0,0,0,.4)' },
+  headerTop: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
   clearBtn: { flex: '0 0 auto', minHeight: 40, padding: '0 14px', borderRadius: 12, background: 'rgba(251,113,133,.12)', border: '1px solid rgba(251,113,133,.32)', color: '#fb7185', fontSize: 13, fontWeight: 800, cursor: 'pointer' },
   scroll: { flex: 1, overflowY: 'auto', padding: '6px 16px 14px' },
 

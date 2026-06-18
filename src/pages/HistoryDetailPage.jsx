@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import useHistoryStore from '../store/historyStore'
+import BackButton from '../components/shared/BackButton'
 
 /**
  * HistoryDetailPage — one saved round, "glass-over-turf".
@@ -118,8 +119,10 @@ export default function HistoryDetailPage() {
       <div style={S.column}>
         {/* header --------------------------------------------------------- */}
         <div style={S.header}>
-          <button onClick={() => navigate('/history')} style={S.backBtn}>‹ History</button>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 6 }}>
+          <div style={{ marginBottom: 12 }}>
+            <BackButton />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
             <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: ACCENT }}>FINAL</span>
             <div style={S.coursePill}>
               <span style={{ width: 7, height: 7, borderRadius: '50%', flex: '0 0 auto', background: ACCENT }} />
@@ -269,7 +272,6 @@ const S = {
   },
   column: { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', width: '100%', maxWidth: 480, margin: '0 auto' },
   header: { flex: '0 0 auto', padding: 'max(10px, env(safe-area-inset-top)) 18px 12px', textShadow: '0 2px 12px rgba(0,0,0,.4)' },
-  backBtn: { minHeight: 40, marginLeft: -6, padding: '0 6px', background: 'transparent', border: 'none', color: 'rgba(255,255,255,.75)', fontSize: 15, fontWeight: 700, cursor: 'pointer' },
   coursePill: { display: 'flex', alignItems: 'center', gap: 7, background: 'rgba(255,255,255,.13)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.16)', padding: '6px 12px', borderRadius: 9999, maxWidth: 210, minWidth: 0 },
   scroll: { flex: 1, overflowY: 'auto', padding: '4px 16px 14px' },
 

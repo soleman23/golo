@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="4 7 372 104" width="930" height="260" fill="none">
+  <path d="M56 20 A40 40 0 1 0 95.8 64" stroke="#d4f23a" stroke-width="12" stroke-linecap="round"></path>
+  <line x1="95.8" y1="64" x2="64" y2="64" stroke="#d4f23a" stroke-width="12" stroke-linecap="round"></line>
+  <circle cx="56" cy="58" r="15" fill="#ffffff"></circle>
+  <circle cx="56" cy="58" r="9" fill="none" stroke="rgba(10,36,24,0.28)" stroke-width="2.4"></circle>
+  <line x1="56" y1="44" x2="56" y2="14" stroke="#d4f23a" stroke-width="3.4"></line>
+  <path d="M56 14 L86 22 L56 34 Z" fill="#ffffff"></path>
+  <text x="124" y="80" font-family="system-ui,-apple-system,&#39;Segoe UI&#39;,Roboto,Helvetica,Arial,sans-serif" font-size="62" font-weight="800" letter-spacing="-2">
+    <tspan fill="#ffffff">Go</tspan><tspan fill="#d4f23a">Lo</tspan>
+  </text>
+  <text x="126" y="103" font-family="system-ui,-apple-system,&#39;Segoe UI&#39;,Roboto,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="700" letter-spacing="2.6" fill="rgba(120,130,120,0.95)">TRACK IT. BET IT. SETTLE IT.</text>
+</svg>

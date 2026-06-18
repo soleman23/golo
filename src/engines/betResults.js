@@ -230,6 +230,7 @@ export function formatRoundSummary({
   betResults,
   settlements,
   scoringType = 'stroke',
+  scoring = 'net',
 }) {
   const lines = []
 
@@ -242,7 +243,7 @@ export function formatRoundSummary({
     if (scoringType === 'stableford') {
       lines.push(`${e.rank}. ${e.player.name} — ${e.points ?? e.net} pts`)
     } else {
-      lines.push(`${e.rank}. ${e.player.name} — Net ${e.net} (${fmtToPar(e.toPar)})`)
+      lines.push(`${e.rank}. ${e.player.name} — ${scoring === 'gross' ? 'Gross' : 'Net'} ${e.net} (${fmtToPar(e.toPar)})`)
     }
   })
   lines.push('')

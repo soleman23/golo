@@ -1,33 +1,32 @@
 import { useId } from 'react'
 
 /**
- * GoLo brand mark — the staggered "GoLo" wordmark where both o's are dimpled
- * golf balls, plus the standalone ball glyph and app-icon. Rebuilt from the
- * design reference (Golo Golf - Logo.dc.html / README) as parametric SVG so it
- * scales cleanly and the accent stays themeable.
+ * GoLo brand assets.
  *
- * All geometry is expressed as ratios of the cap font-size `F` (see README):
- *   ball Ø 0.465F · ball lift 0.068F · cap↔ball gap max(1, 0.014F)
- *   cluster B drop 0.15F · cluster B nudge 0.10F · cap weight 300 · tracking −0.02em
+ * The exported "Pin" logo files live in /public/brand. SVGs are preferred by
+ * the logo bundle's README, with full-color marks on dark surfaces and the dark
+ * mark reserved for light surfaces.
  *
  *   <GoloWordmark variant="primary|white|lime|dark|nav" fontPx accent />
  *   <GoloBall size fill dimple highlight />
- *   <GoloIcon size accent />   // turf rounded-square + white ball (app icon)
+ *   <GoloIcon size accent />   // rounded-square app icon
  */
 
 const ACCENT = '#d4f23a'
+const BRAND = {
+  appIcon: '/brand/golo-pin-appicon.svg',
+  dark: '/brand/golo-pin-dark.svg',
+  lime: '/brand/golo-pin-lime.svg',
+  lockup: '/brand/golo-pin-lockup.svg',
+  white: '/brand/golo-pin-white.svg',
+}
+const LOCKUP_RATIO = 930 / 260
 
-// Dimple positions as fractions of the 100×100 ball viewBox (README).
+// Dimple positions as fractions of the 100×100 ball viewBox.
 const DIMPLES = [
   [0.50, 0.30], [0.34, 0.42], [0.66, 0.42], [0.28, 0.62],
   [0.50, 0.55], [0.72, 0.62], [0.40, 0.74], [0.60, 0.74],
 ]
-
-function hexA(hex, a) {
-  const h = hex.replace('#', '')
-  const n = parseInt(h.length === 3 ? h.split('').map((c) => c + c).join('') : h, 16)
-  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`
-}
 
 /** A single dimpled golf ball. `highlight` adds the soft top-left sheen. */
 export function GoloBall({ size = 24, fill = '#ffffff', dimple = 'rgba(20,40,24,.32)', highlight = true, style }) {
@@ -57,77 +56,68 @@ export function GoloBall({ size = 24, fill = '#ffffff', dimple = 'rgba(20,40,24,
   )
 }
 
-// Per-variant cap color + ball treatment (README "Variants"). ballB null = both
-// balls share ballA; primary is the only two-tone (white ball + lime ball).
-function variantConfig(variant, accent) {
+function assetForVariant(variant) {
   switch (variant) {
-    case 'primary':
-      return {
-        capColor: '#fff',
-        ballA: { fill: '#ffffff', dimple: 'rgba(20,40,24,.32)', highlight: true },
-        ballB: { fill: accent, dimple: hexA('#13250a', 0.5), highlight: true },
-      }
     case 'lime':
-      return { capColor: accent, ballA: { fill: accent, dimple: hexA('#0c0f12', 0.55), highlight: false }, ballB: null }
+      return { src: BRAND.lime, ratio: 1 }
     case 'dark':
-      return { capColor: '#13250a', ballA: { fill: '#ffffff', dimple: 'rgba(19,37,10,.45)', highlight: false }, ballB: null }
+      return { src: BRAND.dark, ratio: 1 }
+    case 'mark':
+      return { src: BRAND.white, ratio: 1 }
+    case 'primary':
     case 'white':
     case 'nav':
     default:
-      return { capColor: '#fff', ballA: { fill: '#ffffff', dimple: 'rgba(20,40,24,.3)', highlight: true }, ballB: null }
+      return { src: BRAND.lockup, ratio: LOCKUP_RATIO }
   }
 }
 
-/** The "GoLo" wordmark. `nav` defaults to F=30; everything else to F=56. */
+/** The GoLo lockup/mark. `nav` defaults to F=30; everything else to F=56. */
 export function GoloWordmark({ variant = 'white', fontPx, accent = ACCENT, title = 'GoLo', style }) {
+  void accent // The exported assets carry their brand colors.
   const F = fontPx ?? (variant === 'nav' ? 30 : 56)
-  const cfg = variantConfig(variant, accent)
-  const ballA = cfg.ballA
-  const ballB = cfg.ballB ?? cfg.ballA
-
-  const ballSize = Math.round(F * 0.465)
-  const drop = Math.round(F * 0.068)
-  const stagger = Math.round(F * 0.15)
-  const shift = Math.round(F * 0.10)
-  const gap = Math.max(1, Math.round(F * 0.014))
-  const capStyle = {
-    fontSize: F + 'px', fontWeight: 300, letterSpacing: '-0.02em',
-    color: cfg.capColor, lineHeight: 1, fontFamily: 'system-ui,-apple-system,sans-serif',
-  }
+  const { src, ratio } = assetForVariant(variant)
+  const isLockup = ratio !== 1
+  const height = Math.round(F * (isLockup ? 1.78 : 1.65))
 
   return (
-    <div role="img" aria-label={title} style={{ position: 'relative', display: 'inline-flex', alignItems: 'flex-start', ...style }}>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: gap + 'px' }}>
-        <span style={capStyle}>G</span>
-        <span style={{ display: 'inline-flex', paddingBottom: drop + 'px' }}><GoloBall size={ballSize} {...ballA} /></span>
-      </div>
-      <div style={{ position: 'relative', zIndex: 2, display: 'flex', alignItems: 'flex-end', gap: gap + 'px', marginTop: stagger + 'px', marginLeft: shift + 'px' }}>
-        <span style={capStyle}>L</span>
-        <span style={{ display: 'inline-flex', paddingBottom: drop + 'px' }}><GoloBall size={ballSize} {...ballB} /></span>
-      </div>
-    </div>
+    <img
+      src={src}
+      alt={title}
+      width={Math.round(height * ratio)}
+      height={height}
+      style={{
+        display: 'block',
+        width: 'auto',
+        height,
+        maxWidth: '100%',
+        flex: '0 0 auto',
+        ...style,
+      }}
+    />
   )
 }
 
-/** App-icon glyph: turf rounded-square with a centered white ball. */
+/** App-icon glyph: dark rounded-square with the full-color pin mark. */
 export function GoloIcon({ size = 132, radius, accent = ACCENT, glow = true, style }) {
-  void accent // turf icon doesn't tint; accent kept for API symmetry
+  void accent // The exported asset carries its brand colors.
   const r = radius ?? Math.round(size * 0.227)
-  const ball = Math.round(size * 0.606)
   return (
-    <div
-      role="img"
-      aria-label="GoLo"
+    <img
+      src={BRAND.appIcon}
+      alt="GoLo"
+      width={size}
+      height={size}
       style={{
-        width: size, height: size, borderRadius: r, flex: '0 0 auto',
-        background: 'radial-gradient(125% 110% at 30% 15%, #2a7d4a 0%, #14532d 55%, #0a2418 100%)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-        boxShadow: glow ? '0 18px 44px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.14)' : 'inset 0 1px 0 rgba(255,255,255,.14)',
+        display: 'block',
+        width: size,
+        height: size,
+        borderRadius: r,
+        flex: '0 0 auto',
+        boxShadow: glow ? '0 18px 44px rgba(0,0,0,.5)' : 'none',
         ...style,
       }}
-    >
-      <GoloBall size={ball} fill="#ffffff" dimple="rgba(20,40,24,.32)" highlight style={{ transform: 'translateY(2px)' }} />
-    </div>
+    />
   )
 }
 

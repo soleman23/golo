@@ -3,12 +3,15 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import useRoundStore from '../store/roundStore'
 import useHistoryStore from '../store/historyStore'
 import useProfileStore from '../store/profileStore'
+import useAuthStore from '../store/authStore'
+import { saveRound as dbSaveRound } from '../lib/db/rounds'
 import { buildLeaderboard } from '../engines/scoring'
 import { buildStablefordLeaderboard } from '../engines/stableford'
 import { buildBetResults, formatRoundSummary } from '../engines/betResults'
 import { aggregatePayouts, calculateSettlements } from '../engines/payouts'
-import { playerKey, autoKey } from '../lib/identity'
+import { playerKey, autoKey, hasContact } from '../lib/identity'
 import { GoloWordmark } from '../components/shared/Logo'
+import BackButton from '../components/shared/BackButton'
 
 /**
  * PayoutsPage — the post-round "Settle Up", glass-over-turf design
@@ -21,8 +24,8 @@ import { GoloWordmark } from '../components/shared/Logo'
  *
  * Wired to the real roundStore and every payout engine. It auto-saves the
  * finished round to history on mount (that snapshot feeds Home / You / History),
- * so the footer can stay faithful to the mock (Share + Mark all paid → New
- * round). Preserves all formats: standings/recap adapt to Scramble teams and
+ * then the Complete action ends the live round and returns to the locker.
+ * Preserves all formats: standings/recap adapt to Scramble teams and
  * Stableford points, and the per-game cards render whatever bets were played
  * (Nassau, Skins, Purse, CTP, Long Drive, Wolf, Bingo-Bango-Bongo).
  */
@@ -154,6 +157,7 @@ export default function PayoutsPage() {
   const [expanded, setExpanded] = useState({}) // bet id → true
   const [toast, setToast] = useState(false)
   const [celebrate, setCelebrate] = useState(false)
+  const [completing, setCompleting] = useState(false)
   const toastTimer = useRef()
   const savedRef = useRef(false)
   const expandedSeeded = useRef(false)
@@ -164,17 +168,22 @@ export default function PayoutsPage() {
   const scoringType = round?.scoringType ?? 'stroke'
   const isScramble = scoringType === 'scramble'
   const isStableford = scoringType === 'stableford'
+  const useGrossScoring = round?.scoring === 'gross'
 
   const strokeAllocations = useMemo(
     () => getStrokeAllocations(),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [players, round?.strokeIndex, round?.holes]
   )
+  const scoringAllocations = useMemo(
+    () => (isScramble || useGrossScoring ? {} : strokeAllocations),
+    [isScramble, useGrossScoring, strokeAllocations]
+  )
 
   // Entity-level board mirrors the round format (team gross / points / net).
   const leaderboard = useMemo(() => {
     if (isStableford) {
-      return buildStablefordLeaderboard(players, scores, pars, strokeAllocations).map((e) => ({
+      return buildStablefordLeaderboard(players, scores, pars, scoringAllocations).map((e) => ({
         rank: e.rank,
         player: e.player,
         gross: e.gross,
@@ -187,24 +196,24 @@ export default function PayoutsPage() {
     if (isScramble && teams.length > 0) {
       return buildLeaderboard(teams, scores, {}, pars, totalHoles)
     }
-    return buildLeaderboard(players, scores, strokeAllocations, pars, totalHoles)
-  }, [isStableford, isScramble, teams, players, scores, strokeAllocations, pars, totalHoles])
+    return buildLeaderboard(players, scores, scoringAllocations, pars, totalHoles)
+  }, [isStableford, isScramble, teams, players, scores, scoringAllocations, pars, totalHoles])
 
   // Per-player gross/net (for hero + standings sub-lines). In scramble the
   // individuals have no own scores, so these come out zero and we fall back to
   // the player's team name instead.
   const playerStats = useMemo(() => {
     if (isStableford) {
-      const lb = buildStablefordLeaderboard(players, scores, pars, strokeAllocations)
+      const lb = buildStablefordLeaderboard(players, scores, pars, scoringAllocations)
       return Object.fromEntries(
         lb.map((e) => [e.player.id, { gross: e.gross, net: e.points, points: e.points, thru: e.thru, toPar: 0 }])
       )
     }
-    const lb = buildLeaderboard(players, scores, strokeAllocations, pars, totalHoles)
+    const lb = buildLeaderboard(players, scores, scoringAllocations, pars, totalHoles)
     return Object.fromEntries(
       lb.map((e) => [e.player.id, { gross: e.gross, net: e.net, thru: e.thru, toPar: e.toPar }])
     )
-  }, [isStableford, players, scores, pars, strokeAllocations, totalHoles])
+  }, [isStableford, players, scores, pars, scoringAllocations, totalHoles])
 
   const betResults = useMemo(
     () =>
@@ -231,7 +240,7 @@ export default function PayoutsPage() {
   )
 
   const summaryText = useMemo(
-    () => formatRoundSummary({ round, players, leaderboard, betResults, settlements, scoringType }),
+    () => formatRoundSummary({ round, players, leaderboard, betResults, settlements, scoringType, scoring: round?.scoring ?? 'net' }),
     [round, players, leaderboard, betResults, settlements, scoringType]
   )
 
@@ -257,29 +266,73 @@ export default function PayoutsPage() {
     setExpanded({ [betResults[0].id]: true })
   }, [betResults])
 
-  // Auto-save the finished round to history on mount (feeds Home / You /
-  // History). Runs once; the snapshot is the same shape History renders.
-  useEffect(() => {
-    if (savedRef.current || !round || players.length === 0) return
-    savedRef.current = true
+  async function persistRound() {
+    if (!round || players.length === 0) return null
     completeRound()
-    saveRound({
+    const playerGameData = players
+      .filter((p) => hasContact(p))
+      .map((p) => {
+        const team = teams.find((t) => t.playerIds?.includes(p.id))
+        return {
+          playerId: p.id,
+          key: playerKey(p),
+          verified: true,
+          player: {
+            id: p.id,
+            name: p.name,
+            nickname: p.nickname ?? null,
+            email: p.email ?? null,
+            phone: p.phone ?? null,
+            handicapIndex: p.handicapIndex ?? null,
+            courseHandicap: p.courseHandicap ?? null,
+            color: p.color ?? null,
+            teamId: team?.id ?? null,
+            teamName: team?.name ?? null,
+          },
+          scores: scores[p.id] ?? {},
+          teamScores: team ? scores[team.id] ?? {} : {},
+          strokeAllocations: strokeAllocations[p.id] ?? {},
+          netPayout: netPayouts[p.id] ?? 0,
+          betPayouts: betResults.map((b) => ({
+            id: b.id,
+            type: b.type,
+            name: b.name,
+            payout: b.payouts[p.id] ?? 0,
+          })),
+          settlements: settlements.filter((s) => s.from === p.id || s.to === p.id),
+        }
+      })
+    const entry = {
       roundId: round.roundId,
       course: round.course,
       date: round.date,
       holes: round.holes,
+      scoring: round.scoring ?? 'net',
+      scoringType: round.scoringType ?? 'stroke',
+      pars,
+      strokeIndex: round.strokeIndex ?? {},
       completedAt: new Date().toISOString(),
-      // Guests are kept in the snapshot so this round still renders their name,
-      // colour and settlements — but playerKey() returns null for them, so they
-      // never roll up into the season ledger, crew standings, or "you".
       players: players.map((p) => ({
         id: p.id,
         name: p.name,
         nickname: p.nickname ?? null,
         email: p.email ?? null,
         phone: p.phone ?? null,
-        guest: !!p.guest,
+        handicapIndex: p.handicapIndex ?? null,
+        courseHandicap: p.courseHandicap ?? null,
+        color: p.color ?? null,
+        guest: false,
+        loggedIn: true,
+        verified: hasContact(p),
       })),
+      teams,
+      scores,
+      bets,
+      sideGameFlags,
+      wolfPicks,
+      bbbFlags,
+      strokeAllocations,
+      playerGameData,
       leaderboard: leaderboard.map((e) => ({
         rank: e.rank,
         name: e.player.name,
@@ -299,7 +352,20 @@ export default function PayoutsPage() {
       })),
       settlements,
       summaryText,
-    })
+    }
+    saveRound(entry)
+    // Mirror to Supabase when signed in (no-op offline / local-only mode).
+    const userId = useAuthStore.getState().user?.id
+    if (userId) await dbSaveRound(entry, userId)
+    return entry
+  }
+
+  // Auto-save the finished round to history on mount (feeds Home / You /
+  // History). Runs once; the snapshot is the same shape History renders.
+  useEffect(() => {
+    if (savedRef.current || !round || players.length === 0) return
+    savedRef.current = true
+    void persistRound()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [round, players])
 
@@ -401,7 +467,7 @@ export default function PayoutsPage() {
     { icon: '💸', label: 'CHANGED HANDS', value: `$${moneyMoved}`, sub: `${settlements.length} transfer${settlements.length === 1 ? '' : 's'}` },
   ]
 
-  const scoringLabel = `FINAL · ${FORMAT_LABEL[scoringType] ?? 'STROKE'}`
+  const scoringLabel = `FINAL · ${FORMAT_LABEL[scoringType] ?? 'STROKE'} · ${useGrossScoring ? 'GROSS' : 'NET'}`
   const headerDetail = `${totalHoles} holes · ${round.date || ''}`.trim().replace(/·\s*$/, '').trim()
   const backdrop = COURSE_BG[round.course] ?? '/courses/course.png'
 
@@ -429,9 +495,15 @@ export default function PayoutsPage() {
     setPaid(next)
   }
 
-  const handleNewRound = () => {
-    resetRound()
-    navigate('/setup')
+  const handleCompleteRound = async () => {
+    if (completing) return
+    setCompleting(true)
+    try {
+      await persistRound()
+    } finally {
+      resetRound()
+      navigate('/you', { replace: true })
+    }
   }
 
   /* -------------------------------------------------------------------- render */
@@ -444,7 +516,10 @@ export default function PayoutsPage() {
       <div style={S.column}>
         {/* header --------------------------------------------------------- */}
         <div style={S.header}>
-          <GoloWordmark variant="white" fontPx={16} style={{ marginBottom: 12 }} />
+          <div style={S.headerTop}>
+            <BackButton />
+            <GoloWordmark variant="white" fontPx={16} />
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
             <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: ACCENT }}>{scoringLabel}</span>
             <div style={S.coursePill}>
@@ -632,8 +707,13 @@ export default function PayoutsPage() {
 
         {/* footer --------------------------------------------------------- */}
         <div style={S.footer}>
-          <button onClick={doShare} style={S.shareBtn}>↗ Share</button>
-          <button onClick={doSettleAll} style={S.settleBtn}>{settleLabel}</button>
+          <button onClick={handleCompleteRound} disabled={completing} style={{ ...S.completeBtn, opacity: completing ? 0.68 : 1, cursor: completing ? 'wait' : 'pointer' }}>
+            {completing ? 'Completing...' : 'Complete'}
+          </button>
+          <div style={S.footerRow}>
+            <button onClick={doShare} style={S.shareBtn}>↗ Share</button>
+            <button onClick={doSettleAll} style={S.settleBtn}>{settleLabel}</button>
+          </div>
         </div>
       </div>
 
@@ -654,7 +734,9 @@ export default function PayoutsPage() {
             <div style={{ fontSize: 14, color: 'rgba(255,255,255,.62)', marginTop: 8, lineHeight: 1.5 }}>
               {round.course || 'Round'} settled — ${moneyMoved} moved across {settlements.length} transfer{settlements.length === 1 ? '' : 's'}.
             </div>
-            <button onClick={handleNewRound} style={S.modalPrimary}>New round →</button>
+            <button onClick={handleCompleteRound} disabled={completing} style={{ ...S.modalPrimary, opacity: completing ? 0.68 : 1, cursor: completing ? 'wait' : 'pointer' }}>
+              {completing ? 'Completing...' : 'Complete'}
+            </button>
             <button onClick={() => setCelebrate(false)} style={S.modalGhost}>Back to summary</button>
           </div>
         </div>
@@ -678,6 +760,7 @@ const S = {
   },
   column: { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', width: '100%', maxWidth: 480, margin: '0 auto' },
   header: { flex: '0 0 auto', padding: 'max(10px, env(safe-area-inset-top)) 18px 12px', textShadow: '0 2px 12px rgba(0,0,0,.4)' },
+  headerTop: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
   coursePill: { display: 'flex', alignItems: 'center', gap: 7, background: 'rgba(255,255,255,.13)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.16)', padding: '6px 12px', borderRadius: 9999, maxWidth: 210, minWidth: 0 },
   scroll: { flex: 1, overflowY: 'auto', padding: '4px 16px 14px' },
 
@@ -702,9 +785,11 @@ const S = {
 
   recapCard: { background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.13)', borderRadius: 16, padding: '13px 14px', minWidth: 0 },
 
-  footer: { flex: '0 0 auto', padding: '10px 16px max(18px, env(safe-area-inset-bottom))', display: 'flex', gap: 10, alignItems: 'center' },
-  shareBtn: { minHeight: 54, padding: '0 18px', borderRadius: 16, background: 'rgba(255,255,255,.1)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.18)', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer' },
-  settleBtn: { flex: 1, minHeight: 54, borderRadius: 16, border: 'none', fontSize: 16, fontWeight: 800, cursor: 'pointer', background: ACCENT, color: ACCENT_DARK, boxShadow: `0 8px 22px ${hexA(ACCENT, 0.4)}` },
+  footer: { flex: '0 0 auto', padding: '10px 16px max(18px, env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: 9 },
+  footerRow: { display: 'flex', gap: 10, alignItems: 'center' },
+  completeBtn: { width: '100%', minHeight: 54, borderRadius: 16, border: 'none', fontSize: 16, fontWeight: 800, background: ACCENT, color: ACCENT_DARK, boxShadow: `0 8px 22px ${hexA(ACCENT, 0.4)}` },
+  shareBtn: { minHeight: 48, padding: '0 18px', borderRadius: 15, background: 'rgba(255,255,255,.1)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.18)', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer' },
+  settleBtn: { flex: 1, minHeight: 48, borderRadius: 15, border: `1px solid ${hexA(ACCENT, 0.38)}`, fontSize: 15, fontWeight: 800, cursor: 'pointer', background: hexA(ACCENT, 0.12), color: ACCENT },
 
   toastWrap: { position: 'absolute', left: 0, right: 0, bottom: 96, display: 'flex', justifyContent: 'center', zIndex: 50, pointerEvents: 'none' },
   toast: { background: 'rgba(16,22,18,.94)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,.16)', borderRadius: 14, padding: '12px 18px', fontSize: 13.5, fontWeight: 700, color: '#fff', boxShadow: '0 12px 30px rgba(0,0,0,.5)' },

@@ -1,9 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useRoundStore from '../store/roundStore'
 import useHistoryStore from '../store/historyStore'
 import useProfileStore from '../store/profileStore'
+import useAuthStore from '../store/authStore'
+import { uploadAvatar, removeAvatar } from '../lib/db/avatars'
 import { GoloWordmark, GoloBall } from '../components/shared/Logo'
+import BackButton from '../components/shared/BackButton'
 import {
   playerKey, hasContact, displayName, handleOf, autoKey, namesByKey, netByKey,
   myNetInRoundByKey, playedInByKey, entryMatches,
@@ -69,6 +72,8 @@ export default function YouPage() {
   const profileNick = useProfileStore((s) => s.nickname)
   const profileEmail = useProfileStore((s) => s.email)
   const profilePhone = useProfileStore((s) => s.phone)
+  const avatarUrl = useProfileStore((s) => s.avatarUrl)
+  const setAvatarUrl = useProfileStore((s) => s.setAvatarUrl)
   const setIdentity = useProfileStore((s) => s.setIdentity)
   const homeClubOverride = useProfileStore((s) => s.homeClub)
   const setHomeClub = useProfileStore((s) => s.setHomeClub)
@@ -79,8 +84,17 @@ export default function YouPage() {
   const notifySettle = useProfileStore((s) => s.notifySettle)
   const notifyLive = useProfileStore((s) => s.notifyLive)
   const setNotify = useProfileStore((s) => s.setNotify)
+  const authEnabled = useAuthStore((s) => s.enabled)
+  const authEmail = useAuthStore((s) => s.user?.email ?? null)
+  const authUserId = useAuthStore((s) => s.user?.id ?? null)
+  const signOut = useAuthStore((s) => s.signOut)
 
   const [editing, setEditing] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [avatarError, setAvatarError] = useState(null)
+  const fileInputRef = useRef(null)
+  // Registered = backend on AND signed in; only they can upload to Storage.
+  const canUploadAvatar = authEnabled && !!authUserId
 
   const profile = { name: profileName, nickname: profileNick, email: profileEmail, phone: profilePhone }
   // "Identity" for the requirement means a real contact (email/phone) — a
@@ -236,6 +250,39 @@ export default function YouPage() {
     setNotify(!on, !on) // single tap flips both settle-up + live-round alerts
   }
 
+  const handleSignOut = async () => {
+    if (window.confirm('Sign out of Golo on this device?')) await signOut()
+  }
+
+  const pickAvatar = () => {
+    if (uploading) return
+    setAvatarError(null)
+    fileInputRef.current?.click()
+  }
+
+  const onAvatarFile = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-picking the same file later
+    if (!file) return
+    setUploading(true)
+    setAvatarError(null)
+    const { url, error } = await uploadAvatar(authUserId, file, avatarUrl)
+    setUploading(false)
+    if (error) {
+      setAvatarError(error.message || 'Upload failed. Try again.')
+      return
+    }
+    setAvatarUrl(url)
+  }
+
+  const handleRemoveAvatar = () => {
+    if (uploading || !avatarUrl) return
+    const prev = avatarUrl
+    setAvatarUrl(null)
+    setAvatarError(null)
+    removeAvatar(prev)
+  }
+
   return (
     <div style={S.root}>
       <div style={{ ...S.backdrop, backgroundImage: `url('${BACKDROP}')` }} />
@@ -244,14 +291,21 @@ export default function YouPage() {
       <div style={S.column}>
         {/* identity header -------------------------------------------------- */}
         <div style={S.header}>
-          <GoloWordmark variant="white" fontPx={16} style={{ marginBottom: 12 }} />
+          <div style={S.headerTop}>
+            <BackButton />
+            <GoloWordmark variant="white" fontPx={16} />
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
             <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: ACCENT }}>YOUR LOCKER</span>
             <button onClick={() => setEditing((v) => !v)} style={S.editBtn}>{editing ? 'Done' : '✎ Edit'}</button>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 15, marginTop: 14 }}>
-            <span style={{ ...S.avatar, width: 78, height: 78, fontSize: 30, boxShadow: `0 0 0 3px ${hexA(ACCENT, 0.5)}, 0 10px 24px rgba(0,0,0,.4)`, background: ACCENT, color: ACCENT_DARK }}>
-              {meName ? initial(meName) : <GoloBall size={42} fill="#ffffff" dimple="rgba(20,40,24,.3)" />}
+            <span style={{ ...S.avatar, width: 78, height: 78, fontSize: 30, overflow: 'hidden', boxShadow: `0 0 0 3px ${hexA(ACCENT, 0.5)}, 0 10px 24px rgba(0,0,0,.4)`, background: avatarUrl ? '#0a2418' : ACCENT, color: ACCENT_DARK }}>
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : meName ? initial(meName) : (
+                <GoloBall size={42} fill="#ffffff" dimple="rgba(20,40,24,.3)" />
+              )}
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 26, fontWeight: 800, color: '#fff', letterSpacing: '-0.4px', lineHeight: 1.05 }}>{meName ?? 'Set up your profile'}</div>
@@ -284,6 +338,44 @@ export default function YouPage() {
               <div style={S.cardKicker}>YOUR PROFILE</div>
               <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,.5)', marginTop: 6, lineHeight: 1.45 }}>
                 You're identified by your email or phone — add at least one so your rounds follow you across the crew.
+              </div>
+
+              {/* profile photo */}
+              <label style={S.fieldLabel}>PHOTO</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 7 }}>
+                <span style={{ ...S.avatar, width: 64, height: 64, fontSize: 24, overflow: 'hidden', flex: '0 0 auto', background: avatarUrl ? '#0a2418' : ACCENT, color: ACCENT_DARK, boxShadow: `0 0 0 2px ${hexA(ACCENT, 0.45)}` }}>
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : meName ? initial(meName) : (
+                    <GoloBall size={32} fill="#ffffff" dimple="rgba(20,40,24,.3)" />
+                  )}
+                </span>
+                {canUploadAvatar ? (
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={onAvatarFile}
+                      style={{ display: 'none' }}
+                    />
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button onClick={pickAvatar} disabled={uploading} style={{ ...S.photoBtn, opacity: uploading ? 0.6 : 1, cursor: uploading ? 'default' : 'pointer' }}>
+                        {uploading ? 'Uploading…' : avatarUrl ? 'Change photo' : 'Add photo'}
+                      </button>
+                      {avatarUrl && !uploading && (
+                        <button onClick={handleRemoveAvatar} style={S.photoRemoveBtn}>Remove</button>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 11, color: avatarError ? '#fb7185' : 'rgba(255,255,255,.4)', marginTop: 7, lineHeight: 1.4 }}>
+                      {avatarError || 'Square crop, resized automatically. JPG or PNG.'}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,.45)', lineHeight: 1.4 }}>
+                    Sign in to add a profile photo.
+                  </div>
+                )}
               </div>
 
               <label style={S.fieldLabel}>FULL NAME</label>
@@ -510,7 +602,10 @@ export default function YouPage() {
               divider
             />
             <SettingRow icon="📋" title="Round history" sub={`${rounds.length} saved`} onClick={() => navigate('/history')} divider />
-            <SettingRow icon="🗑️" title="Clear history" sub="Delete all saved rounds" onClick={handleClear} danger />
+            <SettingRow icon="🗑️" title="Clear history" sub="Delete all saved rounds" onClick={handleClear} divider={authEnabled} danger />
+            {authEnabled && (
+              <SettingRow icon="🚪" title="Sign out" sub={authEmail ? `Signed in as ${authEmail}` : 'End your session'} onClick={handleSignOut} danger />
+            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 16, opacity: 0.5 }}>
             <GoloWordmark variant="white" fontPx={15} />
@@ -581,6 +676,7 @@ const S = {
   },
   column: { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', width: '100%', maxWidth: 480, margin: '0 auto' },
   header: { flex: '0 0 auto', padding: 'max(10px, env(safe-area-inset-top)) 18px 14px', textShadow: '0 2px 12px rgba(0,0,0,.4)' },
+  headerTop: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
   editBtn: { display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,.13)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.18)', color: '#fff', fontSize: 12, fontWeight: 800, padding: '7px 13px', borderRadius: 9999, cursor: 'pointer' },
   avatar: { borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#fff' },
   scroll: { flex: 1, overflowY: 'auto', padding: '2px 16px 14px' },
@@ -591,6 +687,8 @@ const S = {
   fieldLabel: { display: 'block', fontSize: 10, fontWeight: 800, letterSpacing: 0.8, color: 'rgba(255,255,255,.5)', marginTop: 14 },
   textInput: { width: '100%', marginTop: 7, padding: '11px 13px', borderRadius: 12, background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.18)', color: '#fff', fontSize: 14, fontWeight: 600, outline: 'none', boxSizing: 'border-box' },
   doneBtn: { width: '100%', marginTop: 16, padding: '12px', borderRadius: 12, border: 'none', cursor: 'pointer', background: ACCENT, color: ACCENT_DARK, fontSize: 14, fontWeight: 800 },
+  photoBtn: { padding: '9px 16px', borderRadius: 10, border: 'none', background: ACCENT, color: ACCENT_DARK, fontSize: 13, fontWeight: 800 },
+  photoRemoveBtn: { padding: '9px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,.18)', background: 'rgba(255,255,255,.06)', color: '#fb7185', fontSize: 13, fontWeight: 800, cursor: 'pointer' },
   heroGlow: { position: 'absolute', right: -30, top: -30, width: 150, height: 150, borderRadius: '50%', filter: 'blur(36px)', pointerEvents: 'none' },
   statTile: { background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 14, padding: '11px 10px' },
 

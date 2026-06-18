@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import useAuthStore from './authStore'
+import { deleteRound as dbDeleteRound, deleteAllRounds as dbDeleteAllRounds } from '../lib/db/rounds'
 
 /**
  * Completed-round history, persisted separately from the live round so finishing
@@ -11,6 +13,9 @@ const useHistoryStore = create(
   persist(
     (set) => ({
       rounds: [],
+
+      // Replace the whole cache — used after hydrating from Supabase on login.
+      setRounds: (rounds) => set({ rounds: Array.isArray(rounds) ? rounds : [] }),
 
       // Upsert by roundId so re-saving the same round (e.g. after an edit) updates
       // in place rather than duplicating. Newest first.
@@ -24,12 +29,19 @@ const useHistoryStore = create(
           }
         }),
 
-      removeRound: (roundId) =>
+      removeRound: (roundId) => {
+        const userId = useAuthStore.getState().user?.id
+        if (userId) dbDeleteRound(roundId)
         set((state) => ({
           rounds: state.rounds.filter((r) => r.roundId !== roundId),
-        })),
+        }))
+      },
 
-      clearHistory: () => set({ rounds: [] }),
+      clearHistory: () => {
+        const userId = useAuthStore.getState().user?.id
+        if (userId) dbDeleteAllRounds(userId)
+        set({ rounds: [] })
+      },
     }),
     { name: 'golf-history' }
   )

@@ -14,6 +14,7 @@ import { buildBetResults } from '../engines/betResults'
 import useProfileStore from '../store/profileStore'
 import { playerKey } from '../lib/identity'
 import { GoloWordmark } from '../components/shared/Logo'
+import BackButton from '../components/shared/BackButton'
 
 /**
  * ScoringPage — the live round, "Scoring (Immersive)".
@@ -127,7 +128,7 @@ export default function ScoringPage() {
 
   const [sheet, setSheet] = useState(null) // 'leaderboard' | 'bets' | 'finish' | null
   const [keypadFor, setKeypadFor] = useState(null) // entity id | null
-  const [lbView, setLbView] = useState('net') // leaderboard view: 'net' | 'gross' | 'money'
+  const [lbView, setLbView] = useState(() => (round?.scoring === 'gross' ? 'gross' : 'net')) // 'net' | 'gross' | 'money'
 
   // "You" detection for the YOU badge — profile identity, else the organizer.
   const profName = useProfileStore((s) => s.name)
@@ -139,6 +140,7 @@ export default function ScoringPage() {
   const isScramble = scoringType === 'scramble'
   const isStableford = scoringType === 'stableford'
   const isMatchplay = scoringType === 'matchplay'
+  const useGrossScoring = round?.scoring === 'gross'
 
   const totalHoles = round?.holes ?? 18
   const pars = useMemo(() => round?.pars ?? {}, [round?.pars])
@@ -172,14 +174,14 @@ export default function ScoringPage() {
     [players, round?.strokeIndex, round?.holes]
   )
   const allocations = useMemo(
-    () => (isScramble ? {} : playerAllocations),
-    [isScramble, playerAllocations]
+    () => (isScramble || useGrossScoring ? {} : playerAllocations),
+    [isScramble, useGrossScoring, playerAllocations]
   )
 
   // Sorted leaderboard for the sheet (format-aware).
   const leaderboard = useMemo(() => {
     if (isStableford) {
-      return buildStablefordLeaderboard(players, scores, pars, playerAllocations).map((e) => ({
+      return buildStablefordLeaderboard(players, scores, pars, allocations).map((e) => ({
         rank: e.rank,
         player: e.player,
         thru: e.thru,
@@ -189,7 +191,7 @@ export default function ScoringPage() {
       }))
     }
     return buildLeaderboard(entities, scores, allocations, pars, totalHoles)
-  }, [isStableford, entities, players, scores, allocations, playerAllocations, pars, totalHoles])
+  }, [isStableford, entities, players, scores, allocations, pars, totalHoles])
 
   const leaderName = leaderboard[0]?.player?.name ?? '—'
 
@@ -198,8 +200,8 @@ export default function ScoringPage() {
     if (!isMatchplay || players.length < 2) return null
     const side1 = players[0]
     const side2 = players[1]
-    const a1 = playerAllocations[side1.id] ?? {}
-    const a2 = playerAllocations[side2.id] ?? {}
+    const a1 = allocations[side1.id] ?? {}
+    const a2 = allocations[side2.id] ?? {}
     const results = []
     for (let h = 1; h <= totalHoles; h++) {
       const conceded = concededHoles[h]
@@ -215,7 +217,7 @@ export default function ScoringPage() {
       results.push(calculateHoleResult(n1, n2))
     }
     return { side1, side2, status: calculateMatchStatus(results, totalHoles) }
-  }, [isMatchplay, players, playerAllocations, scores, concededHoles, totalHoles])
+  }, [isMatchplay, players, allocations, scores, concededHoles, totalHoles])
 
   // Side games / panels active on *this* hole.
   const ctpBet = bets.find((b) => b.type === 'ctp' && (b.config.holes ?? []).includes(currentHole))
@@ -330,7 +332,7 @@ export default function ScoringPage() {
     const statsByEntity = (scoreSet) => {
       const m = {}
       if (isStableford) {
-        buildStablefordLeaderboard(players, scoreSet, pars, playerAllocations).forEach((e) => {
+        buildStablefordLeaderboard(players, scoreSet, pars, allocations).forEach((e) => {
           m[e.player.id] = { gross: e.gross, net: e.points, toPar: null, thru: e.thru, points: e.points }
         })
       } else {
@@ -387,10 +389,14 @@ export default function ScoringPage() {
 
     const subFor = (e, s) => {
       const h = e.courseHandicap ?? e.handicapIndex
-      const hp = h != null ? ` · Hdcp ${h}` : ''
-      const netStr = isStableford ? `${s.points} pts` : `Net ${vpl(s.toPar)}`
-      if (view === 'gross') return `${netStr}${hp}`
-      if (view === 'money') return `Gross ${s.gross} · ${netStr}`
+      const hp = h != null && !useGrossScoring ? ` · Hdcp ${h}` : ''
+      const scoreStr = isStableford
+        ? `${s.points} pts`
+        : useGrossScoring
+          ? `Gross ${vpl(s.toPar)}`
+          : `Net ${vpl(s.toPar)}`
+      if (view === 'gross') return `${scoreStr}${hp}`
+      if (view === 'money') return `Gross ${s.gross} · ${scoreStr}`
       return `Gross ${s.gross}${hp}`
     }
     const bigOf = (id, s) => (view === 'gross' ? String(s.gross) : view === 'money' ? fmtMoney(money[id]) : isStableford ? String(s.points) : vpl(s.toPar))
@@ -428,8 +434,8 @@ export default function ScoringPage() {
 
     return {
       N,
-      scopeLabel: view === 'money' ? 'MONEY' : view === 'gross' ? 'GROSS' : 'NET',
-      colLabel: view === 'money' ? 'MONEY' : view === 'gross' ? 'GROSS' : isStableford ? 'PTS' : 'NET',
+      scopeLabel: view === 'money' ? 'MONEY' : view === 'gross' || useGrossScoring ? 'GROSS' : 'NET',
+      colLabel: view === 'money' ? 'MONEY' : view === 'gross' || useGrossScoring ? 'GROSS' : isStableford ? 'PTS' : 'NET',
       rows,
       spot: {
         name: L.name, color: L.color, isMe: Lid === meEntityId,
@@ -437,7 +443,7 @@ export default function ScoringPage() {
         unit: view === 'gross' ? 'GROSS' : view === 'money' ? 'NET WON' : isStableford ? 'POINTS' : 'TO PAR',
       },
     }
-  }, [sheet, lbView, isScramble, isStableford, teams, players, scores, pars, allocations, playerAllocations, bets, sideGameFlags, wolfPicks, bbbFlags, scoringType, totalHoles, meEntityId])
+  }, [sheet, lbView, isScramble, isStableford, useGrossScoring, teams, players, scores, pars, allocations, playerAllocations, bets, sideGameFlags, wolfPicks, bbbFlags, scoringType, totalHoles, meEntityId])
 
   // No round set up yet — bounce back to setup.
   if (!round || entities.length === 0) {
@@ -474,6 +480,8 @@ export default function ScoringPage() {
     const isWolf = wolfActive && e.id === wolfId
     const subtitle = isScramble
       ? 'Best ball'
+      : useGrossScoring
+        ? 'Gross scoring'
       : `Hdcp ${e.courseHandicap ?? e.handicapIndex ?? 0}`
 
     return (
@@ -497,7 +505,7 @@ export default function ScoringPage() {
                 <span style={{ ...S.badge, color: ACCENT }}>{pts} pt</span>
               ) : (
                 <>
-                  <span style={S.badge}>Net {net}</span>
+                  <span style={S.badge}>{useGrossScoring ? 'Gross' : 'Net'} {net}</span>
                   <span style={{ ...S.badge, color: ncd(toPar) }}>{vpl(toPar)}</span>
                 </>
               )}
@@ -526,7 +534,10 @@ export default function ScoringPage() {
       <div style={S.column}>
         {/* header ------------------------------------------------------------ */}
         <div style={S.header}>
-          <GoloWordmark variant="white" fontPx={15} style={{ marginBottom: 10 }} />
+          <div style={S.headerTop}>
+            <BackButton />
+            <GoloWordmark variant="white" fontPx={15} />
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
             <button onClick={() => navigate('/setup')} aria-label="Round settings" style={S.iconBtn}>⛳</button>
             <div style={S.coursePill}>
@@ -1026,6 +1037,7 @@ const S = {
   },
   column: { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', width: '100%', maxWidth: 480, margin: '0 auto' },
   header: { flex: '0 0 auto', padding: 'max(10px, env(safe-area-inset-top)) 16px 10px', textShadow: '0 2px 12px rgba(0,0,0,.4)' },
+  headerTop: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10 },
   iconBtn: { width: 46, height: 46, borderRadius: '50%', flex: '0 0 auto', background: 'rgba(255,255,255,.14)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', fontSize: 19, cursor: 'pointer' },
   coursePill: { display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,.13)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.16)', padding: '9px 16px', borderRadius: 9999, maxWidth: 220, minWidth: 0 },
   navCircle: { width: 54, height: 54, borderRadius: '50%', flex: '0 0 auto', background: 'rgba(255,255,255,.14)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', fontSize: 24, fontWeight: 800, cursor: 'pointer' },

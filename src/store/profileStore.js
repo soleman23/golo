@@ -21,6 +21,7 @@ const useProfileStore = create(
       nickname: null, // handle (shown as @nickname), or null
       email: null, // primary identifier (one of email/phone is expected)
       phone: null, // alternate identifier
+      avatarUrl: null, // profile photo (Supabase Storage public URL), or null
       onboarded: false, // seen the first-run onboarding flow (set on finish or skip)
       homeClub: null, // optional home-club override; null = auto (most-played course)
       venmo: null, // payout handle, e.g. "@mike"; null = not linked
@@ -29,6 +30,7 @@ const useProfileStore = create(
       notifyLive: true, // notify on live-round updates
       skinsDefault: null, // saved Skins setup (the wizard selection shape), or null
       setName: (name) => set({ name: name?.trim() || null }),
+      setAvatarUrl: (url) => set({ avatarUrl: url || null }),
       setSkinsDefault: (cfg) => set({ skinsDefault: cfg ?? null }),
       // Merge any subset of identity fields; pass null to clear a field. Name and
       // phone are kept as typed (they contain spaces) so a controlled input can

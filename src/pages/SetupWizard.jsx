@@ -5,7 +5,9 @@ import useHistoryStore from '../store/historyStore'
 import useProfileStore from '../store/profileStore'
 import { calculateCourseHandicap } from '../engines/handicap'
 import { hasContact, displayName, playerKey } from '../lib/identity'
+import { fetchCourses } from '../lib/db/courses'
 import { GoloWordmark } from '../components/shared/Logo'
+import BackButton from '../components/shared/BackButton'
 
 /**
  * SetupWizard — the single-screen, five-step round setup.
@@ -317,7 +319,16 @@ const skinsSelectionFrom = (c) => {
 
 /** Seed wizard state from any round already in the store (edit / back-nav). */
 function initState() {
-  const { round, players: storedPlayers, bets: storedBets, teams: storedTeams } = useRoundStore.getState()
+  const {
+    round: storedRound,
+    players: rawPlayers,
+    bets: rawBets,
+    teams: rawTeams,
+  } = useRoundStore.getState()
+  const round = storedRound?.status === 'complete' ? null : storedRound
+  const storedPlayers = round ? rawPlayers : []
+  const storedBets = round ? rawBets : []
+  const storedTeams = round ? rawTeams : []
 
   const holes = round?.holes ?? 18
   const courseMatch = COURSES.find((c) => c.name === round?.course)
@@ -334,14 +345,14 @@ function initState() {
       email: p.email ?? '',
       phone: p.phone ?? '',
       hdcp: p.handicapIndex ?? 12,
-      guest: !!p.guest,
+      guest: false,
       color: p.color?.startsWith?.('#') ? p.color : PALETTE[i % PALETTE.length],
       team: storedTeams?.length ? teamOf(p.id) : i % 2 === 0 ? 'A' : 'B',
     }))
   } else {
     // Fresh round: the only player carried over is "you" — the organizer, always
-    // the first card. Everyone else is added explicitly below (account player,
-    // crew member, or guest), and only the organizer needs a verified contact.
+    // the first card. Everyone else is added explicitly below and must carry a
+    // verified contact before the round can start.
     const me = useProfileStore.getState()
     players = [
       {
@@ -434,13 +445,30 @@ export default function SetupWizard() {
   const [st, setSt] = useState(initState)
   const patch = (p) => setSt((s) => ({ ...s, ...p }))
 
+  // Course catalogue: starts with the bundled fallback list, then swaps in the
+  // backend catalogue once it loads (when Supabase is configured). The hardcoded
+  // courses remain as a fallback for any id the DB doesn't have.
+  const [catalog, setCatalog] = useState(COURSES)
+  const [coursesFromDb, setCoursesFromDb] = useState(false)
+  useEffect(() => {
+    let active = true
+    fetchCourses().then((rows) => {
+      if (!active || !rows || rows.length === 0) return
+      const byId = new Map(COURSES.map((c) => [c.id, c]))
+      for (const r of rows) byId.set(r.id, r)
+      setCatalog([...byId.values()])
+      setCoursesFromDb(true)
+    })
+    return () => { active = false }
+  }, [])
+
   // Open every step at the top of the scroll, not wherever the previous step
   // left the shared scroll container.
   const bodyRef = useRef(null)
   useEffect(() => { bodyRef.current?.scrollTo(0, 0) }, [st.step])
 
   /* ---- derived ---- */
-  const course = COURSES.find((c) => c.id === st.courseId) ?? COURSES[0]
+  const course = catalog.find((c) => c.id === st.courseId) ?? catalog[0]
   // Per-course tees when defined, else the global fallback set.
   const tees = course.tees ?? TEES
   const tee = tees[Math.min(st.teeIdx, tees.length - 1)]
@@ -476,10 +504,7 @@ export default function SetupWizard() {
       return { ...s, players, bets, showAccountPicker: false }
     })
   }
-  // Guest: plays and settles up, but has no account and is never saved to their
-  // history. Account player: pulled from someone who already has an account
-  // (today, anyone you've finished a round with).
-  const addGuest = () => addRoundPlayer({ guest: true })
+  const addVerifiedPlayer = () => addRoundPlayer({ guest: false })
   const addAccount = (acct) =>
     addRoundPlayer({ guest: false, name: acct.name, nickname: acct.nickname, email: acct.email, phone: acct.phone })
   const removePlayer = (id) => {
@@ -522,7 +547,7 @@ export default function SetupWizard() {
   // tee; courses without their own data fall back to a generic par-4 card.
   const selectCourse = (id) => {
     if (id === st.courseId) return
-    const c = COURSES.find((x) => x.id === id) ?? COURSES[0]
+    const c = catalog.find((x) => x.id === id) ?? catalog[0]
     const card =
       c.pars && c.strokeIndex
         ? { pars: { ...c.pars }, strokeIndex: { ...c.strokeIndex } }
@@ -545,11 +570,10 @@ export default function SetupWizard() {
   }
 
   /* ---- validation ---- */
-  // Only the organizer (the person setting up — the first card) must carry a
-  // verified contact. Everyone else just needs a name: guests and account
-  // players aren't required to hand over an email or phone.
+  // Every player needs a verified local identity (email or phone) before the
+  // round can continue.
   const organizer = st.players[0]
-  const isReady = (p, i) => (i === 0 ? hasContact(p) : !!displayName(p))
+  const isReady = (p) => hasContact(p)
   const readyPlayers = st.players.filter((p, i) => isReady(p, i))
   const everyoneReady = st.players.every((p, i) => isReady(p, i))
   const validStep = (step) => {
@@ -578,7 +602,7 @@ export default function SetupWizard() {
   let hintText = ''
   if (!valid && st.step === 1) {
     if (!organizer || !hasContact(organizer)) hintText = 'Add your email or phone — the organizer needs a verified account.'
-    else if (!everyoneReady) hintText = 'Give every player a name.'
+    else if (!everyoneReady) hintText = 'Add an email or phone for every player.'
     else if (readyPlayers.length < 2) hintText = 'Add at least one more player.'
     else if (isScramble) hintText = 'Put a player on each team.'
   }
@@ -606,7 +630,7 @@ export default function SetupWizard() {
       scoring: st.scoring,
       tee: { name: tee.name, yards: tee.yards, par: tee.par, rating: tee.rating, slope: tee.slope },
     }
-    if (existing) updateRoundSetup(data)
+    if (existing && existing.status !== 'complete') updateRoundSetup(data)
     else createRound(data)
     setCourseConfig({ pars: st.pars, strokeIndex: st.strokeIndex })
 
@@ -621,7 +645,9 @@ export default function SetupWizard() {
       handicapIndex: p.hdcp,
       courseHandicap: calculateCourseHandicap(p.hdcp, tee.slope, tee.rating, tee.par),
       color: p.color,
-      guest: !!p.guest,
+      guest: false,
+      loggedIn: true,
+      verified: hasContact(p),
     }))
     setPlayers(players)
 
@@ -706,7 +732,10 @@ export default function SetupWizard() {
 
         {/* header */}
         <div style={{ flex: '0 0 auto', padding: 'max(14px, env(safe-area-inset-top)) 18px 14px', textShadow: '0 2px 12px rgba(0,0,0,.4)' }}>
-          <GoloWordmark variant="white" fontPx={15} style={{ marginBottom: 12 }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+            <BackButton />
+            <GoloWordmark variant="white" fontPx={15} />
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
             <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: ACCENT }}>
               STEP {st.step + 1} OF 5 · {STEPS[st.step].toUpperCase()}
@@ -771,8 +800,12 @@ export default function SetupWizard() {
 
   function renderCourse() {
     const q = st.courseQuery.trim().toLowerCase()
-    const visible = VISIBLE_COURSE_IDS.map((id) => COURSES.find((c) => c.id === id)).filter(Boolean)
-    const matches = visible.filter((c) => !q || (c.name + ' ' + c.loc).toLowerCase().includes(q))
+    // From the backend, show the whole catalogue; in local-only mode keep the
+    // curated visible subset that used to be hardcoded.
+    const visible = coursesFromDb
+      ? catalog
+      : VISIBLE_COURSE_IDS.map((id) => catalog.find((c) => c.id === id)).filter(Boolean)
+    const matches = visible.filter((c) => !q || (c.name + ' ' + (c.loc ?? '')).toLowerCase().includes(q))
     return (
       <div>
         {sectionLabel('COURSE SEARCH')}
@@ -911,7 +944,7 @@ export default function SetupWizard() {
             <div style={{ background: 'rgba(20,28,24,.5)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 14, padding: accounts.length ? 6 : 14 }}>
               {accounts.length === 0 ? (
                 <div style={{ fontSize: 13, color: 'rgba(255,255,255,.55)', lineHeight: 1.5 }}>
-                  No saved players yet. People you finish rounds with show up here — for now, add a guest.
+                  No saved players yet. People you finish rounds with show up here, or add a verified player below.
                 </div>
               ) : (
                 accounts.map((a) => (
@@ -938,12 +971,12 @@ export default function SetupWizard() {
             <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, color: 'rgba(255,255,255,.45)', border: '1px solid rgba(255,255,255,.2)', borderRadius: 6, padding: '3px 6px', flex: '0 0 auto' }}>SOON</span>
           </button>
 
-          {/* 3 — guest (no account, not saved to history) */}
-          <button onClick={() => !full && addGuest()} disabled={full} style={addOption(false, full)}>
+          {/* 3 — verified player entered manually */}
+          <button onClick={() => !full && addVerifiedPlayer()} disabled={full} style={addOption(false, full)}>
             <span style={addOptionIcon}>🙋</span>
             <span style={{ flex: 1, minWidth: 0 }}>
-              <span style={addOptionTitle}>Add guest</span>
-              <span style={addOptionSub}>No account needed · not saved to history</span>
+              <span style={addOptionTitle}>Add verified player</span>
+              <span style={addOptionSub}>Enter their email or phone before starting</span>
             </span>
             <span style={{ color: ACCENT, fontSize: 22, fontWeight: 800, flex: '0 0 auto' }}>+</span>
           </button>
@@ -955,16 +988,16 @@ export default function SetupWizard() {
 
   function renderPlayerCard(p, idx) {
     const isOrganizer = idx === 0
-    const kind = isOrganizer ? 'you' : p.guest ? 'guest' : 'account'
+    const kind = isOrganizer ? 'you' : 'account'
     const ready = isReady(p, idx)
-    const badge = { you: { t: 'YOU', c: ACCENT }, account: { t: 'PLAYER', c: '#60a5fa' }, guest: { t: 'GUEST', c: '#fb923c' } }[kind]
+    const badge = { you: { t: 'YOU', c: ACCENT }, account: { t: 'VERIFIED', c: '#60a5fa' } }[kind]
     return (
       <div key={p.id} style={{ background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${ready ? 'rgba(255,255,255,.12)' : 'rgba(251,113,133,.6)'}`, borderRadius: 18, padding: 12, marginBottom: 11 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ width: 44, height: 44, borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 800, color: '#fff', background: p.color, boxShadow: '0 0 0 2px rgba(255,255,255,.2)' }}>{initial(p)}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <input value={p.name} onChange={(e) => updatePlayer(p.id, { name: e.target.value })} placeholder={isOrganizer ? 'Your name' : kind === 'guest' ? 'Guest name' : 'Player name'} style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: '#fff', fontSize: 17, fontWeight: 700, fontFamily: 'inherit', padding: 0 }} />
+              <input value={p.name} onChange={(e) => updatePlayer(p.id, { name: e.target.value })} placeholder={isOrganizer ? 'Your name' : 'Player name'} style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: '#fff', fontSize: 17, fontWeight: 700, fontFamily: 'inherit', padding: 0 }} />
               <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: 1, color: badge.c, border: `1px solid ${hexA(badge.c, 0.5)}`, background: hexA(badge.c, 0.14), borderRadius: 6, padding: '2px 6px', flex: '0 0 auto' }}>{badge.t}</span>
             </div>
             <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,.5)', marginTop: 2 }}>Handicap index</div>
@@ -979,25 +1012,14 @@ export default function SetupWizard() {
           )}
         </div>
 
-        {/* Contact is only collected for the organizer and account players —
-            guests intentionally carry none (not required, never saved). */}
-        {kind !== 'guest' && (
-          <>
-            <div style={{ display: 'flex', gap: 8, marginTop: 11 }}>
-              <input value={p.nickname} onChange={(e) => updatePlayer(p.id, { nickname: e.target.value })} placeholder="@handle" autoCapitalize="none" autoCorrect="off" style={{ ...playerField, flex: 1 }} />
-              <input value={p.email} onChange={(e) => updatePlayer(p.id, { email: e.target.value })} placeholder="Email" type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" style={{ ...playerField, flex: 1.4 }} />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-              <input value={p.phone} onChange={(e) => updatePlayer(p.id, { phone: e.target.value })} placeholder="Phone" type="tel" inputMode="tel" style={{ ...playerField, flex: 1 }} />
-              {isOrganizer && !ready && <span style={{ fontSize: 11, fontWeight: 700, color: '#fb7185', flex: '0 0 auto' }}>Email or phone needed</span>}
-            </div>
-          </>
-        )}
-        {kind === 'guest' && (
-          <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,.45)', marginTop: 8, lineHeight: 1.45 }}>
-            Plays and settles up like everyone else — their results just aren’t saved to a history.
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: 8, marginTop: 11 }}>
+          <input value={p.nickname} onChange={(e) => updatePlayer(p.id, { nickname: e.target.value })} placeholder="@handle" autoCapitalize="none" autoCorrect="off" style={{ ...playerField, flex: 1 }} />
+          <input value={p.email} onChange={(e) => updatePlayer(p.id, { email: e.target.value })} placeholder="Email" type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" style={{ ...playerField, flex: 1.4 }} />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+          <input value={p.phone} onChange={(e) => updatePlayer(p.id, { phone: e.target.value })} placeholder="Phone" type="tel" inputMode="tel" style={{ ...playerField, flex: 1 }} />
+          {!ready && <span style={{ fontSize: 11, fontWeight: 700, color: '#fb7185', flex: '0 0 auto' }}>Email or phone needed</span>}
+        </div>
 
         {isScramble && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>

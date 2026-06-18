@@ -4,6 +4,7 @@ import useRoundStore from '../store/roundStore'
 import useHistoryStore from '../store/historyStore'
 import useProfileStore from '../store/profileStore'
 import { GoloWordmark, GoloBall } from '../components/shared/Logo'
+import BackButton from '../components/shared/BackButton'
 import {
   playerKey, displayName, autoKey, namesByKey, netByKey,
   myNetInRoundByKey, playedInByKey, entryMatches,
@@ -68,6 +69,7 @@ export default function HomePage() {
   const round = useRoundStore((s) => s.round)
   const livePlayers = useRoundStore((s) => s.players)
   const status = useRoundStore((s) => s.status)
+  const resetRound = useRoundStore((s) => s.resetRound)
   const rounds = useHistoryStore((s) => s.rounds)
   const profileName = useProfileStore((s) => s.name)
   const profileNick = useProfileStore((s) => s.nickname)
@@ -97,6 +99,11 @@ export default function HomePage() {
   )
   const nameByKey = useMemo(() => namesByKey(rounds), [rounds])
   const meName = displayName(profile) || (meKey ? nameByKey[meKey] : null) || null
+
+  const startSetup = () => {
+    if (round && status === 'complete') resetRound()
+    navigate('/setup')
+  }
 
   const model = useMemo(() => {
     const isSeason = view === 'season'
@@ -183,7 +190,10 @@ export default function HomePage() {
       <div style={S.column}>
         {/* greeting --------------------------------------------------------- */}
         <div style={S.header}>
-          <GoloWordmark variant="white" fontPx={16} style={{ marginBottom: 12 }} />
+          <div style={S.headerTop}>
+            <BackButton />
+            <GoloWordmark variant="white" fontPx={16} />
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: ACCENT }}>{dateKicker}</div>
@@ -198,7 +208,7 @@ export default function HomePage() {
         {/* scrollable body -------------------------------------------------- */}
         <div style={S.scroll}>
           {/* PRIMARY · new round */}
-          <button onClick={() => navigate('/setup')} style={S.primaryCta}>
+          <button onClick={startSetup} style={S.primaryCta}>
             <span style={S.ctaBlob} />
             <div style={{ position: 'relative', fontSize: 11, fontWeight: 800, letterSpacing: 1.6, color: 'rgba(19,37,10,.7)' }}>START SOMETHING</div>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 6 }}>
@@ -326,7 +336,7 @@ export default function HomePage() {
           <div style={S.tabBar}>
             <Tab icon="⛳" label="Home" active />
             <Tab icon="📋" label="Rounds" onClick={() => navigate('/history')} />
-            <Tab icon="＋" label="Play" onClick={() => navigate('/setup')} />
+            <Tab icon="＋" label="Play" onClick={startSetup} />
             <Tab icon="👤" label="You" onClick={() => navigate('/you')} />
           </div>
         </div>
@@ -371,6 +381,7 @@ const S = {
   },
   column: { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', width: '100%', maxWidth: 480, margin: '0 auto' },
   header: { flex: '0 0 auto', padding: 'max(10px, env(safe-area-inset-top)) 18px 10px', textShadow: '0 2px 12px rgba(0,0,0,.4)' },
+  headerTop: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
   avatar: { borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 800, color: '#fff' },
   scroll: { flex: 1, overflowY: 'auto', padding: '4px 16px 14px' },
 

@@ -1,23 +1,23 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useProfileStore from '../store/profileStore'
+import useAuthStore from '../store/authStore'
 import { hasContact } from '../lib/identity'
 import { GoloWordmark } from '../components/shared/Logo'
+import BackButton from '../components/shared/BackButton'
 
 /**
  * OnboardingPage — first-run flow, "glass-over-turf" (Golo Golf - Onboarding).
  *
  * Three screens, matching the design: WELCOME (brand pitch) → SIGN IN (provider
- * buttons + guest) → SET UP YOUR LOCKER (display name). The MVP has no auth
+ * buttons) → SET UP YOUR LOCKER (verified contact identity). The MVP has no auth
  * backend, so the sign-in screen is presented faithfully but wired honestly: the
- * provider buttons just continue to the locker step (no account is created, no
- * card is touched) and "Look around as a guest" jumps straight into the app. The
- * one piece of real state is the locker's name → profileStore, which is how
- * Home / You / History / Payout know which player is you.
+ * provider buttons just continue to the locker step. The local verified gate is
+ * an email or phone on the profile; no guest/skip path enters the app.
  *
- * The gate lives in HomePage; finishing or skipping marks `onboarded` so the
- * flow never nags again. Inline styles match the prototype, same approach as
- * the rest of the app.
+ * The route gate lives in App; finishing marks `onboarded` so the flow never
+ * nags again once a verified contact is present. Inline styles match the
+ * prototype, same approach as the rest of the app.
  */
 
 /* ----------------------------------------------------------------- constants */
@@ -64,22 +64,26 @@ const GoogleIcon = () => (
 
 /* --------------------------------------------------------------- component */
 
-export default function OnboardingPage() {
+export default function OnboardingPage({ lockerOnly = false }) {
   const navigate = useNavigate()
   const setIdentity = useProfileStore((s) => s.setIdentity)
   const completeOnboarding = useProfileStore((s) => s.completeOnboarding)
+  // When real auth is on, the user already signed up — skip the welcome/sign-in
+  // screens and go straight to the locker, pre-filling the email they used.
+  const authEmail = useAuthStore((s) => s.user?.email ?? null)
 
-  const [step, setStep] = useState(0) // 0 = welcome, 1 = sign in, 2 = locker
+  const [step, setStep] = useState(lockerOnly ? 2 : 0) // 0 = welcome, 1 = sign in, 2 = locker
   const [authMode, setAuthMode] = useState('create') // create | signin (copy only)
   const [name, setNameInput] = useState('')
   const [handle, setHandle] = useState('')
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(lockerOnly ? (authEmail ?? '') : '')
   const [phone, setPhone] = useState('')
 
   // Save whatever identity was entered (all optional, but the locker CTA only
   // enables once there's a contact — that's how players are identified).
   const finish = (id) => {
-    if (id) setIdentity(id)
+    if (!hasContact(id)) return
+    setIdentity(id)
     completeOnboarding()
     navigate('/', { replace: true })
   }
@@ -92,7 +96,8 @@ export default function OnboardingPage() {
         <div style={{ ...S.scrim, background: 'linear-gradient(180deg, rgba(6,14,9,.42) 0%, rgba(6,14,9,.34) 30%, rgba(6,16,10,.72) 66%, rgba(3,10,7,.97) 100%)' }} />
 
         <div style={S.column}>
-          <div style={{ flex: '0 0 auto', padding: 'max(18px, env(safe-area-inset-top)) 26px 0', display: 'flex', alignItems: 'center', filter: 'drop-shadow(0 2px 12px rgba(0,0,0,.5))' }}>
+          <div style={{ flex: '0 0 auto', padding: 'max(18px, env(safe-area-inset-top)) 26px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, filter: 'drop-shadow(0 2px 12px rgba(0,0,0,.5))' }}>
+            <BackButton />
             <GoloWordmark variant="primary" fontPx={34} />
           </div>
 
@@ -136,9 +141,9 @@ export default function OnboardingPage() {
         <div style={S.column}>
           {/* nav */}
           <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'max(14px, env(safe-area-inset-top)) 18px 0' }}>
-            <button onClick={() => setStep(0)} aria-label="Back" style={S.navSquare}>‹</button>
+            <BackButton onClick={() => setStep(0)} />
             <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.2, color: 'rgba(255,255,255,.55)' }}>STEP 1 OF 2</span>
-            <span style={{ width: 38 }} />
+            <span style={{ width: 72 }} />
           </div>
 
           {/* body */}
@@ -160,14 +165,6 @@ export default function OnboardingPage() {
               <button onClick={() => setStep(2)} style={S.providerBtn}><GoogleIcon /> Continue with Google</button>
               <button onClick={() => setStep(2)} style={S.providerGlassBtn}><span style={{ fontSize: 16 }}>✆</span> Continue with phone</button>
             </div>
-
-            {/* guest */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '18px 0' }}>
-              <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,.14)' }} />
-              <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, color: 'rgba(255,255,255,.4)' }}>OR</span>
-              <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,.14)' }} />
-            </div>
-            <button onClick={() => finish()} style={S.guestBtn}>Look around as a guest</button>
 
             <div style={{ flex: 1 }} />
 
@@ -209,10 +206,14 @@ export default function OnboardingPage() {
 
       <div style={S.column}>
         {/* nav + progress */}
-        <div style={{ flex: '0 0 auto', padding: 'max(14px, env(safe-area-inset-top)) 22px 0' }}>
+          <div style={{ flex: '0 0 auto', padding: 'max(14px, env(safe-area-inset-top)) 22px 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <button onClick={() => setStep(1)} aria-label="Back" style={S.navSquare}>‹</button>
-            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.2, color: 'rgba(255,255,255,.55)' }}>STEP 2 OF 2</span>
+            {lockerOnly ? (
+              <BackButton />
+            ) : (
+              <BackButton onClick={() => setStep(1)} />
+            )}
+            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.2, color: 'rgba(255,255,255,.55)' }}>{lockerOnly ? 'ONE LAST STEP' : 'STEP 2 OF 2'}</span>
             <span style={{ fontSize: 11, fontWeight: 700, color: ACCENT }}>almost there</span>
           </div>
           <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
@@ -302,7 +303,6 @@ export default function OnboardingPage() {
           >
             Enter Golo
           </button>
-          <button onClick={() => finish()} style={S.linkBtn}>I'll do this later</button>
         </div>
       </div>
     </div>
@@ -327,12 +327,8 @@ const S = {
   primaryCta: { width: '100%', background: ACCENT, border: 'none', color: ACCENT_DARK, fontSize: 16, fontWeight: 800, padding: 16, borderRadius: 16, cursor: 'pointer', boxShadow: `0 14px 30px ${hexA(ACCENT, 0.45)}` },
   linkBtn: { width: '100%', marginTop: 14, background: 'transparent', border: 'none', textAlign: 'center', fontSize: 13.5, fontWeight: 600, color: 'rgba(255,255,255,.7)', cursor: 'pointer' },
 
-  navSquare: { width: 38, height: 38, borderRadius: 12, background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.16)', color: '#fff', fontSize: 18, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-
   providerBtn: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 11, background: '#fff', border: 'none', color: '#0a0a0a', fontSize: 15.5, fontWeight: 800, padding: 15, borderRadius: 15, cursor: 'pointer', boxShadow: '0 10px 26px rgba(0,0,0,.34)' },
   providerGlassBtn: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 11, background: 'rgba(255,255,255,.08)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,.18)', color: '#fff', fontSize: 15.5, fontWeight: 800, padding: 15, borderRadius: 15, cursor: 'pointer' },
-  guestBtn: { width: '100%', background: 'transparent', border: '1px solid rgba(255,255,255,.2)', color: 'rgba(255,255,255,.82)', fontSize: 14.5, fontWeight: 800, padding: 14, borderRadius: 15, cursor: 'pointer' },
-
   avatar: { borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 },
   lockerCard: { display: 'flex', alignItems: 'center', gap: 15, background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 20, padding: '15px 16px', marginBottom: 11, boxShadow: '0 8px 22px rgba(0,0,0,.26)' },
   nameInput: { display: 'block', width: '100%', marginTop: 2, background: 'transparent', border: 'none', outline: 'none', color: '#fff', fontSize: 22, fontWeight: 800, letterSpacing: -0.3, padding: 0 },
