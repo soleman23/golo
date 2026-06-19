@@ -3,9 +3,11 @@
 Private beta for your foursome — not a public launch. Use this doc for production
 wiring, QA, and the group-chat onboarding blurb.
 
-**Live site:** [https://golo-app.netlify.app](https://golo-app.netlify.app)  
 **Supabase project:** `https://kycqhpiejkvjbunyoqhf.supabase.co`  
 **GitHub:** `https://github.com/soleman23/golo`
+
+After connecting the repo in Netlify, copy your site URL from **Site configuration → Domain management**
+(e.g. `https://your-name.netlify.app`) and substitute it everywhere below as `YOUR-SITE`.
 
 ---
 
@@ -15,7 +17,7 @@ wiring, QA, and the group-chat onboarding blurb.
 
 1. **Deploys** tab — latest build is green.
 2. **Critical:** After importing env vars, **Trigger deploy → Deploy site**. Without a post-env rebuild, the app runs in local-only mode (no auth wall). A quick check: view page source on the live site and search the JS bundles for `supabase.co` — it should appear after a good build.
-3. **Site configuration → General → Site details** — readable name (current: `golo-app.netlify.app`).
+3. **Site configuration → General → Site details** — pick a readable name (`YOUR-SITE.netlify.app`).
 4. Confirm continuous deployment from `main` is on.
 
 ### Supabase migrations (0001 → 0004)
@@ -47,8 +49,8 @@ Profile sync sends `handicap_index` on every upsert — the column must exist be
 
 **Authentication → URL configuration**
 
-- **Site URL:** `https://golo-app.netlify.app`
-- **Redirect URLs:** `https://golo-app.netlify.app/**`
+- **Site URL:** `https://YOUR-SITE.netlify.app`
+- **Redirect URLs:** `https://YOUR-SITE.netlify.app/**`
 
 Also add `http://localhost:5173/**` if you test password reset locally.
 
@@ -71,7 +73,7 @@ Also add `http://localhost:5173/**` if you test password reset locally.
 ## Day 2 — Crew onboarding (copy/paste)
 
 ```
-GoLo is live: https://golo-app.netlify.app
+GoLo is live: https://YOUR-SITE.netlify.app
 
 1. Create account (email + password)
 2. Add your name on the locker step — signup email counts as contact
@@ -127,7 +129,7 @@ After `npm run build && npm run preview`, open `http://localhost:4173` and confi
 
 - [ ] Netlify build green with env vars (Supabase URL in JS bundle)
 - [ ] `npm run verify:prod` passes (all four migrations)
-- [ ] Supabase Site URL + Redirect URLs = `https://golo-app.netlify.app`
+- [ ] Supabase Site URL + Redirect URLs match `https://YOUR-SITE.netlify.app`
 - [ ] Email confirm OFF for crew week (or tested ON flow)
 - [ ] Sign up / sign in / sign out on phone
 - [ ] Full round saved to history + visible after reload
