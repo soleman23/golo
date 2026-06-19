@@ -65,6 +65,15 @@ const useAuthStore = create((set, get) => ({
     if (!error) set({ session: null, user: null })
     return { error }
   },
+
+  resetPassword: async (email) => {
+    if (!isSupabaseConfigured) return { error: new Error('Auth backend is not configured.') }
+    const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+      redirectTo,
+    })
+    return { error }
+  },
 }))
 
 export default useAuthStore

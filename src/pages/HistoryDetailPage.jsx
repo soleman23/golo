@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import useHistoryStore from '../store/historyStore'
+import { betGlyphName } from '../engines/betResults'
+import { Icon } from '../components/shared/GoloIcons'
 import BackButton from '../components/shared/BackButton'
 
 /**
@@ -185,8 +187,8 @@ export default function HistoryDetailPage() {
           {/* LEADERBOARD */}
           <div style={S.sectionLabel}>FINAL LEADERBOARD</div>
           {winnerNames.length > 0 && (
-            <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', margin: '4px 2px 10px' }}>
-              🏆 {winnerNames.join(' & ')}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 14, fontWeight: 800, color: '#fff', margin: '4px 2px 10px' }}>
+              <Icon name="leader" size={16} color={ACCENT} /> {winnerNames.join(' & ')}
             </div>
           )}
           {leaderboard.length === 0 ? (
@@ -232,10 +234,11 @@ export default function HistoryDetailPage() {
                 .map(([id, v]) => ({ id, v: round2(v), color: colorOf(id), name: nameOf(id) }))
                 .sort((a, c) => c.v - a.v)
               const lines = asArray(b?.lines).filter((line) => line != null)
+              const glyph = betGlyphName(b?.type)
               return (
                 <div key={i} style={S.gameCard}>
                   <button onClick={() => toggleGame(i)} aria-expanded={!!open} style={S.gameHead}>
-                    <span style={S.gameIcon}>{b?.icon ?? '🎲'}</span>
+                    <span style={S.gameIcon}>{glyph ? <Icon name={glyph} size={20} color={ACCENT} /> : (b?.icon ?? '🎲')}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 15.5, fontWeight: 800, color: '#fff' }}>{b?.name || 'Saved game'}</div>
                       <div style={{ fontSize: 12, color: 'rgba(255,255,255,.55)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b?.headline || 'Saved game result'}</div>

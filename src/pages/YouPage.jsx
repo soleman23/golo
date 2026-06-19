@@ -6,6 +6,7 @@ import useProfileStore from '../store/profileStore'
 import useAuthStore from '../store/authStore'
 import { uploadAvatar, removeAvatar } from '../lib/db/avatars'
 import { GoloWordmark, GoloBall } from '../components/shared/Logo'
+import { Icon } from '../components/shared/GoloIcons'
 import BackButton from '../components/shared/BackButton'
 import {
   playerKey, hasContact, displayName, handleOf, autoKey, namesByKey, netByKey,
@@ -31,8 +32,10 @@ import {
 
 /* ----------------------------------------------------------------- constants */
 
-const ACCENT = '#eab308'
-const ACCENT_DARK = '#14532d'
+const ACCENT = '#d4f23a'
+const ACCENT_DARK = '#13250a'
+const BACKDROP = '/courses/sunset.png'
+const COURSE_FALLBACK_BG = 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)'
 
 /* ------------------------------------------------------------------- helpers */
 
@@ -47,14 +50,32 @@ function hexA(hex, a) {
 }
 
 const initial = (name) => (name || '').trim().charAt(0).toUpperCase() || '?'
-const signed = (n) => (n > 0 ? `+$${n}` : n < 0 ? `−$${-n}` : '$0')
-const mcol = (n) => (n > 0 ? '#bef264' : n < 0 ? '#fb7185' : 'rgba(255,255,255,.7)')
-const ord = (n) => {
-  const s = ['th', 'st', 'nd', 'rd']
-  const v = n % 100
-  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`
+const round2 = (n) => {
+  const value = Number(n)
+  if (!Number.isFinite(value)) return 0
+  const rounded = Math.round((value + Number.EPSILON) * 100) / 100
+  return Object.is(rounded, -0) ? 0 : rounded
 }
-const round2 = (n) => +n.toFixed(2)
+/** Signed money: +$5, −$5, $0. */
+const signed = (n) => {
+  const value = round2(n)
+  if (value > 0) return `+$${value}`
+  if (value < 0) return `−$${Math.abs(value)}`
+  return '$0'
+}
+/** Money colour: green ahead, red down, neutral level. */
+const mcol = (n) => {
+  const value = round2(n)
+  return value > 0 ? '#bef264' : value < 0 ? '#fb7185' : 'rgba(255,255,255,.7)'
+}
+const ord = (n) => {
+  const value = Number(n)
+  if (!Number.isFinite(value)) return '—'
+  const whole = Math.trunc(value)
+  const s = ['th', 'st', 'nd', 'rd']
+  const v = whole % 100
+  return `${whole}${s[(v - 20) % 10] || s[v] || s[0]}`
+}
 
 const myPlace = (r, key, name) =>
   r.leaderboard?.find((e) => entryMatches(e, key, name))?.rank ?? null
@@ -234,11 +255,11 @@ export default function YouPage() {
       streak = Math.max(streak, run)
     }
     const badges = [
-      { icon: '🏆', title: 'First win', meta: everFirst ? 'earned' : 'win a round', earned: everFirst, color: ACCENT },
-      { icon: '👑', title: 'Crew leader', meta: allTimeRank === 1 && allCrew.length > 1 ? 'all-time' : 'lead the crew', earned: allTimeRank === 1 && allCrew.length > 1, color: '#facc15' },
+      { icon: '🏆', iconName: 'nassau', title: 'First win', meta: everFirst ? 'earned' : 'win a round', earned: everFirst, color: ACCENT },
+      { icon: '👑', iconName: 'leader', title: 'Crew leader', meta: allTimeRank === 1 && allCrew.length > 1 ? 'all-time' : 'lead the crew', earned: allTimeRank === 1 && allCrew.length > 1, color: '#facc15' },
       { icon: '⛳', title: 'Regular', meta: `${allMine.length}/5 rounds`, earned: allMine.length >= 5, color: '#2dd4bf' },
-      { icon: '💰', title: 'Big win', meta: bigWin > 0 ? signed(bigWin) : 'locked', earned: bigWin > 0, color: '#fb923c' },
-      { icon: '🔥', title: 'Hot hand', meta: streak >= 3 ? `${streak} in a row` : '3 in a row', earned: streak >= 3, color: '#f472b6' },
+      { icon: '💰', iconName: 'purse', title: 'Big win', meta: bigWin > 0 ? signed(bigWin) : 'locked', earned: bigWin > 0, color: '#fb923c' },
+      { icon: '🔥', iconName: 'streak', title: 'Hot hand', meta: streak >= 3 ? `${streak} in a row` : '3 in a row', earned: streak >= 3, color: '#f472b6' },
       { icon: '📈', title: 'In the black', meta: allNet >= 0 && allMine.length > 0 ? 'all-time +' : 'locked', earned: allNet >= 0 && allMine.length > 0, color: '#60a5fa' },
     ]
     const earnedCount = badges.filter((b) => b.earned).length
@@ -389,6 +410,8 @@ export default function YouPage() {
   if (!meKey || !model) {
     return (
       <div style={S.emptyRoot}>
+        <div style={{ ...S.backdrop, background: COURSE_FALLBACK_BG, backgroundImage: `url(${BACKDROP}), ${COURSE_FALLBACK_BG}` }} />
+        <div style={S.scrim} />
         <div style={S.emptyShell}>
           <div style={S.emptyLogo}>
             <GoloWordmark variant="white" fontPx={22} />
@@ -444,7 +467,7 @@ export default function YouPage() {
 
   return (
     <div style={S.root}>
-      <div style={{ ...S.backdrop, background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #1a3a0a 100%)' }} />
+      <div style={{ ...S.backdrop, background: COURSE_FALLBACK_BG, backgroundImage: `url(${BACKDROP}), ${COURSE_FALLBACK_BG}` }} />
       <div style={S.scrim} />
 
       <div style={S.column}>
@@ -756,7 +779,7 @@ export default function YouPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 9, marginBottom: 6 }}>
                 {model.badges.map((b) => (
                   <div key={b.title} style={{ ...S.badge, borderColor: b.earned ? hexA(b.color, 0.4) : 'rgba(255,255,255,.1)', opacity: b.earned ? 1 : 0.5 }}>
-                    <div style={{ width: 42, height: 42, margin: '0 auto', borderRadius: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 21, background: b.earned ? hexA(b.color, 0.16) : 'rgba(255,255,255,.06)', border: `1px solid ${b.earned ? hexA(b.color, 0.4) : 'rgba(255,255,255,.1)'}`, filter: b.earned ? 'none' : 'grayscale(1)' }}>{b.icon}</div>
+                    <div style={{ width: 42, height: 42, margin: '0 auto', borderRadius: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 21, background: b.earned ? hexA(b.color, 0.16) : 'rgba(255,255,255,.06)', border: `1px solid ${b.earned ? hexA(b.color, 0.4) : 'rgba(255,255,255,.1)'}`, filter: b.earned ? 'none' : 'grayscale(1)' }}>{b.iconName ? <Icon name={b.iconName} size={22} color={b.color} /> : b.icon}</div>
                     <div style={{ fontSize: 11, fontWeight: 800, color: '#fff', marginTop: 8, lineHeight: 1.2 }}>{b.title}</div>
                     <div style={{ fontSize: 9.5, fontWeight: 700, color: 'rgba(255,255,255,.5)', marginTop: 2 }}>{b.meta}</div>
                   </div>
@@ -973,7 +996,7 @@ const S = {
   scroll: { flex: 1, overflowY: 'auto', padding: '2px 16px 14px' },
 
   primaryCta: { width: '100%', textAlign: 'center', border: 'none', cursor: 'pointer', background: ACCENT, borderRadius: 20, padding: '18px', marginBottom: 12, boxShadow: `0 14px 34px ${hexA(ACCENT, 0.45)}` },
-  glassCard: { background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 24, padding: '20px 18px', marginBottom: 6, boxShadow: '0 12px 32px rgba(0,0,0,.3)' },
+  glassCard: { background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 24, padding: '20px 18px', marginBottom: 12, boxShadow: '0 12px 32px rgba(0,0,0,.32)' },
   cardKicker: { fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: 'rgba(255,255,255,.5)' },
   fieldLabel: { display: 'block', fontSize: 10, fontWeight: 800, letterSpacing: 0.8, color: 'rgba(255,255,255,.5)', marginTop: 14 },
   textInput: { width: '100%', marginTop: 7, padding: '11px 13px', borderRadius: 12, background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.18)', color: '#fff', fontSize: 14, fontWeight: 600, outline: 'none', boxSizing: 'border-box' },
@@ -1002,13 +1025,13 @@ const S = {
   sheetPrimary: { marginTop: 16, width: '100%', minHeight: 52, borderRadius: 15, border: 'none', background: ACCENT, color: ACCENT_DARK, fontSize: 16, fontWeight: 800, cursor: 'pointer' },
   sheetSecondary: { marginTop: 8, width: '100%', minHeight: 48, borderRadius: 14, background: 'transparent', border: 'none', fontSize: 14, fontWeight: 800, color: 'rgba(255,255,255,.65)', cursor: 'pointer' },
   toast: { position: 'fixed', left: '50%', bottom: 'max(18px, env(safe-area-inset-bottom))', transform: 'translateX(-50%)', zIndex: 100, background: '#14532d', color: '#fff', padding: '8px 16px', borderRadius: 9999, fontSize: 14, fontWeight: 700, boxShadow: '0 10px 30px rgba(0,0,0,.35)' },
-  emptyRoot: { position: 'fixed', inset: 0, overflowY: 'auto', background: '#14532d', color: '#fff', fontFamily: "system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif", padding: 'max(24px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom))', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  emptyShell: { width: '100%', maxWidth: 420, minHeight: '70vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' },
+  emptyRoot: { position: 'fixed', inset: 0, overflowY: 'auto', background: 'radial-gradient(120% 70% at 50% 0%, #2a7d4a 0%, #14532d 45%, #0a2418 85%)', color: '#fff', fontFamily: "system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif", padding: 'max(24px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom))', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  emptyShell: { position: 'relative', zIndex: 1, width: '100%', maxWidth: 420, minHeight: '70vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' },
   emptyLogo: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, marginBottom: 34 },
   emptyIcon: { width: 82, height: 82, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.18)', fontSize: 42, marginBottom: 22 },
   emptyTitle: { margin: 0, fontSize: 28, lineHeight: 1.08, fontWeight: 850, letterSpacing: 0, color: '#fff' },
   emptyText: { margin: '12px 0 24px', fontSize: 15, lineHeight: 1.5, fontWeight: 600, color: 'rgba(255,255,255,.72)' },
-  emptyPrimary: { width: '100%', height: 56, borderRadius: 12, border: 'none', background: '#eab308', color: '#14532d', fontSize: 16, fontWeight: 800, cursor: 'pointer' },
+  emptyPrimary: { width: '100%', height: 56, borderRadius: 12, border: 'none', background: ACCENT, color: ACCENT_DARK, fontSize: 16, fontWeight: 800, cursor: 'pointer' },
   emptyLink: { marginTop: 14, border: 'none', background: 'transparent', color: 'rgba(255,255,255,.86)', fontSize: 14, fontWeight: 800, textDecoration: 'underline', textUnderlineOffset: 4, cursor: 'pointer' },
   emptyEditCard: { width: '100%', marginTop: 18, textAlign: 'left', background: 'rgba(20,28,24,.42)', border: '1px solid rgba(255,255,255,.16)', borderRadius: 18, padding: 16, boxSizing: 'border-box' },
   emptyStatsText: { position: 'relative', marginTop: 12, fontSize: 20, lineHeight: 1.25, fontWeight: 800, color: '#fff' },

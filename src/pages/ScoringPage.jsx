@@ -10,10 +10,11 @@ import { calculateHoleResult, calculateMatchStatus } from '../engines/matchplay'
 import { getWolfOrder, calculateWolfResult, calculateWolfTotals } from '../engines/wolf'
 import { calculateBBBPayouts } from '../engines/bingobangobongo'
 import { summarizeBets } from '../engines/betStatus'
-import { buildBetResults } from '../engines/betResults'
+import { buildBetResults, betGlyphName } from '../engines/betResults'
 import useProfileStore from '../store/profileStore'
 import { playerKey } from '../lib/identity'
 import { GoloWordmark } from '../components/shared/Logo'
+import { Icon } from '../components/shared/GoloIcons'
 import BackButton from '../components/shared/BackButton'
 
 /**
@@ -57,6 +58,11 @@ const BET_ICONS = {
   longestDrive: '🚀',
   wolf: '🐺',
   bingobangobongo: '🟢',
+}
+
+/** A bet's GoLo glyph, falling back to its emoji when no glyph exists (BBB). */
+function BetGlyph({ bet, size = 18, color = ACCENT }) {
+  return bet.iconName ? <Icon name={bet.iconName} size={size} color={color} /> : <span>{bet.icon}</span>
 }
 
 /* ------------------------------------------------------------------- helpers */
@@ -268,6 +274,7 @@ export default function ScoringPage() {
     }).map((p) => ({
       id: p.id,
       icon: BET_ICONS[p.type] ?? '•',
+      iconName: betGlyphName(p.type),
       title: p.name,
       status: p.label,
       detailLines: p.detailLines,
@@ -295,6 +302,7 @@ export default function ScoringPage() {
       extra.push({
         id: wolfBet.id,
         icon: BET_ICONS.wolf,
+        iconName: betGlyphName('wolf'),
         title: 'Wolf',
         status: amt > 0 ? `${lead.name} +$${amt}` : 'All even',
         detailLines: players.map((p) => `${p.name}: ${(totals[p.id] ?? 0) >= 0 ? '+' : ''}$${totals[p.id] ?? 0}`),
@@ -561,7 +569,7 @@ export default function ScoringPage() {
             <div style={{ minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                 <span style={S.cardName}>{e.name}</span>
-                {isWolf && <span style={S.wolfTag}>🐺 Wolf</span>}
+                {isWolf && <span style={{ ...S.wolfTag, display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="wolf" size={12} color={ACCENT_DARK} /> Wolf</span>}
               </div>
               <div style={S.cardSub}>{subtitle}</div>
             </div>
@@ -698,7 +706,7 @@ export default function ScoringPage() {
               {pills.map((b) => (
                 <button key={b.id} onClick={() => setSheet('bets')} style={S.betChip}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#fff' }}>
-                    <span>{b.icon}</span>
+                    <BetGlyph bet={b} size={16} />
                     {b.title}
                   </span>
                   <span style={{ fontSize: 12, color: 'rgba(255,255,255,.62)' }}>{b.status}</span>
@@ -781,7 +789,7 @@ export default function ScoringPage() {
               <div style={{ position: 'relative', overflow: 'hidden', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${hexA(ACCENT, 0.5)}`, borderRadius: 24, padding: 18, marginBottom: 16, boxShadow: '0 14px 34px rgba(0,0,0,.34)' }}>
                 <span style={{ position: 'absolute', right: -30, top: -34, width: 150, height: 150, borderRadius: '50%', background: hexA(ACCENT, 0.45), filter: 'blur(34px)', pointerEvents: 'none' }} />
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.6, color: ACCENT }}>🏆 LEADING · {leaderModel.scopeLabel}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 800, letterSpacing: 1.6, color: ACCENT }}><Icon name="leader" size={13} color={ACCENT} /> LEADING · {leaderModel.scopeLabel}</span>
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.5)' }}>{leaderModel.spot.leadBy}</span>
                 </div>
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 14, marginTop: 13 }}>
@@ -838,7 +846,7 @@ export default function ScoringPage() {
                   </div>
                   {pills.map((b) => (
                     <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 16, padding: '11px 13px', marginBottom: 9 }}>
-                      <span style={{ width: 38, height: 38, borderRadius: 12, flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.1)' }}>{b.icon}</span>
+                      <span style={{ width: 38, height: 38, borderRadius: 12, flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.1)' }}><BetGlyph bet={b} size={20} /></span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>{b.title}</div>
                       </div>
@@ -869,7 +877,7 @@ export default function ScoringPage() {
             <div key={b.id} style={{ padding: '14px 18px', borderTop: '1px solid rgba(255,255,255,.07)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, fontWeight: 700, color: '#fff' }}>
-                  <span>{b.icon}</span>
+                  <BetGlyph bet={b} size={18} />
                   {b.title}
                 </span>
                 <span style={{ fontSize: 13, fontWeight: 800, color: ACCENT, textAlign: 'right' }}>{b.status}</span>
@@ -907,7 +915,7 @@ export default function ScoringPage() {
               You're on hole {currentHole} of {totalHoles}. Finishing locks scores and opens the payout summary.
             </div>
             <div style={S.leaderRow}>
-              <span style={{ fontSize: 20 }}>🏆</span>
+              <Icon name="leader" size={20} color={ACCENT} />
               <span style={{ fontSize: 15, fontWeight: 800, color: ACCENT }}>Leader: {leaderName}</span>
             </div>
             <button onClick={finishRound} style={S.modalPrimary}>View Payouts →</button>
@@ -1010,7 +1018,7 @@ function WolfPanel({ players, wolfId, pick, onPick, onClear }) {
   }
   return (
     <div style={{ ...S.panel, marginBottom: 13 }}>
-      <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', marginBottom: 10 }}>🐺 {wolf?.name ?? '—'} is Wolf</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 14, fontWeight: 800, color: '#fff', marginBottom: 10 }}><Icon name="wolf" size={18} color={ACCENT} /> {wolf?.name ?? '—'} is Wolf</div>
       {decided ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <span style={{ fontSize: 15, fontWeight: 700, color: ACCENT }}>{text}</span>

@@ -25,13 +25,24 @@ import { getWolfOrder, calculateWolfResult, calculateWolfTotals } from './wolf'
 import { calculateBBBPayouts } from './bingobangobongo'
 
 const META = {
-  nassau: { name: 'Nassau', icon: '🏆' },
-  skins: { name: 'Skins', icon: '🎯' },
-  strokePurse: { name: 'Stroke Purse', icon: '💰' },
-  ctp: { name: 'Closest to Pin', icon: '📍' },
-  longestDrive: { name: 'Longest Drive', icon: '🚀' },
-  wolf: { name: 'Wolf', icon: '🐺' },
+  nassau: { name: 'Nassau', icon: '🏆', glyph: 'nassau' },
+  skins: { name: 'Skins', icon: '🎯', glyph: 'skins' },
+  strokePurse: { name: 'Stroke Purse', icon: '💰', glyph: 'purse' },
+  ctp: { name: 'Closest to Pin', icon: '📍', glyph: 'closestToPin' },
+  longestDrive: { name: 'Longest Drive', icon: '🚀', glyph: 'longestDrive' },
+  wolf: { name: 'Wolf', icon: '🐺', glyph: 'wolf' },
+  // Bingo Bango Bongo has no GoLo glyph — consumers fall back to its emoji.
   bingobangobongo: { name: 'Bingo Bango Bongo', icon: '🟢' },
+}
+
+/**
+ * GoLo icon glyph name for a bet type, or null when no glyph exists (so the UI
+ * can fall back to the emoji). Single source for the betting-vocabulary icons.
+ * @param {string} type
+ * @returns {string | null}
+ */
+export function betGlyphName(type) {
+  return META[type]?.glyph ?? null
 }
 
 /** Display name for a player id (falls back to a dash). */

@@ -3,6 +3,9 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import useRoundStore from '../store/roundStore'
 import useHistoryStore from '../store/historyStore'
 import useProfileStore from '../store/profileStore'
+import useAuthStore from '../store/authStore'
+import useSyncStore from '../store/syncStore'
+import { retrySyncOnLogin } from '../lib/sync'
 import { GoloWordmark, GoloBall } from '../components/shared/Logo'
 import BackButton from '../components/shared/BackButton'
 import {
@@ -104,6 +107,9 @@ export default function HomePage() {
   const profileEmail = useProfileStore((s) => s.email)
   const profilePhone = useProfileStore((s) => s.phone)
   const onboarded = useProfileStore((s) => s.onboarded)
+  const authUserId = useAuthStore((s) => s.user?.id ?? null)
+  const syncError = useSyncStore((s) => s.syncError)
+  const syncing = useSyncStore((s) => s.syncing)
 
   const [view, setView] = useState('season') // 'season' | 'all'
   const safeLivePlayers = asArray(livePlayers)
@@ -243,6 +249,20 @@ export default function HomePage() {
 
         {/* scrollable body -------------------------------------------------- */}
         <div style={S.scroll}>
+          {syncError && (
+            <div style={S.syncBanner}>
+              <div style={{ flex: 1, fontSize: 13, fontWeight: 600, lineHeight: 1.45, color: 'rgba(255,255,255,.9)' }}>{syncError}</div>
+              <button
+                type="button"
+                onClick={() => authUserId && retrySyncOnLogin(authUserId)}
+                disabled={syncing || !authUserId}
+                style={{ ...S.syncRetry, opacity: syncing ? 0.6 : 1 }}
+              >
+                {syncing ? 'Syncing…' : 'Retry'}
+              </button>
+            </div>
+          )}
+
           {/* PRIMARY · new round */}
           <button onClick={startSetup} style={S.primaryCta}>
             <span style={S.ctaBlob} />
@@ -426,6 +446,9 @@ const S = {
   headerTop: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
   avatar: { borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 800, color: '#fff' },
   scroll: { flex: 1, overflowY: 'auto', padding: '4px 16px 14px' },
+
+  syncBanner: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 12, padding: '12px 14px', borderRadius: 14, background: 'rgba(251,113,133,.12)', border: '1px solid rgba(251,113,133,.35)' },
+  syncRetry: { flex: '0 0 auto', padding: '8px 12px', borderRadius: 10, border: 'none', background: ACCENT, color: ACCENT_DARK, fontSize: 12, fontWeight: 800, cursor: 'pointer' },
 
   primaryCta: { position: 'relative', overflow: 'hidden', display: 'block', width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer', background: ACCENT, borderRadius: 24, padding: '20px 18px', marginBottom: 12, boxShadow: `0 14px 34px ${hexA(ACCENT, 0.45)}` },
   ctaBlob: { position: 'absolute', right: -26, top: -26, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,.22)', filter: 'blur(8px)', pointerEvents: 'none' },

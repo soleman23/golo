@@ -31,8 +31,9 @@ function hexA(hex, a) {
 export default function AuthPage() {
   const signIn = useAuthStore((s) => s.signIn)
   const signUp = useAuthStore((s) => s.signUp)
+  const resetPassword = useAuthStore((s) => s.resetPassword)
 
-  const [mode, setMode] = useState('signin') // 'signin' | 'create'
+  const [mode, setMode] = useState('signin') // 'signin' | 'create' | 'forgot'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -41,10 +42,13 @@ export default function AuthPage() {
   const [notice, setNotice] = useState(null)
 
   const isCreate = mode === 'create'
+  const isForgot = mode === 'forgot'
   const emailOk = /\S+@\S+\.\S+/.test(email.trim().toLowerCase())
   const passOk = password.length >= 6
   const matchOk = !isCreate || confirm === password
-  const ready = emailOk && passOk && matchOk && !busy
+  const ready = isForgot
+    ? emailOk && !busy
+    : emailOk && passOk && matchOk && !busy
   const showEmailHelp = email.trim().length > 0 && !emailOk
   const showPasswordHelp = password.length > 0 && !passOk
   const showMatchHelp = isCreate && confirm.length > 0 && !matchOk
@@ -63,7 +67,24 @@ export default function AuthPage() {
     const safeEmailOk = /\S+@\S+\.\S+/.test(safeEmail)
     const safePassOk = safePassword.length >= 6
     const safeMatchOk = !isCreate || confirm === safePassword
-    if (busy || !safeEmailOk || !safePassOk || !safeMatchOk) return
+    if (busy) return
+    if (isForgot) {
+      if (!safeEmailOk) return
+      setBusy(true)
+      setError(null)
+      setNotice(null)
+      try {
+        const { error: err } = await resetPassword(safeEmail)
+        if (err) setError(err.message || 'Could not send reset email. Try again.')
+        else setNotice('Check your inbox for a password reset link.')
+      } catch {
+        setError('Something went wrong. Try again.')
+      } finally {
+        setBusy(false)
+      }
+      return
+    }
+    if (!safeEmailOk || !safePassOk || !safeMatchOk) return
 
     setBusy(true)
     setError(null)
@@ -105,12 +126,14 @@ export default function AuthPage() {
           <div style={{ flex: '0 0 auto', marginBottom: 22, marginTop: 8 }}>
             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: ACCENT, marginBottom: 10 }}>GOLF, BUT SETTLED</div>
             <h2 style={{ fontSize: 30, fontWeight: 800, letterSpacing: -0.6, margin: 0, color: '#fff' }}>
-              {isCreate ? 'Create your account' : 'Welcome back'}
+              {isForgot ? 'Reset password' : isCreate ? 'Create your account' : 'Welcome back'}
             </h2>
             <p style={{ fontSize: 14, lineHeight: 1.5, color: 'rgba(255,255,255,.62)', margin: '9px 0 0' }}>
-              {isCreate
-                ? 'One account keeps your rounds, crew and ledger together across every device.'
-                : 'Pick your season up right where you left it.'}
+              {isForgot
+                ? 'We will email you a link to choose a new password.'
+                : isCreate
+                  ? 'One account keeps your rounds, crew and ledger together across every device.'
+                  : 'Pick your season up right where you left it.'}
             </p>
           </div>
 
@@ -136,6 +159,8 @@ export default function AuthPage() {
           />
           {showEmailHelp && <div style={S.errText}>Enter a valid email.</div>}
 
+          {!isForgot && (
+            <>
           <label htmlFor="auth-password" style={S.fieldLabel}>PASSWORD</label>
           <input
             id="auth-password"
@@ -163,15 +188,30 @@ export default function AuthPage() {
               {showMatchHelp && <div style={S.errText}>Passwords do not match.</div>}
             </>
           )}
+            </>
+          )}
 
           {error && <div style={{ ...S.errText, marginTop: 12 }}>{error}</div>}
 
           <button type="submit" disabled={!ready || busy} style={{ ...S.primaryCta, opacity: ready && !busy ? 1 : 0.5, cursor: ready && !busy ? 'pointer' : 'not-allowed', marginTop: 20 }}>
-            {busy ? 'One sec…' : isCreate ? 'Create account' : 'Sign in'}
+            {busy ? 'One sec…' : isForgot ? 'Send reset link' : isCreate ? 'Create account' : 'Sign in'}
           </button>
+
+          {!isForgot && mode === 'signin' && (
+            <button type="button" onClick={() => switchMode('forgot')} style={{ ...S.linkBtn, marginTop: 10 }}>
+              Forgot password?
+            </button>
+          )}
+
+          {isForgot && (
+            <button type="button" onClick={() => switchMode('signin')} style={{ ...S.linkBtn, marginTop: 10 }}>
+              Back to sign in
+            </button>
+          )}
 
           <div style={{ flex: 1 }} />
 
+          {!isForgot && (
           <div style={{ marginTop: 24 }}>
             <div style={S.noteCard}>
               <span style={{ fontSize: 15 }}>🔒</span>
@@ -184,6 +224,7 @@ export default function AuthPage() {
               <span style={{ color: ACCENT, fontWeight: 800 }}>{isCreate ? 'Sign in' : 'Create an account'}</span>
             </button>
           </div>
+          )}
         </form>
       </div>
     </div>

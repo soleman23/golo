@@ -7,6 +7,7 @@ import { calculateCourseHandicap } from '../engines/handicap'
 import { hasContact, displayName, playerKey } from '../lib/identity'
 import { fetchCourses } from '../lib/db/courses'
 import { GoloWordmark } from '../components/shared/Logo'
+import { Icon } from '../components/shared/GoloIcons'
 import BackButton from '../components/shared/BackButton'
 
 /**
@@ -124,7 +125,7 @@ const FORMATS = [
  */
 const GAME_DEFS = [
   {
-    key: 'skins', appType: 'skins', icon: '🎯', title: 'Skins',
+    key: 'skins', appType: 'skins', icon: '🎯', iconName: 'skins', title: 'Skins',
     desc: 'Low score wins each hole; ties carry over.', unit: '/ skin',
     // Skins uses its own panel (renderSkinsConfig), not the generic toggles/selects.
     toggles: [], selects: [],
@@ -140,7 +141,7 @@ const GAME_DEFS = [
     }),
   },
   {
-    key: 'nassau', appType: 'nassau', icon: '🏆', title: 'Nassau',
+    key: 'nassau', appType: 'nassau', icon: '🏆', iconName: 'nassau', title: 'Nassau',
     desc: 'Front 9, back 9 and overall match.', unit: '/ segment',
     // Auto-press is hidden for now (we'll add it back later); the `press` default
     // and toConfig stay wired so restoring it is just re-adding this toggle.
@@ -149,28 +150,28 @@ const GAME_DEFS = [
     toConfig: (b) => ({ frontAmount: b.stake, backAmount: b.stake, overallAmount: b.stake, style: 'match', autoPress: !!b.press }),
   },
   {
-    key: 'purse', appType: 'strokePurse', icon: '💰', title: 'Stroke Purse',
+    key: 'purse', appType: 'strokePurse', icon: '💰', iconName: 'purse', title: 'Stroke Purse',
     desc: 'Lowest net total takes the pot.', unit: 'buy-in',
     toggles: [],
     selects: [{ key: 'payout', label: 'Payout', options: ['Winner takes all', 'Top 2 split', 'Top 3 split'] }],
     toConfig: (b, who) => ({ mode: 'entry', entryFee: b.stake, totalPurse: b.stake * who.length, payTop: b.payout + 1, splitTies: true }),
   },
   {
-    key: 'ctp', appType: 'ctp', icon: '📍', title: 'Closest to Pin',
+    key: 'ctp', appType: 'ctp', icon: '📍', iconName: 'closestToPin', title: 'Closest to Pin',
     desc: 'Nearest the flag on the par 3s.', unit: 'pot',
     toggles: [],
     selects: [{ key: 'holes', label: 'Holes', options: ['All par 3s', 'Back 9 only'] }],
     toConfig: (b, who, ctx) => ({ amount: b.stake, holes: b.holes === 1 ? ctx.backNinePar3s : ctx.par3Holes }),
   },
   {
-    key: 'long', appType: 'longestDrive', icon: '🚀', title: 'Longest Drive',
+    key: 'long', appType: 'longestDrive', icon: '🚀', iconName: 'longestDrive', title: 'Longest Drive',
     desc: 'Longest drive in the fairway.', unit: 'pot',
     toggles: [],
     selects: [{ key: 'hole', label: 'Hole', options: ['Hole 8', 'Hole 13', 'Hole 18'] }],
     toConfig: (b) => ({ amount: b.stake, hole: [8, 13, 18][b.hole] ?? null }),
   },
   {
-    key: 'wolf', appType: 'wolf', icon: '🐺', title: 'Wolf',
+    key: 'wolf', appType: 'wolf', icon: '🐺', iconName: 'wolf', title: 'Wolf',
     desc: '4-player rotating teams.', unit: '/ unit',
     toggles: [], selects: [], requiresExactly: 4,
     toConfig: (b) => ({ unit: b.stake }),
@@ -1097,7 +1098,9 @@ export default function SetupWizard() {
           return (
             <div key={d.key} style={{ background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${b.on && !gameLocked ? hexA(ACCENT, 0.4) : 'rgba(255,255,255,.12)'}`, borderRadius: 20, padding: 14, marginBottom: 12, boxShadow: '0 8px 24px rgba(0,0,0,.28)', opacity: gameLocked ? 0.55 : 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ width: 42, height: 42, borderRadius: 13, flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.12)' }}>{d.icon}</span>
+                <span style={{ width: 42, height: 42, borderRadius: 13, flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.12)' }}>
+                  {d.iconName ? <Icon name={d.iconName} size={22} color={b.on && !gameLocked ? ACCENT : 'rgba(255,255,255,.7)'} /> : d.icon}
+                </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{d.title}</div>
                   {wolfLocked ? (
@@ -1359,7 +1362,7 @@ export default function SetupWizard() {
             const n = b.who.filter((x) => ids.includes(x)).length
             return (
               <div key={d.key} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 16, padding: '13px 14px', marginBottom: 10 }}>
-                <span style={{ fontSize: 20, flex: '0 0 auto' }}>{d.icon}</span>
+                <span style={{ fontSize: 20, flex: '0 0 auto', display: 'flex' }}>{d.iconName ? <Icon name={d.iconName} size={20} color={ACCENT} /> : d.icon}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>{d.title}</div>
                   <div style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', marginTop: 1 }}>{n} players in</div>

@@ -7,10 +7,11 @@ import useAuthStore from '../store/authStore'
 import { saveRound as dbSaveRound } from '../lib/db/rounds'
 import { buildLeaderboard } from '../engines/scoring'
 import { buildStablefordLeaderboard } from '../engines/stableford'
-import { buildBetResults, formatRoundSummary } from '../engines/betResults'
+import { buildBetResults, formatRoundSummary, betGlyphName } from '../engines/betResults'
 import { aggregatePayouts, calculateSettlements } from '../engines/payouts'
 import { playerKey, autoKey, hasContact } from '../lib/identity'
 import { GoloWordmark } from '../components/shared/Logo'
+import { Icon } from '../components/shared/GoloIcons'
 import BackButton from '../components/shared/BackButton'
 
 /**
@@ -471,10 +472,10 @@ export default function PayoutsPage() {
   }
 
   const recap = [
-    { icon: '👑', label: 'CHAMPION', value: champName, sub: champSub },
-    { icon: '🎯', label: 'LOW GROSS', value: lowGross ? lowGross.gross : '—', sub: lowGross ? lowGross.player.name : 'no scores' },
-    { icon: '🐦', label: 'BIRDIES', value: String(birdies), sub: 'across the group' },
-    { icon: '💸', label: 'CHANGED HANDS', value: `$${moneyMoved}`, sub: `${settlements.length} transfer${settlements.length === 1 ? '' : 's'}` },
+    { icon: '👑', iconName: 'leader', label: 'CHAMPION', value: champName, sub: champSub },
+    { icon: '🎯', iconName: 'target', label: 'LOW GROSS', value: lowGross ? lowGross.gross : '—', sub: lowGross ? lowGross.player.name : 'no scores' },
+    { icon: '🐦', iconName: 'birdie', label: 'BIRDIES', value: String(birdies), sub: 'across the group' },
+    { icon: '💸', iconName: 'swap', label: 'CHANGED HANDS', value: `$${moneyMoved}`, sub: `${settlements.length} transfer${settlements.length === 1 ? '' : 's'}` },
   ]
 
   const scoringLabel = `FINAL · ${FORMAT_LABEL[scoringType] ?? 'STROKE'} · ${useGrossScoring ? 'GROSS' : 'NET'}`
@@ -683,6 +684,7 @@ export default function PayoutsPage() {
           ) : (
             games.map((g) => {
               const open = !!expanded[g.id]
+              const glyph = betGlyphName(g.type)
               return (
                 <div key={g.id} style={S.gameCard}>
                   <button
@@ -691,7 +693,7 @@ export default function PayoutsPage() {
                     aria-label={`${open ? 'Collapse' : 'Expand'} ${g.name} breakdown`}
                     style={S.gameHead}
                   >
-                    <span style={S.gameIcon}>{g.icon}</span>
+                    <span style={S.gameIcon}>{glyph ? <Icon name={glyph} size={20} color={ACCENT} /> : g.icon}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 15.5, fontWeight: 800, color: '#fff' }}>{g.name}</div>
                       <div style={{ fontSize: 12, color: 'rgba(255,255,255,.55)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -731,7 +733,7 @@ export default function PayoutsPage() {
             {recap.map((s) => (
               <div key={s.label} style={S.recapCard}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 10, fontWeight: 800, letterSpacing: 1, color: 'rgba(255,255,255,.5)' }}>
-                  <span style={{ fontSize: 13 }}>{s.icon}</span>
+                  <span style={{ display: 'flex', fontSize: 13 }}>{s.iconName ? <Icon name={s.iconName} size={14} color={ACCENT} /> : s.icon}</span>
                   {s.label}
                 </div>
                 <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', marginTop: 6, letterSpacing: -0.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.value}</div>

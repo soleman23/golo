@@ -23,6 +23,11 @@ shared database:
    Supabase CLI):
    - `supabase/migrations/0001_init.sql` - tables, row-level security, helpers.
    - `supabase/migrations/0002_seed_courses.sql` - seeds the course catalogue.
+   - `supabase/migrations/0003_avatars.sql` - profile photos + `avatars` storage bucket.
+   - `supabase/migrations/0004_profile_handicap.sql` - `handicap_index` on profiles.
+
+   Verify a linked project with `node scripts/verify-production.mjs` (reads
+   `.env.local`). See [docs/LAUNCH.md](docs/LAUNCH.md) for the full crew launch checklist.
 4. Authentication uses **email + password**. By default Supabase requires email
    confirmation; toggle that under **Authentication -> Providers -> Email** to
    suit your testing.
@@ -66,6 +71,9 @@ In the Supabase dashboard (**Authentication → URL configuration**):
 - **Redirect URLs**: add `https://your-app.netlify.app/**`
 
 Without this, sign-in and email confirmation links may fail on production.
+
+See [docs/LAUNCH.md](docs/LAUNCH.md) for the full crew launch checklist (migrations,
+auth URLs, QA table, and group-chat onboarding copy).
 
 ### 4. Deploy
 

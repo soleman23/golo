@@ -4,16 +4,15 @@ import useProfileStore from '../store/profileStore'
 import useAuthStore from '../store/authStore'
 import { hasContact } from '../lib/identity'
 import { GoloWordmark } from '../components/shared/Logo'
+import { CheckIcon } from '../components/shared/GoloIcons'
 import BackButton from '../components/shared/BackButton'
 
 /**
  * OnboardingPage — first-run flow, "glass-over-turf" (Golo Golf - Onboarding).
  *
- * Three screens, matching the design: WELCOME (brand pitch) → SIGN IN (provider
- * buttons) → SET UP YOUR LOCKER (verified contact identity). The MVP has no auth
- * backend, so the sign-in screen is presented faithfully but wired honestly: the
- * provider buttons just continue to the locker step. The local verified gate is
- * an email or phone on the profile; no guest/skip path enters the app.
+ * Three screens: WELCOME → SIGN IN (provider placeholders for local-only mode) →
+ * SET UP YOUR LOCKER (verified contact identity). When Supabase auth is enabled,
+ * App routes straight to the locker step (`lockerOnly`) with signup email prefilled.
  *
  * The route gate lives in App; finishing marks `onboarded` so the flow never
  * nags again once a verified contact is present. Inline styles match the
@@ -144,7 +143,7 @@ export default function OnboardingPage({ lockerOnly = false }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 20 }}>
               {TICKS.map((t) => (
                 <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-                  <span style={S.tick}>✓</span>
+                  <CheckIcon size={22} style={{ filter: `drop-shadow(0 4px 10px ${hexA(ACCENT, 0.45)})` }} />
                   <span style={{ fontSize: 13.5, fontWeight: 600, color: 'rgba(255,255,255,.9)' }}>{t}</span>
                 </div>
               ))}
@@ -355,7 +354,6 @@ const S = {
   column: { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', width: '100%', maxWidth: 480, margin: '0 auto' },
   scroll: { flex: 1, overflowY: 'auto', padding: '16px 20px 18px' },
 
-  tick: { width: 22, height: 22, borderRadius: 7, flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: ACCENT_DARK, background: ACCENT, boxShadow: `0 4px 10px ${hexA(ACCENT, 0.45)}` },
 
   primaryCta: { width: '100%', background: ACCENT, border: 'none', color: ACCENT_DARK, fontSize: 16, fontWeight: 800, padding: 16, borderRadius: 16, cursor: 'pointer', boxShadow: `0 14px 30px ${hexA(ACCENT, 0.45)}` },
   linkBtn: { width: '100%', marginTop: 14, background: 'transparent', border: 'none', textAlign: 'center', fontSize: 13.5, fontWeight: 600, color: 'rgba(255,255,255,.7)', cursor: 'pointer' },
