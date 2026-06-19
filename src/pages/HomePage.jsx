@@ -37,6 +37,8 @@ const COURSE_BG = {
   'Tetherow': '/courses/tetherow.jpg',
   'Lost Tracks Golf Course': '/courses/losttracks.webp',
 }
+const COURSE_FALLBACK_BG = 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)'
+const DEFAULT_COURSE_BG = '/courses/course.png'
 
 /* ------------------------------------------------------------------- helpers */
 
@@ -51,16 +53,42 @@ function hexA(hex, a) {
 }
 
 const initial = (name) => (name || '').trim().charAt(0).toUpperCase() || '?'
-/** Signed money: +$5, −$5, $0. */
-const signed = (n) => (n > 0 ? `+$${n}` : n < 0 ? `−$${-n}` : '$0')
-/** Money colour: green ahead, red down, neutral level. */
-const mcol = (n) => (n > 0 ? '#bef264' : n < 0 ? '#fb7185' : 'rgba(255,255,255,.7)')
-const ord = (n) => {
-  const s = ['th', 'st', 'nd', 'rd']
-  const v = n % 100
-  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`
+const round2 = (n) => {
+  const value = Number(n)
+  if (!Number.isFinite(value)) return 0
+  const rounded = Math.round((value + Number.EPSILON) * 100) / 100
+  return Object.is(rounded, -0) ? 0 : rounded
 }
-const round2 = (n) => +n.toFixed(2)
+/** Signed money: +$5, −$5, $0. */
+const signed = (n) => {
+  const value = round2(n)
+  if (value > 0) return `+$${value}`
+  if (value < 0) return `−$${Math.abs(value)}`
+  return '$0'
+}
+/** Money colour: green ahead, red down, neutral level. */
+const mcol = (n) => {
+  const value = round2(n)
+  return value > 0 ? '#bef264' : value < 0 ? '#fb7185' : 'rgba(255,255,255,.7)'
+}
+const ord = (n) => {
+  const value = Number(n)
+  if (!Number.isFinite(value)) return '—'
+  const whole = Math.trunc(value)
+  const s = ['th', 'st', 'nd', 'rd']
+  const v = whole % 100
+  return `${whole}${s[(v - 20) % 10] || s[v] || s[0]}`
+}
+const asArray = (value) => (Array.isArray(value) ? value : [])
+const courseBg = (course) => COURSE_BG[course] ?? DEFAULT_COURSE_BG
+const layeredCourseBg = (bg) => `url(${bg}), ${COURSE_FALLBACK_BG}`
+const roundDateLabel = (r) => {
+  const raw = r?.date ?? r?.completedAt
+  if (!raw) return 'Date unknown'
+  const date = new Date(raw)
+  if (Number.isNaN(date.getTime())) return String(raw)
+  return r?.date || date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+}
 
 /* --------------------------------------------------------------- component */
 
@@ -78,14 +106,16 @@ export default function HomePage() {
   const onboarded = useProfileStore((s) => s.onboarded)
 
   const [view, setView] = useState('season') // 'season' | 'all'
+  const safeLivePlayers = asArray(livePlayers)
+  const savedRounds = asArray(rounds)
 
   // A round left running (not finished) is resumable.
   const resume =
     round && status === 'in_progress'
       ? {
-          title: round.course,
-          sub: `${livePlayers.length} players · ${round.holes} holes`,
-          bg: COURSE_BG[round.course] ?? '/courses/course.png',
+          title: round.course || 'Current round',
+          sub: `${safeLivePlayers.length || 0} players · ${round.holes || 18} holes`,
+          bg: courseBg(round.course),
         }
       : null
 
@@ -94,10 +124,10 @@ export default function HomePage() {
   // same person counts across rounds even if their per-round name differs.
   const profile = { name: profileName, nickname: profileNick, email: profileEmail, phone: profilePhone }
   const meKey = useMemo(
-    () => playerKey(profile) ?? autoKey(rounds),
-    [profileName, profileNick, profileEmail, profilePhone, rounds] // eslint-disable-line react-hooks/exhaustive-deps
+    () => playerKey(profile) ?? autoKey(savedRounds),
+    [profileName, profileNick, profileEmail, profilePhone, savedRounds] // eslint-disable-line react-hooks/exhaustive-deps
   )
-  const nameByKey = useMemo(() => namesByKey(rounds), [rounds])
+  const nameByKey = useMemo(() => namesByKey(savedRounds), [savedRounds])
   const meName = displayName(profile) || (meKey ? nameByKey[meKey] : null) || null
 
   const startSetup = () => {
@@ -109,8 +139,11 @@ export default function HomePage() {
     const isSeason = view === 'season'
     const year = new Date().getFullYear()
     const scopeRounds = isSeason
-      ? rounds.filter((r) => new Date(r.completedAt ?? r.date).getFullYear() === year)
-      : rounds
+      ? savedRounds.filter((r) => {
+          const date = new Date(r?.completedAt ?? r?.date)
+          return !Number.isNaN(date.getTime()) && date.getFullYear() === year
+        })
+      : savedRounds
     const scope = isSeason ? 'THIS SEASON' : 'ALL TIME'
 
     const nets = netByKey(scopeRounds)
@@ -118,7 +151,7 @@ export default function HomePage() {
 
     // Crew standings (by identity, zero-sum), highest net first.
     const keys = new Set()
-    scopeRounds.forEach((r) => (r.players ?? []).forEach((p) => {
+    scopeRounds.forEach((r) => asArray(r?.players).forEach((p) => {
       const k = playerKey(p)
       if (k) keys.add(k)
     }))
@@ -148,26 +181,29 @@ export default function HomePage() {
     ]
 
     // Recent rounds (scope, newest first — history store is already newest-first).
-    const recent = scopeRounds.map((r) => {
-      const games = (r.betResults ?? []).map((b) => b.name).join(' · ') || 'No games'
-      const me = meKey ? r.leaderboard?.find((e) => entryMatches(e, meKey, meName)) : null
-      const place = me ? `${ord(me.rank)} of ${r.leaderboard.length}` : '—'
+    const recent = scopeRounds.map((r, i) => {
+      const leaderboard = asArray(r?.leaderboard)
+      const games = asArray(r?.betResults).map((b) => b?.name).filter(Boolean).join(' · ') || 'No games'
+      const me = meKey ? leaderboard.find((e) => entryMatches(e, meKey, meName)) : null
+      const rank = Number(me?.rank)
+      const place = me && leaderboard.length && Number.isFinite(rank) ? `${ord(rank)} of ${leaderboard.length}` : '—'
       const net = meKey ? myNetInRoundByKey(r, meKey) : 0
       return {
-        roundId: r.roundId,
-        course: r.course,
-        bg: COURSE_BG[r.course] ?? '/courses/course.png',
-        date: r.date,
+        key: r?.roundId ?? `${r?.course ?? 'round'}-${r?.date ?? r?.completedAt ?? 'unknown'}-${i}`,
+        roundId: r?.roundId,
+        course: r?.course || 'Saved round',
+        bg: courseBg(r?.course),
+        date: roundDateLabel(r),
         games,
         net,
         place,
       }
     })
 
-    return { scope, myNet, inBlack, best, stats, crew, meRank, recent }
-  }, [rounds, view, meKey, meName])
+    return { scope, scopeCount: scopeRounds.length, myNet, inBlack, best, stats, crew, meRank, recent }
+  }, [savedRounds, view, meKey, meName])
 
-  const hasHistory = rounds.length > 0
+  const hasHistory = savedRounds.length > 0
   const now = new Date()
   const dateKicker = now
     .toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })
@@ -184,7 +220,7 @@ export default function HomePage() {
 
   return (
     <div style={S.root}>
-      <div style={{ ...S.backdrop, backgroundImage: `url('${BACKDROP}')` }} />
+      <div style={{ ...S.backdrop, background: COURSE_FALLBACK_BG, backgroundImage: `url(${BACKDROP}), ${COURSE_FALLBACK_BG}`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
       <div style={S.scrim} />
 
       <div style={S.column}>
@@ -221,7 +257,7 @@ export default function HomePage() {
           {/* RESUME */}
           {resume && (
             <button onClick={() => navigate('/scoring')} style={{ ...S.resumeCard, borderColor: hexA(ACCENT, 0.45) }}>
-              <span style={{ ...S.resumeThumb, backgroundImage: `url('${resume.bg}')` }}>
+              <span style={{ ...S.resumeThumb, background: COURSE_FALLBACK_BG, backgroundImage: layeredCourseBg(resume.bg), backgroundSize: 'cover', backgroundPosition: 'center' }}>
                 <span style={S.resumeDot}>▸</span>
               </span>
               <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
@@ -250,7 +286,7 @@ export default function HomePage() {
                   {[{ id: 'season', label: 'Season' }, { id: 'all', label: 'All time' }].map((t) => {
                     const on = view === t.id
                     return (
-                      <button key={t.id} onClick={() => setView(t.id)} style={{ ...S.toggleBtn, background: on ? ACCENT : 'transparent', color: on ? ACCENT_DARK : 'rgba(255,255,255,.6)' }}>
+                      <button key={t.id} onClick={() => setView(t.id)} aria-pressed={!!on} style={{ ...S.toggleBtn, background: on ? ACCENT : 'transparent', color: on ? ACCENT_DARK : 'rgba(255,255,255,.6)' }}>
                         {t.label}
                       </button>
                     )
@@ -258,74 +294,80 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div style={{ ...S.glassCard, position: 'relative', overflow: 'hidden', borderColor: hexA(ACCENT, 0.4) }}>
-                <span style={{ ...S.ledgerGlow, background: hexA(model.myNet >= 0 ? ACCENT : '#fb7185', 0.4) }} />
-                <div style={{ position: 'relative', fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: 'rgba(255,255,255,.55)' }}>NET · {model.scope}</div>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-end', gap: 10, marginTop: 6 }}>
-                  <span style={{ fontSize: 52, fontWeight: 800, lineHeight: 0.95, letterSpacing: '-1px', color: mcol(model.myNet) }}>{signed(model.myNet)}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,.6)', paddingBottom: 8 }}>{model.myNet >= 0 ? 'in the black' : 'in the red'}</span>
-                </div>
-                <div style={{ position: 'relative', fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,.55)', marginTop: 7 }}>
-                  Across {model.stats[0].value} rounds · {model.inBlack} in the black · best {signed(model.best)}
-                </div>
-                <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 15 }}>
-                  {model.stats.map((s) => (
-                    <div key={s.label} style={S.statTile}>
-                      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.8, color: 'rgba(255,255,255,.5)' }}>{s.label}</div>
-                      <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', marginTop: 4, letterSpacing: '-0.3px' }}>{s.value}</div>
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,.5)', marginTop: 1 }}>{s.sub}</div>
+              {model.scopeCount === 0 ? (
+                <div style={{ ...S.glassCard, fontSize: 13.5, color: 'rgba(255,255,255,.5)' }}>{view === 'season' ? 'No rounds yet this season.' : 'No saved rounds yet.'}</div>
+              ) : (
+                <>
+                  <div style={{ ...S.glassCard, position: 'relative', overflow: 'hidden', borderColor: hexA(ACCENT, 0.4) }}>
+                    <span style={{ ...S.ledgerGlow, background: hexA(model.myNet >= 0 ? ACCENT : '#fb7185', 0.4) }} />
+                    <div style={{ position: 'relative', fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: 'rgba(255,255,255,.55)' }}>NET · {model.scope}</div>
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-end', gap: 10, marginTop: 6 }}>
+                      <span style={{ fontSize: 52, fontWeight: 800, lineHeight: 0.95, letterSpacing: '-1px', color: mcol(model.myNet) }}>{signed(model.myNet)}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,.6)', paddingBottom: 8 }}>{model.myNet >= 0 ? 'in the black' : 'in the red'}</span>
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* THE CREW */}
-              <div style={{ ...S.sectionRow, marginTop: 18 }}>
-                <span style={S.sectionLabel}>THE CREW · {model.scope}</span>
-                {model.meRank > 0 && <span style={S.sectionSub}>you sit {ord(model.meRank)} of {model.crew.length}</span>}
-              </div>
-              {model.crew.map((c, i) => (
-                <div key={c.key} style={{ ...S.crewRow, borderColor: c.me ? hexA(ACCENT, 0.55) : 'rgba(255,255,255,.12)' }}>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,.5)', width: 16, flex: '0 0 auto', textAlign: 'center' }}>{i + 1}</span>
-                  <span style={{ ...S.avatar, width: 38, height: 38, fontSize: 15, boxShadow: `0 0 0 2px ${c.me ? ACCENT : 'rgba(255,255,255,.22)'}`, background: '#2dd4bf' }}>{initial(c.name)}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: 7 }}>
-                      {c.name}
-                      {c.me && <span style={S.youChip}>YOU</span>}
+                    <div style={{ position: 'relative', fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,.55)', marginTop: 7 }}>
+                      Across {model.stats[0].value} rounds · {model.inBlack} in the black · best {signed(model.best)}
                     </div>
-                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', marginTop: 1 }}>
-                      {c.rounds} rounds · {signed(c.rounds ? round2(c.net / c.rounds) : 0)}/rd
+                    <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 15 }}>
+                      {model.stats.map((s) => (
+                        <div key={s.label} style={S.statTile}>
+                          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.8, color: 'rgba(255,255,255,.5)' }}>{s.label}</div>
+                          <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', marginTop: 4, letterSpacing: '-0.3px' }}>{s.value}</div>
+                          <div style={{ fontSize: 11, color: 'rgba(255,255,255,.5)', marginTop: 1 }}>{s.sub}</div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <span style={{ fontSize: 20, fontWeight: 800, color: mcol(c.net), flex: '0 0 auto' }}>{signed(c.net)}</span>
-                </div>
-              ))}
 
-              {/* RECENT ROUNDS */}
-              <div style={{ ...S.sectionRow, marginTop: 18 }}>
-                <span style={S.sectionLabel}>RECENT ROUNDS</span>
-                <span style={S.sectionSub}>{model.recent.length} shown</span>
-              </div>
-              {model.recent.length === 0 ? (
-                <div style={{ ...S.glassCard, fontSize: 13.5, color: 'rgba(255,255,255,.5)' }}>No rounds this season yet.</div>
-              ) : (
-                model.recent.map((g) => (
-                  <button key={g.roundId} onClick={() => navigate(`/history/${g.roundId}`)} style={S.roundRow}>
-                    <span style={{ ...S.roundThumb, backgroundImage: `url('${g.bg}')` }} />
-                    <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.course}</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
-                        <span style={{ fontSize: 12, color: 'rgba(255,255,255,.5)' }}>{g.date}</span>
-                        <span style={{ fontSize: 12, color: 'rgba(255,255,255,.3)' }}>·</span>
-                        <span style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.games}</span>
+                  {/* THE CREW */}
+                  <div style={{ ...S.sectionRow, marginTop: 18 }}>
+                    <span style={S.sectionLabel}>THE CREW · {model.scope}</span>
+                    {model.meRank > 0 && <span style={S.sectionSub}>you sit {ord(model.meRank)} of {model.crew.length}</span>}
+                  </div>
+                  {model.crew.length === 0 ? (
+                    <div style={{ ...S.glassCard, fontSize: 13.5, color: 'rgba(255,255,255,.5)' }}>No crew standings yet.</div>
+                  ) : (
+                    model.crew.map((c, i) => (
+                      <div key={c.key} style={{ ...S.crewRow, borderColor: c.me ? hexA(ACCENT, 0.55) : 'rgba(255,255,255,.12)' }}>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,.5)', width: 16, flex: '0 0 auto', textAlign: 'center' }}>{i + 1}</span>
+                        <span style={{ ...S.avatar, width: 38, height: 38, fontSize: 15, boxShadow: `0 0 0 2px ${c.me ? ACCENT : 'rgba(255,255,255,.22)'}`, background: '#2dd4bf' }}>{initial(c.name)}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: 7 }}>
+                            {c.name}
+                            {c.me && <span style={S.youChip}>YOU</span>}
+                          </div>
+                          <div style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', marginTop: 1 }}>
+                            {c.rounds} rounds · {signed(c.rounds ? round2(c.net / c.rounds) : 0)}/rd
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 20, fontWeight: 800, color: mcol(c.net), flex: '0 0 auto' }}>{signed(c.net)}</span>
                       </div>
-                    </div>
-                    <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
-                      <div style={{ fontSize: 18, fontWeight: 800, color: mcol(g.net) }}>{signed(g.net)}</div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.45)' }}>{g.place}</div>
-                    </div>
-                  </button>
-                ))
+                    ))
+                  )}
+
+                  {/* RECENT ROUNDS */}
+                  <div style={{ ...S.sectionRow, marginTop: 18 }}>
+                    <span style={S.sectionLabel}>RECENT ROUNDS</span>
+                    <span style={S.sectionSub}>{model.recent.length} shown</span>
+                  </div>
+                  {model.recent.map((g) => (
+                    <button key={g.key} onClick={() => navigate(`/history/${g.roundId}`)} style={S.roundRow}>
+                      <span style={{ ...S.roundThumb, background: COURSE_FALLBACK_BG, backgroundImage: layeredCourseBg(g.bg), backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                      <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                        <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.course}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
+                          <span style={{ fontSize: 12, color: 'rgba(255,255,255,.5)' }}>{g.date}</span>
+                          <span style={{ fontSize: 12, color: 'rgba(255,255,255,.3)' }}>·</span>
+                          <span style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.games}</span>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: mcol(g.net) }}>{signed(g.net)}</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.45)' }}>{g.place}</div>
+                      </div>
+                    </button>
+                  ))}
+                </>
               )}
             </>
           )}

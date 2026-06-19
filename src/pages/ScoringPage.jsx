@@ -37,6 +37,8 @@ import BackButton from '../components/shared/BackButton'
 
 const ACCENT = '#d4f23a'
 const ACCENT_DARK = '#13250a'
+const COURSE_FALLBACK_BG = 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)'
+const DASH = '–'
 
 // Course name → backdrop photo (mirrors SetupWizard's COURSES list).
 const COURSE_BG = {
@@ -76,8 +78,23 @@ const vpl = (n) => (n === 0 ? 'E' : n > 0 ? `+${n}` : `${n}`)
 /** Colour a to-par number: green under, red over, neutral at level. */
 const ncd = (n) => (n < 0 ? '#bef264' : n > 0 ? '#fb7185' : 'rgba(255,255,255,.72)')
 /** Money the golf-bet way: +$5, −$3, $0 (rounded to the dollar for display). */
-const fmtMoney = (n) => { const r = Math.round(n); return r > 0 ? `+$${r}` : r < 0 ? `−$${-r}` : '$0' }
+const fmtMoney = (n) => { const r = Number.isFinite(Number(n)) ? Math.round(Number(n)) : 0; return r > 0 ? `+$${r}` : r < 0 ? `−$${-r}` : '$0' }
 const moneyColor = (n) => (n > 0.5 ? '#bef264' : n < -0.5 ? '#fb7185' : 'rgba(255,255,255,.72)')
+const clampHole = (hole, totalHoles) => {
+  const max = Math.max(1, Math.round(Number(totalHoles) || 1))
+  const n = Math.round(Number(hole))
+  return Math.max(1, Math.min(max, Number.isFinite(n) ? n : 1))
+}
+const scoreValue = (value) => {
+  if (value == null || value === '') return null
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
+}
+const clampScore = (value) => {
+  const n = scoreValue(value)
+  if (n == null) return null
+  return Math.max(1, Math.min(20, Math.round(n)))
+}
 /** Truncate a per-player score map to holes ≤ k (for the "previous hole" rank). */
 const limitScores = (scores, k) => {
   const out = {}
@@ -112,7 +129,8 @@ export default function ScoringPage() {
   const wolfPicks = useRoundStore((s) => s.wolfPicks)
   const bbbFlags = useRoundStore((s) => s.bbbFlags)
   const concededHoles = useRoundStore((s) => s.concededHoles)
-  const currentHole = useRoundStore((s) => s.currentHole)
+  const storedHole = useRoundStore((s) => s.currentHole)
+  const roundStatus = useRoundStore((s) => s.status)
 
   const updateScore = useRoundStore((s) => s.updateScore)
   const setCurrentHole = useRoundStore((s) => s.setCurrentHole)
@@ -143,9 +161,11 @@ export default function ScoringPage() {
   const useGrossScoring = round?.scoring === 'gross'
 
   const totalHoles = round?.holes ?? 18
+  const currentHole = clampHole(storedHole, totalHoles)
   const pars = useMemo(() => round?.pars ?? {}, [round?.pars])
   const par = pars[currentHole] ?? 4
   const si = round?.strokeIndex?.[currentHole]
+  const atFirstHole = currentHole <= 1
   const isLastHole = currentHole >= totalHoles
 
   // Score rows: teams in scramble, otherwise players.
@@ -159,8 +179,8 @@ export default function ScoringPage() {
 
   // Flip the round into scoring mode the first time this screen mounts.
   useEffect(() => {
-    startScoring()
-  }, [startScoring])
+    if (round && roundStatus !== 'in_progress') startScoring()
+  }, [round, roundStatus, startScoring])
 
   // Scores start empty and stay empty until entered — a hole shows "–" for each
   // player until tapped, so a fresh round (and every unplayed hole) carries no
@@ -177,9 +197,14 @@ export default function ScoringPage() {
     () => (isScramble || useGrossScoring ? {} : playerAllocations),
     [isScramble, useGrossScoring, playerAllocations]
   )
+  const hasAnyScore = useMemo(
+    () => entities.some((e) => Object.values(scores[e.id] ?? {}).some((v) => scoreValue(v) != null)),
+    [entities, scores]
+  )
 
   // Sorted leaderboard for the sheet (format-aware).
   const leaderboard = useMemo(() => {
+    if (!hasAnyScore) return []
     if (isStableford) {
       return buildStablefordLeaderboard(players, scores, pars, allocations).map((e) => ({
         rank: e.rank,
@@ -191,9 +216,9 @@ export default function ScoringPage() {
       }))
     }
     return buildLeaderboard(entities, scores, allocations, pars, totalHoles)
-  }, [isStableford, entities, players, scores, allocations, pars, totalHoles])
+  }, [hasAnyScore, isStableford, entities, players, scores, allocations, pars, totalHoles])
 
-  const leaderName = leaderboard[0]?.player?.name ?? '—'
+  const leaderName = hasAnyScore ? (leaderboard[0]?.player?.name ?? DASH) : DASH
 
   // Match Play standing (singles; first two players).
   const matchInfo = useMemo(() => {
@@ -209,8 +234,8 @@ export default function ScoringPage() {
         results.push(conceded === side1.id ? 'p1' : 'p2')
         continue
       }
-      const s1 = scores[side1.id]?.[h]
-      const s2 = scores[side2.id]?.[h]
+      const s1 = scoreValue(scores[side1.id]?.[h])
+      const s2 = scoreValue(scores[side2.id]?.[h])
       if (s1 == null || s2 == null) continue
       const n1 = Math.max(0, s1 - (a1[h] ?? 0))
       const n2 = Math.max(0, s2 - (a2[h] ?? 0))
@@ -256,7 +281,7 @@ export default function ScoringPage() {
         if (!pick) continue
         const holeScores = {}
         players.forEach((p) => {
-          holeScores[p.id] = scores[p.id]?.[h] ?? null
+          holeScores[p.id] = scoreValue(scores[p.id]?.[h])
         })
         results.push(
           calculateWolfResult(holeScores, getWolfOrder(players, h), pick.partnerId, wolfBet.amount, {
@@ -304,7 +329,7 @@ export default function ScoringPage() {
     return Array.from({ length: totalHoles }, (_, i) => {
       const h = i + 1
       const cur = h === currentHole
-      const played = probe != null && scores[probe]?.[h] != null
+      const played = probe != null && scoreValue(scores[probe]?.[h]) != null
       return {
         bg: cur ? ACCENT : played ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.28)',
         w: cur ? 22 : 7,
@@ -321,13 +346,16 @@ export default function ScoringPage() {
     const view = lbView
     const ents = isScramble ? teams : players
     if (ents.length === 0) return null
+    const scopeLabel = view === 'money' ? 'MONEY' : view === 'gross' || useGrossScoring ? 'GROSS' : 'NET'
+    const colLabel = view === 'money' ? 'MONEY' : view === 'gross' || useGrossScoring ? 'GROSS' : isStableford ? 'PTS' : 'NET'
 
     // Furthest hole anyone has a score on — the round's "through".
     let N = 0
     for (const e of ents) {
       const sc = scores[e.id] ?? {}
-      for (const h in sc) if (sc[h] != null && Number(h) > N) N = Number(h)
+      for (const h in sc) if (scoreValue(sc[h]) != null && Number(h) > N) N = Number(h)
     }
+    if (N === 0) return { empty: true, N: 0, scopeLabel, colLabel, rows: [], spot: null }
 
     const statsByEntity = (scoreSet) => {
       const m = {}
@@ -349,7 +377,7 @@ export default function ScoringPage() {
       buildBetResults({
         bets, players, scores: scoreSet, pars, strokeAllocations: playerAllocations,
         sideGameFlags: sgf, wolfPicks: wp, bbbFlags: bbb, scoringType, teams,
-      }).forEach((r) => { for (const pid in r.payouts) per[pid] = (per[pid] ?? 0) + (r.payouts[pid] ?? 0) })
+      }).forEach((r) => { for (const pid in (r.payouts ?? {})) per[pid] = (per[pid] ?? 0) + (r.payouts[pid] ?? 0) })
       const m = {}
       ents.forEach((e) => {
         if (isScramble) {
@@ -362,9 +390,11 @@ export default function ScoringPage() {
 
     const sortIds = (stats, money) =>
       ents.map((e) => e.id).sort((a, b) => {
-        if (view === 'gross') return (stats[a].gross - stats[b].gross) || ((stats[a].toPar ?? 0) - (stats[b].toPar ?? 0))
-        if (view === 'money') return (money[b] - money[a]) || ((stats[a].toPar ?? 0) - (stats[b].toPar ?? 0))
-        return (isStableford ? stats[b].points - stats[a].points : stats[a].toPar - stats[b].toPar) || (stats[a].gross - stats[b].gross)
+        const sa = stats[a] ?? { gross: 0, toPar: 0, points: 0 }
+        const sb = stats[b] ?? { gross: 0, toPar: 0, points: 0 }
+        if (view === 'gross') return (sa.gross - sb.gross) || ((sa.toPar ?? 0) - (sb.toPar ?? 0))
+        if (view === 'money') return ((money[b] ?? 0) - (money[a] ?? 0)) || ((sa.toPar ?? 0) - (sb.toPar ?? 0))
+        return (isStableford ? (sb.points ?? 0) - (sa.points ?? 0) : (sa.toPar ?? 0) - (sb.toPar ?? 0)) || (sa.gross - sb.gross)
       })
     const rankOf = (ids) => { const m = {}; ids.forEach((id, i) => { m[id] = i + 1 }); return m }
 
@@ -405,6 +435,7 @@ export default function ScoringPage() {
     const rows = order.map((id, i) => {
       const e = ents.find((x) => x.id === id)
       const s = stats[id]
+      if (!e || !s) return null
       let move = '–'
       let moveColor = 'rgba(255,255,255,.32)'
       if (prevRank) {
@@ -417,25 +448,26 @@ export default function ScoringPage() {
         move, moveColor, thru: `thru ${s.thru}`, sub: subFor(e, s),
         big: bigOf(id, s), bigColor: bigColorOf(id, s),
       }
-    })
+    }).filter(Boolean)
 
     const Lid = order[0]
     const L = ents.find((x) => x.id === Lid)
     const ls = stats[Lid]
+    if (!L || !ls || rows.length === 0) return { empty: true, N, scopeLabel, colLabel, rows: [], spot: null }
     const secId = order[1]
     let leadBy = 'clear of the field'
-    if (secId) {
+    if (secId && stats[secId]) {
       const ss = stats[secId]
       if (view === 'gross') { const d = ss.gross - ls.gross; leadBy = d === 0 ? 'tied at the top' : `leads by ${d} gross` }
-      else if (view === 'money') { const d = Math.round(money[Lid] - money[secId]); leadBy = d === 0 ? 'tied at the top' : `$${d} clear` }
+      else if (view === 'money') { const d = Math.round((money[Lid] ?? 0) - (money[secId] ?? 0)); leadBy = d === 0 ? 'tied at the top' : `$${d} clear` }
       else if (isStableford) { const d = ls.points - ss.points; leadBy = d === 0 ? 'tied at the top' : `leads by ${d} pts` }
       else { const d = ss.toPar - ls.toPar; leadBy = d === 0 ? 'tied at the top' : `leads by ${d}` }
     }
 
     return {
       N,
-      scopeLabel: view === 'money' ? 'MONEY' : view === 'gross' || useGrossScoring ? 'GROSS' : 'NET',
-      colLabel: view === 'money' ? 'MONEY' : view === 'gross' || useGrossScoring ? 'GROSS' : isStableford ? 'PTS' : 'NET',
+      scopeLabel,
+      colLabel,
       rows,
       spot: {
         name: L.name, color: L.color, isMe: Lid === meEntityId,
@@ -446,16 +478,52 @@ export default function ScoringPage() {
   }, [sheet, lbView, isScramble, isStableford, useGrossScoring, teams, players, scores, pars, allocations, playerAllocations, bets, sideGameFlags, wolfPicks, bbbFlags, scoringType, totalHoles, meEntityId])
 
   // No round set up yet — bounce back to setup.
-  if (!round || entities.length === 0) {
+  if (!round) {
     return <Navigate to="/setup" replace />
   }
 
   const backdrop = COURSE_BG[round.course] ?? '/courses/course.png'
 
-  const scoreFor = (id) => scores[id]?.[currentHole] ?? par
-  const adjust = (id, delta) => updateScore(id, currentHole, Math.max(1, Math.min(15, scoreFor(id) + delta)))
-  const goPrev = () => currentHole > 1 && setCurrentHole(currentHole - 1)
-  const goNext = () => !isLastHole && setCurrentHole(currentHole + 1)
+  if (isScramble && teams.length === 0) {
+    return (
+      <div style={S.root}>
+        <div style={{ ...S.backdrop, background: COURSE_FALLBACK_BG, backgroundImage: `url(${backdrop}), ${COURSE_FALLBACK_BG}` }} />
+        <div style={S.scrim} />
+        <div style={S.column}>
+          <div style={S.header}>
+            <div style={S.headerTop}>
+              <BackButton />
+              <GoloWordmark variant="white" fontPx={15} />
+            </div>
+          </div>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
+            <div style={S.panel}>
+              <div style={{ fontSize: 21, fontWeight: 800, color: '#fff' }}>Teams not set up for this round.</div>
+              <button onClick={() => navigate('/setup')} style={{ ...S.modalPrimary, marginTop: 18 }}>Back to Setup</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (entities.length === 0) {
+    return <Navigate to="/setup" replace />
+  }
+
+  const scoreFor = (id) => scoreValue(scores[id]?.[currentHole]) ?? par
+  const recordScore = (id, hole, value) => {
+    const next = clampScore(value)
+    if (!id || next == null) return
+    updateScore(id, clampHole(hole, totalHoles), next)
+  }
+  const adjust = (id, delta) => recordScore(id, currentHole, scoreFor(id) + delta)
+  const goPrev = () => {
+    if (!atFirstHole) setCurrentHole(clampHole(currentHole - 1, totalHoles))
+  }
+  const goNext = () => {
+    if (!isLastHole) setCurrentHole(clampHole(currentHole + 1, totalHoles))
+  }
   const finishRound = () => {
     completeRound()
     navigate('/payouts')
@@ -472,7 +540,7 @@ export default function ScoringPage() {
   /* --------------------------------------------------------------- entity card */
 
   const card = (e) => {
-    const gross = scores[e.id]?.[currentHole] ?? null
+    const gross = scoreValue(scores[e.id]?.[currentHole])
     const reduction = allocations[e.id]?.[currentHole] ?? 0
     const net = gross == null ? null : Math.max(0, gross - reduction)
     const pts = isStableford && gross != null ? calculateStablefordPoints(gross, par, reduction) : null
@@ -528,7 +596,7 @@ export default function ScoringPage() {
 
   return (
     <div style={S.root}>
-      <div style={{ ...S.backdrop, backgroundImage: `url('${backdrop}')` }} />
+      <div style={{ ...S.backdrop, background: COURSE_FALLBACK_BG, backgroundImage: `url(${backdrop}), ${COURSE_FALLBACK_BG}` }} />
       <div style={S.scrim} />
 
       <div style={S.column}>
@@ -553,7 +621,7 @@ export default function ScoringPage() {
 
           {/* hole block */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
-            <button onClick={goPrev} disabled={currentHole === 1} aria-label="Previous hole" style={{ ...S.navCircle, opacity: currentHole === 1 ? 0.4 : 1 }}>‹</button>
+            <button onClick={goPrev} disabled={atFirstHole} aria-label="Previous hole" style={{ ...S.navCircle, opacity: atFirstHole ? 0.4 : 1, cursor: atFirstHole ? 'not-allowed' : 'pointer' }}>‹</button>
             <div style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
               <div style={{ fontSize: 11, letterSpacing: 3, color: 'rgba(255,255,255,.7)', fontWeight: 800 }}>HOLE</div>
               <div style={{ fontSize: 70, fontWeight: 800, lineHeight: 0.98, color: '#fff' }}>{currentHole}</div>
@@ -562,7 +630,7 @@ export default function ScoringPage() {
                 {si != null ? ` · SI ${si}` : ''}
               </div>
             </div>
-            <button onClick={goNext} disabled={isLastHole} aria-label="Next hole" style={{ ...S.navCircle, opacity: isLastHole ? 0.4 : 1 }}>›</button>
+            <button onClick={goNext} disabled={isLastHole} aria-label="Next hole" style={{ ...S.navCircle, opacity: isLastHole ? 0.4 : 1, cursor: isLastHole ? 'not-allowed' : 'pointer' }}>›</button>
           </div>
 
           {/* dots */}
@@ -646,9 +714,9 @@ export default function ScoringPage() {
               so the round can always be finished — Finish is offered on every
               hole, not just the last (the confirm modal handles an early end). */}
           <div style={S.navBar}>
-            <button onClick={goPrev} disabled={currentHole === 1} aria-label="Previous hole" style={{ ...S.navText, opacity: currentHole === 1 ? 0.35 : 1 }}>◀</button>
+            <button onClick={goPrev} disabled={atFirstHole} aria-label="Previous hole" style={{ ...S.navText, opacity: atFirstHole ? 0.35 : 1, cursor: atFirstHole ? 'not-allowed' : 'pointer' }}>◀</button>
             <button onClick={() => setSheet('leaderboard')} style={S.navPrimary}>{boardTitle}</button>
-            <button onClick={goNext} disabled={isLastHole} aria-label="Next hole" style={{ ...S.navText, opacity: isLastHole ? 0.35 : 1 }}>▶</button>
+            <button onClick={goNext} disabled={isLastHole} aria-label="Next hole" style={{ ...S.navText, opacity: isLastHole ? 0.35 : 1, cursor: isLastHole ? 'not-allowed' : 'pointer' }}>▶</button>
             <button onClick={() => setSheet('finish')} style={{ ...S.navText, color: ACCENT, fontWeight: 800 }}>Finish</button>
           </div>
         </div>
@@ -656,7 +724,7 @@ export default function ScoringPage() {
         {/* ===== sheets (framed inside the phone column) ===== */}
       {sheet === 'leaderboard' && leaderModel && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 35, display: 'flex', flexDirection: 'column', background: 'radial-gradient(120% 70% at 50% 0%, #2a7d4a 0%, #14532d 45%, #0a2418 85%)' }}>
-          <div style={{ ...S.backdrop, backgroundImage: `url('${backdrop}')` }} />
+          <div style={{ ...S.backdrop, background: COURSE_FALLBACK_BG, backgroundImage: `url(${backdrop}), ${COURSE_FALLBACK_BG}` }} />
           <div style={S.scrim} />
           <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
 
@@ -703,6 +771,12 @@ export default function ScoringPage() {
             {/* scrollable body */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '2px 16px 14px' }}>
 
+              {leaderModel.empty ? (
+                <div style={{ ...S.panel, textAlign: 'center', padding: 22, marginTop: 10, marginBottom: 16 }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#fff' }}>No scores entered yet.</div>
+                </div>
+              ) : (
+                <>
               {/* leader spotlight */}
               <div style={{ position: 'relative', overflow: 'hidden', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${hexA(ACCENT, 0.5)}`, borderRadius: 24, padding: 18, marginBottom: 16, boxShadow: '0 14px 34px rgba(0,0,0,.34)' }}>
                 <span style={{ position: 'absolute', right: -30, top: -34, width: 150, height: 150, borderRadius: '50%', background: hexA(ACCENT, 0.45), filter: 'blur(34px)', pointerEvents: 'none' }} />
@@ -753,6 +827,8 @@ export default function ScoringPage() {
                   <span style={{ width: 62, textAlign: 'right', fontSize: 24, fontWeight: 800, letterSpacing: -0.5, color: r.bigColor, flex: '0 0 auto' }}>{r.big}</span>
                 </div>
               ))}
+                </>
+              )}
 
               {/* money on the line */}
               {pills.length > 0 && (
@@ -815,7 +891,7 @@ export default function ScoringPage() {
           entity={entities.find((e) => e.id === keypadFor)}
           holeLabel={`Hole ${currentHole} · Par ${par}`}
           onPick={(n) => {
-            updateScore(keypadFor, currentHole, n)
+            recordScore(keypadFor, currentHole, n)
             setKeypadFor(null)
           }}
           onClose={() => setKeypadFor(null)}
@@ -909,7 +985,7 @@ function MatchPanel({ info, hole, concededTo, onConcede }) {
           {[side1, side2].map((s) => {
             const on = concededTo === s.id
             return (
-              <button key={s.id} onClick={() => onConcede(on ? null : s.id)} aria-pressed={on} style={chip(on)}>
+              <button key={s.id} onClick={() => onConcede(on ? null : s.id)} aria-pressed={!!on} style={chip(on)}>
                 {on ? `✓ ${s.name}` : `Give to ${s.name}`}
               </button>
             )
@@ -975,7 +1051,7 @@ function BBBPanel({ players, flags, onFlag }) {
               {players.map((p) => {
                 const on = current[type] === p.id
                 return (
-                  <button key={p.id} onClick={() => onFlag(type, on ? null : p.id)} aria-pressed={on} style={{ ...chip(on), display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <button key={p.id} onClick={() => onFlag(type, on ? null : p.id)} aria-pressed={!!on} style={{ ...chip(on), display: 'flex', alignItems: 'center', gap: 7 }}>
                     <span style={{ width: 14, height: 14, borderRadius: '50%', background: p.color }} />
                     {p.name.slice(0, 8)}
                   </button>
@@ -998,7 +1074,7 @@ function PickerPanel({ title, players, selectedId, onSelect }) {
         {players.map((p) => {
           const on = selectedId === p.id
           return (
-            <button key={p.id} onClick={() => onSelect(on ? null : p.id)} aria-pressed={on} style={{ ...chip(on), display: 'flex', alignItems: 'center', gap: 7 }}>
+            <button key={p.id} onClick={() => onSelect(on ? null : p.id)} aria-pressed={!!on} style={{ ...chip(on), display: 'flex', alignItems: 'center', gap: 7 }}>
               <span style={{ width: 14, height: 14, borderRadius: '50%', background: p.color }} />
               {p.name.slice(0, 10)}
             </button>
@@ -1028,9 +1104,9 @@ const S = {
   root: {
     position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden',
     fontFamily: "system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif", color: '#fff',
-    background: 'radial-gradient(120% 70% at 50% 0%, #2a7d4a 0%, #14532d 45%, #0a2418 85%)',
+    background: COURSE_FALLBACK_BG,
   },
-  backdrop: { position: 'absolute', inset: 0, backgroundSize: 'cover', backgroundPosition: '50% 60%' },
+  backdrop: { position: 'absolute', inset: 0, background: COURSE_FALLBACK_BG, backgroundSize: 'cover', backgroundPosition: 'center' },
   scrim: {
     position: 'absolute', inset: 0, pointerEvents: 'none',
     background: 'linear-gradient(180deg, rgba(6,14,9,.58) 0%, rgba(6,14,9,.28) 24%, rgba(6,16,10,.34) 58%, rgba(4,12,8,.8) 100%)',

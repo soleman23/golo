@@ -33,6 +33,48 @@ shared database:
 When the env vars are absent the app silently falls back to the original
 local-only behaviour (no login wall, data stays in `localStorage`).
 
+## Deploy to Netlify
+
+The repo includes a [netlify.toml](netlify.toml) with the build command, publish
+directory (`dist`), and SPA redirects so routes like `/history` work on refresh.
+
+### 1. Connect the site
+
+1. Push this repo to GitHub (or GitLab/Bitbucket).
+2. In [Netlify](https://app.netlify.com), **Add new site → Import an existing project**.
+3. Pick the repo. Netlify reads `netlify.toml` automatically — no build settings
+   to type in by hand.
+
+### 2. Set environment variables
+
+In **Site configuration → Environment variables**, add (same names as `.env.example`):
+
+| Variable | Value |
+|----------|--------|
+| `VITE_SUPABASE_URL` | Your Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | Your Supabase anon (public) key |
+
+Vite bakes these in at **build** time. After changing them, trigger a new deploy.
+
+### 3. Configure Supabase Auth for your Netlify URL
+
+After the first deploy, copy your site URL (e.g. `https://your-app.netlify.app`).
+
+In the Supabase dashboard (**Authentication → URL configuration**):
+
+- **Site URL**: `https://your-app.netlify.app`
+- **Redirect URLs**: add `https://your-app.netlify.app/**`
+
+Without this, sign-in and email confirmation links may fail on production.
+
+### 4. Deploy
+
+Netlify builds with `npm run build` and publishes `dist/`. Each push to your main
+branch redeploys automatically if continuous deployment is enabled.
+
+**CLI (optional):** `npx netlify-cli deploy --prod` from the project root after
+`npm run build`, with the same env vars set locally or in the Netlify UI.
+
 ## Development
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

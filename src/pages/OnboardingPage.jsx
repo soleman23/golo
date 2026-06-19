@@ -48,17 +48,14 @@ const initial = (name) => (name || '').trim().charAt(0).toUpperCase() || '⛳'
 /* ----------------------------------------------------------- provider icons */
 
 const AppleIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 384 512" fill="#000" style={{ marginTop: -2 }}>
+  <svg width="18" height="18" viewBox="0 0 384 512" fill="currentColor" aria-hidden="true" style={{ marginTop: -2 }}>
     <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zM262.1 104.5c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" />
   </svg>
 )
 
 const GoogleIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 48 48">
-    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+  <svg width="18" height="18" viewBox="0 0 488 512" fill="currentColor" aria-hidden="true">
+    <path d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z" />
   </svg>
 )
 
@@ -68,22 +65,57 @@ export default function OnboardingPage({ lockerOnly = false }) {
   const navigate = useNavigate()
   const setIdentity = useProfileStore((s) => s.setIdentity)
   const completeOnboarding = useProfileStore((s) => s.completeOnboarding)
+  // Any identity already saved to the profile — used to prefill the locker so a
+  // returning user confirms/edits instead of retyping.
+  const profileName = useProfileStore((s) => s.name)
+  const profileNick = useProfileStore((s) => s.nickname)
+  const profileEmail = useProfileStore((s) => s.email)
+  const profilePhone = useProfileStore((s) => s.phone)
   // When real auth is on, the user already signed up — skip the welcome/sign-in
   // screens and go straight to the locker, pre-filling the email they used.
   const authEmail = useAuthStore((s) => s.user?.email ?? null)
 
+  // Seed the locker form once, only when we land straight on it (lockerOnly). A
+  // saved profile contact (email/phone) is the source of truth and brings name,
+  // handle and phone along with it; email falls back to authEmail so an empty
+  // profile email never clobbers the address they signed in with. The normal
+  // welcome → sign-in → locker flow still starts blank. Nothing here completes
+  // onboarding — that only happens when the user taps the locker CTA (finish()).
+  const hasProfileContact = hasContact({ email: profileEmail, phone: profilePhone })
+  const seed = lockerOnly
+    ? {
+        name: hasProfileContact ? (profileName ?? '') : '',
+        handle: hasProfileContact ? (profileNick ?? '') : '',
+        email: profileEmail || authEmail || '',
+        phone: hasProfileContact ? (profilePhone ?? '') : '',
+      }
+    : { name: '', handle: '', email: '', phone: '' }
+
   const [step, setStep] = useState(lockerOnly ? 2 : 0) // 0 = welcome, 1 = sign in, 2 = locker
   const [authMode, setAuthMode] = useState('create') // create | signin (copy only)
-  const [name, setNameInput] = useState('')
-  const [handle, setHandle] = useState('')
-  const [email, setEmail] = useState(lockerOnly ? (authEmail ?? '') : '')
-  const [phone, setPhone] = useState('')
+  const [name, setNameInput] = useState(seed.name)
+  const [handle, setHandle] = useState(seed.handle)
+  const [email, setEmail] = useState(seed.email)
+  const [phone, setPhone] = useState(seed.phone)
+  const isCreate = authMode === 'create'
 
-  // Save whatever identity was entered (all optional, but the locker CTA only
-  // enables once there's a contact — that's how players are identified).
-  const finish = (id) => {
-    if (!hasContact(id)) return
-    setIdentity(id)
+  // Sanitised identity from the live form — the single source of truth for BOTH
+  // the CTA's enable-state (canFinish) and what actually gets saved. Trimming
+  // means a whitespace-only email/phone can never count as a real contact; name
+  // and handle stay optional.
+  const identity = {
+    name: name.trim(),
+    nickname: handle.trim().replace(/^@+/, ''),
+    email: email.trim().toLowerCase(),
+    phone: phone.trim(),
+  }
+  const canFinish = hasContact(identity) // need a non-blank email or phone
+
+  // Save ONLY if there's a real contact — no contact ⇒ bail before touching the
+  // store. completeOnboarding() runs only here, from the locker CTA.
+  const finish = () => {
+    if (!hasContact(identity)) return
+    setIdentity(identity)
     completeOnboarding()
     navigate('/', { replace: true })
   }
@@ -132,7 +164,6 @@ export default function OnboardingPage({ lockerOnly = false }) {
 
   /* ------------------------------------------------------ screen 2 · sign in */
   if (step === 1) {
-    const isCreate = authMode === 'create'
     return (
       <div style={S.root}>
         <div style={{ ...S.backdrop, backgroundImage: "url('/courses/course.png')", backgroundPosition: '50% 30%' }} />
@@ -163,7 +194,7 @@ export default function OnboardingPage({ lockerOnly = false }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
               <button onClick={() => setStep(2)} style={S.providerBtn}><AppleIcon /> Continue with Apple</button>
               <button onClick={() => setStep(2)} style={S.providerBtn}><GoogleIcon /> Continue with Google</button>
-              <button onClick={() => setStep(2)} style={S.providerGlassBtn}><span style={{ fontSize: 16 }}>✆</span> Continue with phone</button>
+              <button onClick={() => setStep(2)} style={S.providerGlassBtn}><span aria-hidden="true" style={{ fontSize: 16 }}>✆</span> Continue with phone</button>
             </div>
 
             <div style={{ flex: 1 }} />
@@ -179,7 +210,7 @@ export default function OnboardingPage({ lockerOnly = false }) {
               <p style={{ fontSize: 11.5, lineHeight: 1.5, color: 'rgba(255,255,255,.45)', textAlign: 'center', margin: '14px 4px 0' }}>
                 By continuing you agree to Golo's Terms of Service &amp; Privacy Policy.
               </p>
-              <button onClick={() => setAuthMode(isCreate ? 'signin' : 'create')} style={{ ...S.linkBtn, marginTop: 12 }}>
+              <button onClick={() => setAuthMode(isCreate ? 'signin' : 'create')} aria-pressed={!!isCreate} style={{ ...S.linkBtn, marginTop: 12 }}>
                 {isCreate ? 'Already play with Golo? ' : 'New to Golo? '}
                 <span style={{ color: ACCENT, fontWeight: 800 }}>{isCreate ? 'Sign in' : 'Create an account'}</span>
               </button>
@@ -191,13 +222,11 @@ export default function OnboardingPage({ lockerOnly = false }) {
   }
 
   /* -------------------------------------------------- screen 3 · set up locker */
-  const trimmed = name.trim()
-  const me = { name, nickname: handle, email, phone }
-  const ready = hasContact(me) // need an email or phone to identify you
-  const handlePreview = handle.trim()
-    ? `@${handle.trim().replace(/^@+/, '')}`
-    : trimmed
-      ? `@${trimmed.toLowerCase().replace(/\s+/g, '')}`
+  // @handle preview: the entered handle, else a slug of the name, else nothing.
+  const handlePreview = identity.nickname
+    ? `@${identity.nickname}`
+    : identity.name
+      ? `@${identity.name.toLowerCase().replace(/\s+/g, '')}`
       : null
   return (
     <div style={S.root}>
@@ -206,7 +235,7 @@ export default function OnboardingPage({ lockerOnly = false }) {
 
       <div style={S.column}>
         {/* nav + progress */}
-          <div style={{ flex: '0 0 auto', padding: 'max(14px, env(safe-area-inset-top)) 22px 0' }}>
+        <div style={{ flex: '0 0 auto', padding: 'max(14px, env(safe-area-inset-top)) 22px 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             {lockerOnly ? (
               <BackButton />
@@ -230,8 +259,8 @@ export default function OnboardingPage({ lockerOnly = false }) {
           </p>
 
           <div style={S.lockerCard}>
-            <div style={{ ...S.avatar, width: 64, height: 64, fontSize: 26, background: ready ? ACCENT : 'rgba(255,255,255,.1)', color: ready ? ACCENT_DARK : 'rgba(255,255,255,.5)', boxShadow: `0 0 0 3px ${hexA(ACCENT, 0.5)}` }}>
-              {initial(trimmed || handle)}
+            <div style={{ ...S.avatar, width: 64, height: 64, fontSize: 26, background: canFinish ? ACCENT : 'rgba(255,255,255,.1)', color: canFinish ? ACCENT_DARK : 'rgba(255,255,255,.5)', boxShadow: `0 0 0 3px ${hexA(ACCENT, 0.5)}` }}>
+              {initial(identity.name || identity.nickname)}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <label htmlFor="onboard-name" style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.8, color: 'rgba(255,255,255,.5)' }}>NAME</label>
@@ -241,6 +270,7 @@ export default function OnboardingPage({ lockerOnly = false }) {
                 onChange={(e) => setNameInput(e.target.value)}
                 placeholder="Your name"
                 autoComplete="off"
+                autoCapitalize="words"
                 maxLength={24}
                 style={S.nameInput}
               />
@@ -255,6 +285,7 @@ export default function OnboardingPage({ lockerOnly = false }) {
             value={handle}
             onChange={(e) => setHandle(e.target.value)}
             placeholder="@handle (optional)"
+            aria-label="Handle"
             autoComplete="off"
             autoCapitalize="none"
             autoCorrect="off"
@@ -264,6 +295,7 @@ export default function OnboardingPage({ lockerOnly = false }) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Email"
+            aria-label="Email"
             type="email"
             inputMode="email"
             autoComplete="email"
@@ -275,17 +307,12 @@ export default function OnboardingPage({ lockerOnly = false }) {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="Phone"
+            aria-label="Phone"
             type="tel"
             inputMode="tel"
             autoComplete="tel"
             style={S.lockerField}
           />
-          {!ready && (
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,.5)', margin: '4px 2px 0' }}>
-              Add an email or phone number to continue.
-            </div>
-          )}
-
           <div style={{ ...S.noteCard, marginTop: 14 }}>
             <span style={{ fontSize: 15 }}>🔒</span>
             <span style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,.8)', lineHeight: 1.45 }}>
@@ -297,12 +324,18 @@ export default function OnboardingPage({ lockerOnly = false }) {
         {/* CTA */}
         <div style={S.footer}>
           <button
-            onClick={() => ready && finish(me)}
-            disabled={!ready}
-            style={{ ...S.primaryCta, opacity: ready ? 1 : 0.5, cursor: ready ? 'pointer' : 'not-allowed', boxShadow: ready ? S.primaryCta.boxShadow : 'none' }}
+            onClick={() => canFinish && finish()}
+            disabled={!canFinish}
+            aria-disabled={!canFinish}
+            style={{ ...S.primaryCta, opacity: canFinish ? 1 : 0.5, cursor: canFinish ? 'pointer' : 'not-allowed', boxShadow: canFinish ? S.primaryCta.boxShadow : 'none' }}
           >
             Enter Golo
           </button>
+          {!canFinish && (
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,.55)', textAlign: 'center', margin: '10px 2px 0' }}>
+              Add an email or phone to continue.
+            </div>
+          )}
         </div>
       </div>
     </div>

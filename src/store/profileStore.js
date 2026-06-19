@@ -21,6 +21,7 @@ const useProfileStore = create(
       nickname: null, // handle (shown as @nickname), or null
       email: null, // primary identifier (one of email/phone is expected)
       phone: null, // alternate identifier
+      handicapIndex: null, // saved handicap index, or null until known
       avatarUrl: null, // profile photo (Supabase Storage public URL), or null
       onboarded: false, // seen the first-run onboarding flow (set on finish or skip)
       homeClub: null, // optional home-club override; null = auto (most-played course)
@@ -32,6 +33,7 @@ const useProfileStore = create(
       setName: (name) => set({ name: name?.trim() || null }),
       setAvatarUrl: (url) => set({ avatarUrl: url || null }),
       setSkinsDefault: (cfg) => set({ skinsDefault: cfg ?? null }),
+      setHandicapIndex: (val) => set({ handicapIndex: val }),
       // Merge any subset of identity fields; pass null to clear a field. Name and
       // phone are kept as typed (they contain spaces) so a controlled input can
       // edit them freely — identity.js normalizes for matching at the point of

@@ -1,0 +1,15 @@
+# Netlify deploy config for the GoLo Vite + React Router SPA.
+# See README.md -> "Deploy to Netlify" for env vars and Supabase auth URLs.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Client-side routing: every path serves index.html so React Router can handle it.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

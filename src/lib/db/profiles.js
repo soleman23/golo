@@ -6,11 +6,18 @@ import { supabase, isSupabaseConfigured } from '../supabaseClient'
  * All calls no-op gracefully when the backend isn't configured.
  */
 
+const cleanHandicapIndex = (value) => {
+  if (value == null || value === '') return null
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
 const toDb = (f = {}) => ({
   email: f.email ?? null,
   name: f.name ?? null,
   nickname: f.nickname ?? null,
   phone: f.phone ?? null,
+  handicap_index: cleanHandicapIndex(f.handicapIndex),
   avatar_url: f.avatarUrl ?? null,
   home_club: f.homeClub ?? null,
   venmo: f.venmo ?? null,
@@ -26,6 +33,7 @@ const fromDb = (r) =>
     name: r.name ?? null,
     nickname: r.nickname ?? null,
     phone: r.phone ?? null,
+    handicapIndex: cleanHandicapIndex(r.handicap_index),
     avatarUrl: r.avatar_url ?? null,
     homeClub: r.home_club ?? null,
     venmo: r.venmo ?? null,

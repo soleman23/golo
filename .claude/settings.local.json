@@ -17,7 +17,8 @@
       "Skill(run)",
       "Skill(run:*)",
       "Bash(command -v chromium-cli)",
-      "Bash(command -v npx)"
+      "Bash(command -v npx)",
+      "Bash(node -e \"require\\('@babel/core'\\).transformFileSync\\('src/pages/PayoutsPage.jsx', {presets:[['@babel/preset-react',{runtime:'automatic'}]]}\\); console.log\\('JSX OK'\\)\")"
     ]
   }
 }

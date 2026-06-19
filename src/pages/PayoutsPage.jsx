@@ -66,7 +66,12 @@ function hexA(hex, a) {
 }
 
 const initial = (name) => (name || '').trim().charAt(0).toUpperCase() || '?'
-const round2 = (n) => Math.round(n * 100) / 100 // cents — avoids half-up sign asymmetry & matches History/You
+// cents — avoids half-up sign asymmetry & matches History/You. Normalises -0 so
+// money/signed never render a stray "−$0".
+const round2 = (n) => {
+  const v = Math.round((Number(n) || 0) * 100) / 100
+  return Object.is(v, -0) ? 0 : v
+}
 /** "$5" — magnitude only. */
 const money = (n) => `$${Math.abs(round2(n))}`
 /** Signed money the betting way: +$5, −$5, $0. */
@@ -155,8 +160,9 @@ export default function PayoutsPage() {
   const [meOverride, setMe] = useState(null) // hero player id, once the user taps
   const [paid, setPaid] = useState({}) // settlement key `${from}>${to}` → true
   const [expanded, setExpanded] = useState({}) // bet id → true
-  const [toast, setToast] = useState(false)
+  const [toast, setToast] = useState(null) // share-feedback message, or null
   const [celebrate, setCelebrate] = useState(false)
+  const [confirming, setConfirming] = useState(false) // final-complete confirm modal
   const [completing, setCompleting] = useState(false)
   const toastTimer = useRef()
   const savedRef = useRef(false)
@@ -266,17 +272,19 @@ export default function PayoutsPage() {
     setExpanded({ [betResults[0].id]: true })
   }, [betResults])
 
+  // Build + save the round snapshot to history (and mirror to Supabase). This is
+  // pure persistence — it does NOT finalize the live round. Idempotent: if a
+  // snapshot for this roundId already exists locally we skip, so a remount or a
+  // repeated effect never writes the same round twice.
   async function persistRound() {
     if (!round || players.length === 0) return null
-    completeRound()
-    const playerGameData = players
-      .filter((p) => hasContact(p))
-      .map((p) => {
+    if (historyRounds.some((r) => r.roundId === round.roundId)) return null
+    const playerGameData = players.map((p) => {
         const team = teams.find((t) => t.playerIds?.includes(p.id))
         return {
           playerId: p.id,
           key: playerKey(p),
-          verified: true,
+          verified: hasContact(p),
           player: {
             id: p.id,
             name: p.name,
@@ -340,7 +348,9 @@ export default function PayoutsPage() {
         gross: e.gross,
         net: e.net,
         toPar: e.toPar,
-        mix: scoringMix(scores[e.player.id], pars, totalHoles),
+        // Scramble has no per-player score rows — the leaderboard entities are
+        // teams there — so omit the mix rather than persist misleading zeros.
+        mix: isScramble ? null : scoringMix(scores[e.player.id], pars, totalHoles),
       })),
       betResults: betResults.map((b) => ({
         type: b.type,
@@ -479,10 +489,10 @@ export default function PayoutsPage() {
   const toggleGame = (id) => setExpanded((e) => ({ ...e, [id]: !e[id] }))
 
   const doShare = async () => {
-    await copyText(summaryText)
-    setToast(true)
+    const ok = await copyText(summaryText)
+    setToast(ok ? 'Summary copied — paste it in the group chat' : 'Couldn’t copy summary.')
     clearTimeout(toastTimer.current)
-    toastTimer.current = setTimeout(() => setToast(false), 1800)
+    toastTimer.current = setTimeout(() => setToast(null), 1800)
   }
 
   const doSettleAll = () => {
@@ -495,10 +505,16 @@ export default function PayoutsPage() {
     setPaid(next)
   }
 
+  // The explicit, final user action. Reached only from a deliberate gate — the
+  // footer Complete's confirm modal, or the "all settled" celebration overlay
+  // (itself entered via Mark all paid, with a Back-to-summary escape). Marks the
+  // live round complete, guarantees the snapshot is saved, then wipes the live
+  // round and heads to the locker. resetRound() never fires on its own.
   const handleCompleteRound = async () => {
     if (completing) return
     setCompleting(true)
     try {
+      completeRound()
       await persistRound()
     } finally {
       resetRound()
@@ -510,7 +526,14 @@ export default function PayoutsPage() {
 
   return (
     <div style={S.root}>
-      <div style={{ ...S.backdrop, backgroundImage: `url('${backdrop}')` }} />
+      <div
+        style={{
+          ...S.backdrop,
+          // Layer the course photo over a turf gradient so a missing/slow image
+          // never leaves a blank backdrop.
+          backgroundImage: `url(${backdrop}), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)`,
+        }}
+      />
       <div style={S.scrim} />
 
       <div style={S.column}>
@@ -569,12 +592,17 @@ export default function PayoutsPage() {
             <span style={S.sectionLabel}>NET WINNINGS</span>
             <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.42)' }}>tap to view as</span>
           </div>
-          {standings.map((r, i) => {
+          {standings.length === 0 ? (
+            <div style={S.emptyCard}>No completed results yet.</div>
+          ) : (
+            standings.map((r, i) => {
             const isMe = r.id === me
             return (
               <button
                 key={r.id}
                 onClick={() => setMe(r.id)}
+                aria-pressed={!!isMe}
+                aria-label={`Show payouts as ${r.name}`}
                 style={{ ...S.standRow, border: `1px solid ${isMe ? hexA(ACCENT, 0.6) : 'rgba(255,255,255,.12)'}` }}
               >
                 <span style={{ fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,.5)', width: 16, flex: '0 0 auto', textAlign: 'center' }}>
@@ -593,7 +621,8 @@ export default function PayoutsPage() {
                 <span style={{ fontSize: 20, fontWeight: 800, color: ncd(r.win), flex: '0 0 auto' }}>{signed(r.win)}</span>
               </button>
             )
-          })}
+          })
+          )}
 
           {/* WHO PAYS WHOM · transfers */}
           <div style={S.sectionRow}>
@@ -603,7 +632,7 @@ export default function PayoutsPage() {
             </span>
           </div>
           {transfers.length === 0 ? (
-            <div style={S.emptyCard}>All square — nobody owes anybody. Rare, and worth a photo.</div>
+            <div style={S.emptyCard}>All square — no payouts to settle.</div>
           ) : (
             transfers.map((t) => (
               <div
@@ -626,6 +655,8 @@ export default function PayoutsPage() {
                 <span style={{ fontSize: 17, fontWeight: 800, color: '#fff', flex: '0 0 auto' }}>{t.amount}</span>
                 <button
                   onClick={() => togglePaid(t.key)}
+                  aria-pressed={!!t.paid}
+                  aria-label={`${t.label}, ${t.amount}. ${t.paid ? 'Paid — tap to undo' : 'Mark paid'}`}
                   style={{
                     flex: '0 0 auto',
                     minHeight: 36,
@@ -654,7 +685,12 @@ export default function PayoutsPage() {
               const open = !!expanded[g.id]
               return (
                 <div key={g.id} style={S.gameCard}>
-                  <button onClick={() => toggleGame(g.id)} style={S.gameHead}>
+                  <button
+                    onClick={() => toggleGame(g.id)}
+                    aria-expanded={!!open}
+                    aria-label={`${open ? 'Collapse' : 'Expand'} ${g.name} breakdown`}
+                    style={S.gameHead}
+                  >
                     <span style={S.gameIcon}>{g.icon}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 15.5, fontWeight: 800, color: '#fff' }}>{g.name}</div>
@@ -707,7 +743,7 @@ export default function PayoutsPage() {
 
         {/* footer --------------------------------------------------------- */}
         <div style={S.footer}>
-          <button onClick={handleCompleteRound} disabled={completing} style={{ ...S.completeBtn, opacity: completing ? 0.68 : 1, cursor: completing ? 'wait' : 'pointer' }}>
+          <button onClick={() => setConfirming(true)} disabled={completing} style={{ ...S.completeBtn, opacity: completing ? 0.68 : 1, cursor: completing ? 'wait' : 'pointer' }}>
             {completing ? 'Completing...' : 'Complete'}
           </button>
           <div style={S.footerRow}>
@@ -720,7 +756,7 @@ export default function PayoutsPage() {
       {/* SHARE TOAST */}
       {toast && (
         <div style={S.toastWrap}>
-          <div style={S.toast}>Summary copied — paste it in the group chat</div>
+          <div style={S.toast} role="status" aria-live="polite">{toast}</div>
         </div>
       )}
 
@@ -741,6 +777,24 @@ export default function PayoutsPage() {
           </div>
         </div>
       )}
+
+      {/* CONFIRM · final completion (gates the destructive resetRound) */}
+      {confirming && (
+        <div style={{ ...S.modalWrap, zIndex: 60 }} role="dialog" aria-modal="true" aria-label="Complete round">
+          <div onClick={() => !completing && setConfirming(false)} style={S.modalScrim} />
+          <div style={S.modalCard}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', letterSpacing: -0.3 }}>Complete this round?</div>
+            <div style={{ fontSize: 14, color: 'rgba(255,255,255,.62)', marginTop: 10, lineHeight: 1.5 }}>
+              Your results are already saved to history — completing just closes out
+              the live round. You can still review payouts before you leave.
+            </div>
+            <button onClick={handleCompleteRound} disabled={completing} style={{ ...S.modalPrimary, opacity: completing ? 0.68 : 1, cursor: completing ? 'wait' : 'pointer' }}>
+              {completing ? 'Completing...' : 'Complete round'}
+            </button>
+            <button onClick={() => setConfirming(false)} disabled={completing} style={S.modalGhost}>Keep reviewing</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -753,7 +807,12 @@ const S = {
     fontFamily: "system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif", color: '#fff',
     background: 'radial-gradient(120% 70% at 50% 0%, #2a7d4a 0%, #14532d 45%, #0a2418 85%)',
   },
-  backdrop: { position: 'absolute', inset: 0, backgroundSize: 'cover', backgroundPosition: '50% 60%' },
+  backdrop: {
+    position: 'absolute', inset: 0,
+    // Gradient fallback first, then size/position so they survive the shorthand.
+    background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)',
+    backgroundSize: 'cover', backgroundPosition: 'center',
+  },
   scrim: {
     position: 'absolute', inset: 0, pointerEvents: 'none',
     background: 'linear-gradient(180deg, rgba(6,14,9,.74) 0%, rgba(6,14,9,.6) 26%, rgba(6,16,10,.66) 58%, rgba(4,12,8,.9) 100%)',

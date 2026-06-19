@@ -41,10 +41,13 @@ export default function AuthPage() {
   const [notice, setNotice] = useState(null)
 
   const isCreate = mode === 'create'
-  const emailOk = /\S+@\S+\.\S+/.test(email.trim())
+  const emailOk = /\S+@\S+\.\S+/.test(email.trim().toLowerCase())
   const passOk = password.length >= 6
   const matchOk = !isCreate || confirm === password
   const ready = emailOk && passOk && matchOk && !busy
+  const showEmailHelp = email.trim().length > 0 && !emailOk
+  const showPasswordHelp = password.length > 0 && !passOk
+  const showMatchHelp = isCreate && confirm.length > 0 && !matchOk
 
   const switchMode = (next) => {
     setMode(next)
@@ -55,25 +58,36 @@ export default function AuthPage() {
 
   const submit = async (e) => {
     e.preventDefault()
-    if (!ready) return
+    const safeEmail = email.trim().toLowerCase()
+    const safePassword = password
+    const safeEmailOk = /\S+@\S+\.\S+/.test(safeEmail)
+    const safePassOk = safePassword.length >= 6
+    const safeMatchOk = !isCreate || confirm === safePassword
+    if (busy || !safeEmailOk || !safePassOk || !safeMatchOk) return
+
     setBusy(true)
     setError(null)
     setNotice(null)
-    const fn = isCreate ? signUp : signIn
-    const { data, error: err } = await fn({ email, password })
-    setBusy(false)
-    if (err) {
-      setError(err.message || 'Something went wrong. Try again.')
-      return
+    try {
+      const fn = isCreate ? signUp : signIn
+      const { data, error: err } = await fn({ email: safeEmail, password: safePassword })
+      if (err) {
+        setError(err.message || 'Something went wrong. Try again.')
+        return
+      }
+      // Sign-up with email confirmation returns no session — tell the user.
+      if (isCreate && !data?.session) {
+        setNotice('Check your inbox to confirm your email, then sign in.')
+        setMode('signin')
+        setPassword('')
+        setConfirm('')
+      }
+      // On success with a session, App re-renders via the auth store and routes on.
+    } catch {
+      setError('Something went wrong. Try again.')
+    } finally {
+      setBusy(false)
     }
-    // Sign-up with email confirmation returns no session — tell the user.
-    if (isCreate && !data?.session) {
-      setNotice('Check your inbox to confirm your email, then sign in.')
-      setMode('signin')
-      setPassword('')
-      setConfirm('')
-    }
-    // On success with a session, App re-renders via the auth store and routes on.
   }
 
   return (
@@ -107,8 +121,9 @@ export default function AuthPage() {
             </div>
           )}
 
-          <label style={S.fieldLabel}>EMAIL</label>
+          <label htmlFor="auth-email" style={S.fieldLabel}>EMAIL</label>
           <input
+            id="auth-email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
@@ -119,9 +134,11 @@ export default function AuthPage() {
             autoCorrect="off"
             style={S.field}
           />
+          {showEmailHelp && <div style={S.errText}>Enter a valid email.</div>}
 
-          <label style={S.fieldLabel}>PASSWORD</label>
+          <label htmlFor="auth-password" style={S.fieldLabel}>PASSWORD</label>
           <input
+            id="auth-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder={isCreate ? 'At least 6 characters' : 'Your password'}
@@ -129,11 +146,13 @@ export default function AuthPage() {
             autoComplete={isCreate ? 'new-password' : 'current-password'}
             style={S.field}
           />
+          {showPasswordHelp && <div style={S.errText}>Password must be at least 6 characters.</div>}
 
           {isCreate && (
             <>
-              <label style={S.fieldLabel}>CONFIRM PASSWORD</label>
+              <label htmlFor="auth-confirm" style={S.fieldLabel}>CONFIRM PASSWORD</label>
               <input
+                id="auth-confirm"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 placeholder="Re-enter your password"
@@ -141,15 +160,13 @@ export default function AuthPage() {
                 autoComplete="new-password"
                 style={S.field}
               />
-              {confirm.length > 0 && !matchOk && (
-                <div style={S.errText}>Passwords don't match.</div>
-              )}
+              {showMatchHelp && <div style={S.errText}>Passwords do not match.</div>}
             </>
           )}
 
           {error && <div style={{ ...S.errText, marginTop: 12 }}>{error}</div>}
 
-          <button type="submit" disabled={!ready} style={{ ...S.primaryCta, opacity: ready ? 1 : 0.5, cursor: ready ? 'pointer' : 'not-allowed', marginTop: 20 }}>
+          <button type="submit" disabled={!ready || busy} style={{ ...S.primaryCta, opacity: ready && !busy ? 1 : 0.5, cursor: ready && !busy ? 'pointer' : 'not-allowed', marginTop: 20 }}>
             {busy ? 'One sec…' : isCreate ? 'Create account' : 'Sign in'}
           </button>
 
@@ -162,7 +179,7 @@ export default function AuthPage() {
                 Golo never posts for you and never charges a card. Settle-up always needs your tap.
               </span>
             </div>
-            <button type="button" onClick={() => switchMode(isCreate ? 'signin' : 'create')} style={S.linkBtn}>
+            <button type="button" onClick={() => switchMode(isCreate ? 'signin' : 'create')} aria-pressed={!!isCreate} style={S.linkBtn}>
               {isCreate ? 'Already play with Golo? ' : 'New to Golo? '}
               <span style={{ color: ACCENT, fontWeight: 800 }}>{isCreate ? 'Sign in' : 'Create an account'}</span>
             </button>

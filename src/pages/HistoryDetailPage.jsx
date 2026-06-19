@@ -23,6 +23,8 @@ const COURSE_BG = {
   'Tetherow': '/courses/tetherow.jpg',
   'Lost Tracks Golf Course': '/courses/losttracks.webp',
 }
+const COURSE_FALLBACK_BG = 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)'
+const DEFAULT_COURSE_BG = '/courses/course.png'
 
 /* ------------------------------------------------------------------- helpers */
 
@@ -37,34 +39,64 @@ function hexA(hex, a) {
 }
 
 const initial = (name) => (name || '').trim().charAt(0).toUpperCase() || '?'
-const round2 = (n) => Math.round(n * 100) / 100 // cents — matches the live Payout page & History list
+const asArray = (value) => (Array.isArray(value) ? value : [])
+const courseBg = (course) => COURSE_BG[course] ?? DEFAULT_COURSE_BG
+const layeredCourseBg = (bg) => `url(${bg}), ${COURSE_FALLBACK_BG}`
+const round2 = (n) => {
+  const value = Number(n)
+  if (!Number.isFinite(value)) return 0
+  const rounded = Math.round((value + Number.EPSILON) * 100) / 100
+  return Object.is(rounded, -0) ? 0 : rounded
+}
 const money = (n) => `$${Math.abs(round2(n))}`
 const signed = (n) => {
   const v = round2(n)
   if (v > 0) return `+$${v}`
-  if (v < 0) return `−$${-v}`
+  if (v < 0) return `−$${Math.abs(v)}`
   return '$0'
 }
-const ncd = (n) => (n > 0 ? '#bef264' : n < 0 ? '#fb7185' : 'rgba(255,255,255,.72)')
-const vpl = (n) => (n === 0 ? 'E' : n > 0 ? `+${n}` : `${n}`)
+const ncd = (n) => {
+  const value = round2(n)
+  return value > 0 ? '#bef264' : value < 0 ? '#fb7185' : 'rgba(255,255,255,.72)'
+}
+const vpl = (n) => {
+  const value = round2(n)
+  return value === 0 ? 'E' : value > 0 ? `+${value}` : `${value}`
+}
+const safeRecord = (value) => (value && typeof value === 'object' ? value : {})
+const roundDateLabel = (r) => {
+  const raw = r?.date ?? r?.completedAt
+  if (!raw) return 'Date unknown'
+  const date = new Date(raw)
+  if (Number.isNaN(date.getTime())) return String(raw)
+  return r?.date || date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+}
 
 async function copyText(text) {
   try {
-    await navigator.clipboard.writeText(text)
-    return true
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
   } catch {
-    try {
-      const ta = document.createElement('textarea')
-      ta.value = text
-      ta.style.position = 'fixed'
-      ta.style.opacity = '0'
-      document.body.appendChild(ta)
-      ta.select()
-      const ok = document.execCommand('copy')
-      document.body.removeChild(ta)
-      return ok
-    } catch {
-      return false
+    // Fall through to the textarea fallback.
+  }
+
+  if (typeof document === 'undefined') return false
+  let ta
+  try {
+    ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    return document.execCommand('copy')
+  } catch {
+    return false
+  } finally {
+    if (ta?.parentNode) {
+      ta.parentNode.removeChild(ta)
     }
   }
 }
@@ -74,34 +106,45 @@ async function copyText(text) {
 export default function HistoryDetailPage() {
   const { roundId } = useParams()
   const navigate = useNavigate()
-  const round = useHistoryStore((s) => s.rounds.find((r) => r.roundId === roundId))
+  const round = useHistoryStore((s) => asArray(s.rounds).find((r) => r?.roundId === roundId))
   const removeRound = useHistoryStore((s) => s.removeRound)
 
   const [expanded, setExpanded] = useState({})
-  const [toast, setToast] = useState(false)
+  const [toast, setToast] = useState('')
 
   // Round was deleted or the id is bad — back to the list.
   if (!round) return <Navigate to="/history" replace />
 
-  const players = round.players ?? []
-  const playerById = Object.fromEntries(players.map((p) => [p.id, p]))
+  const players = asArray(round.players)
+  const playerById = Object.fromEntries(players.filter((p) => p?.id != null).map((p) => [p.id, p]))
   const colorOf = (id) => playerById[id]?.color // saved snapshots store only {id,name}; may be undefined
   const nameOf = (id) => playerById[id]?.name ?? '—'
 
-  const leaderboard = round.leaderboard ?? []
-  const betResults = round.betResults ?? []
-  const settlements = round.settlements ?? []
-  const totalAction = round2(settlements.reduce((sum, s) => sum + s.amount, 0))
-  const winners = leaderboard.filter((e) => e.rank === 1)
-  const backdrop = COURSE_BG[round.course] ?? '/courses/course.png'
+  const leaderboard = asArray(round.leaderboard)
+  const betResults = asArray(round.betResults)
+  const settlements = asArray(round.settlements)
+  const totalAction = round2(settlements.reduce((sum, s) => {
+    const amount = Number(s?.amount)
+    return Number.isFinite(amount) ? sum + amount : sum
+  }, 0))
+  const winners = leaderboard.filter((e) => Number(e?.rank) === 1)
+  const winnerNames = winners.map((w) => w?.name).filter(Boolean)
+  const backdrop = courseBg(round.course)
+  const summaryText = typeof round.summaryText === 'string' ? round.summaryText : ''
+  const courseLabel = round.course || 'Saved round'
+  const dateLabel = roundDateLabel(round)
 
   const toggleGame = (i) => setExpanded((e) => ({ ...e, [i]: !e[i] }))
 
   const doShare = async () => {
-    if (!round.summaryText) return
-    await copyText(round.summaryText)
-    setToast(true)
-    setTimeout(() => setToast(false), 1800)
+    if (!summaryText) {
+      setToast('Couldn’t copy summary.')
+      setTimeout(() => setToast(''), 1800)
+      return
+    }
+    const copied = await copyText(summaryText)
+    setToast(copied ? 'Summary copied — paste it in the group chat' : 'Couldn’t copy summary.')
+    setTimeout(() => setToast(''), 1800)
   }
 
   const handleDelete = () => {
@@ -113,7 +156,7 @@ export default function HistoryDetailPage() {
 
   return (
     <div style={S.root}>
-      <div style={{ ...S.backdrop, backgroundImage: `url('${backdrop}')` }} />
+      <div style={{ ...S.backdrop, background: COURSE_FALLBACK_BG, backgroundImage: layeredCourseBg(backdrop), backgroundSize: 'cover', backgroundPosition: 'center' }} />
       <div style={S.scrim} />
 
       <div style={S.column}>
@@ -127,13 +170,13 @@ export default function HistoryDetailPage() {
             <div style={S.coursePill}>
               <span style={{ width: 7, height: 7, borderRadius: '50%', flex: '0 0 auto', background: ACCENT }} />
               <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {round.course || 'Round'}
+                {courseLabel}
               </span>
             </div>
           </div>
-          <div style={{ fontSize: 26, fontWeight: 800, marginTop: 8, letterSpacing: -0.5 }}>{round.course || 'Round'}</div>
+          <div style={{ fontSize: 26, fontWeight: 800, marginTop: 8, letterSpacing: -0.5 }}>{courseLabel}</div>
           <div style={{ fontSize: 13, color: 'rgba(255,255,255,.6)', marginTop: 2 }}>
-            {round.date} · {round.holes ?? 18} holes
+            {dateLabel} · {round.holes ?? 18} holes
           </div>
         </div>
 
@@ -141,51 +184,61 @@ export default function HistoryDetailPage() {
         <div style={S.scroll}>
           {/* LEADERBOARD */}
           <div style={S.sectionLabel}>FINAL LEADERBOARD</div>
-          {winners.length > 0 && (
+          {winnerNames.length > 0 && (
             <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', margin: '4px 2px 10px' }}>
-              🏆 {winners.map((w) => w.name).join(' & ')}
+              🏆 {winnerNames.join(' & ')}
             </div>
           )}
-          {leaderboard.map((e) => (
-            <div
-              key={e.name}
-              style={{ ...S.lbRow, border: `1px solid ${e.rank === 1 ? hexA(ACCENT, 0.5) : 'rgba(255,255,255,.12)'}` }}
-            >
-              <span style={{ fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,.5)', width: 16, flex: '0 0 auto', textAlign: 'center' }}>{e.rank}</span>
-              <span style={{ ...S.avatar, width: 34, height: 34, fontSize: 14, background: '#2dd4bf' }}>{initial(e.name)}</span>
-              <span style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</span>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flex: '0 0 auto' }}>
-                <span style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', width: 40, textAlign: 'right' }}>{e.gross || '–'}</span>
-                <span style={{ fontSize: 17, fontWeight: 800, color: '#fff', width: 30, textAlign: 'right' }}>{e.net || '–'}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,.6)', width: 34, textAlign: 'right' }}>{vpl(e.toPar ?? 0)}</span>
+          {leaderboard.length === 0 ? (
+            <div style={S.emptyCard}>No saved leaderboard.</div>
+          ) : (
+            <>
+              {leaderboard.map((e, i) => (
+                <div
+                  key={`${e?.name ?? 'player'}-${e?.rank ?? i}`}
+                  style={{ ...S.lbRow, border: `1px solid ${Number(e?.rank) === 1 ? hexA(ACCENT, 0.5) : 'rgba(255,255,255,.12)'}` }}
+                >
+                  <span style={{ fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,.5)', width: 16, flex: '0 0 auto', textAlign: 'center' }}>{e?.rank ?? '–'}</span>
+                  <span style={{ ...S.avatar, width: 34, height: 34, fontSize: 14, background: '#2dd4bf' }}>{initial(e?.name)}</span>
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e?.name || 'Player'}</span>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flex: '0 0 auto' }}>
+                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', width: 40, textAlign: 'right' }}>{e?.gross ?? '–'}</span>
+                    <span style={{ fontSize: 17, fontWeight: 800, color: '#fff', width: 30, textAlign: 'right' }}>{e?.net ?? '–'}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,.6)', width: 34, textAlign: 'right' }}>{vpl(e?.toPar ?? 0)}</span>
+                  </div>
+                </div>
+              ))}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, padding: '2px 4px 0', fontSize: 9, fontWeight: 800, letterSpacing: 0.6, color: 'rgba(255,255,255,.35)' }}>
+                <span style={{ width: 40, textAlign: 'right' }}>GROSS</span>
+                <span style={{ width: 30, textAlign: 'right' }}>NET</span>
+                <span style={{ width: 34, textAlign: 'right' }}>PAR</span>
               </div>
-            </div>
-          ))}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, padding: '2px 4px 0', fontSize: 9, fontWeight: 800, letterSpacing: 0.6, color: 'rgba(255,255,255,.35)' }}>
-            <span style={{ width: 40, textAlign: 'right' }}>GROSS</span>
-            <span style={{ width: 30, textAlign: 'right' }}>NET</span>
-            <span style={{ width: 34, textAlign: 'right' }}>PAR</span>
-          </div>
+            </>
+          )}
 
           {/* GAMES */}
           <div style={{ ...S.sectionLabel, margin: '20px 2px 9px' }}>THE GAMES</div>
           {betResults.length === 0 ? (
-            <div style={S.emptyCard}>No games on this round.</div>
+            <div style={S.emptyCard}>No saved game breakdown.</div>
           ) : (
             betResults.map((b, i) => {
               const open = !!expanded[i]
-              const pot = round2(Object.values(b.payouts ?? {}).reduce((s, v) => (v > 0 ? s + v : s), 0))
-              const chips = Object.entries(b.payouts ?? {})
-                .map(([id, v]) => ({ id, v, color: colorOf(id), name: nameOf(id) }))
+              const payouts = safeRecord(b?.payouts)
+              const pot = round2(Object.values(payouts).reduce((s, v) => {
+                const value = Number(v)
+                return value > 0 ? s + value : s
+              }, 0))
+              const chips = Object.entries(payouts)
+                .map(([id, v]) => ({ id, v: round2(v), color: colorOf(id), name: nameOf(id) }))
                 .sort((a, c) => c.v - a.v)
-              const lines = b.lines ?? []
+              const lines = asArray(b?.lines).filter((line) => line != null)
               return (
                 <div key={i} style={S.gameCard}>
-                  <button onClick={() => toggleGame(i)} style={S.gameHead}>
-                    <span style={S.gameIcon}>{b.icon ?? '🎲'}</span>
+                  <button onClick={() => toggleGame(i)} aria-expanded={!!open} style={S.gameHead}>
+                    <span style={S.gameIcon}>{b?.icon ?? '🎲'}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 15.5, fontWeight: 800, color: '#fff' }}>{b.name}</div>
-                      <div style={{ fontSize: 12, color: 'rgba(255,255,255,.55)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.headline}</div>
+                      <div style={{ fontSize: 15.5, fontWeight: 800, color: '#fff' }}>{b?.name || 'Saved game'}</div>
+                      <div style={{ fontSize: 12, color: 'rgba(255,255,255,.55)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b?.headline || 'Saved game result'}</div>
                     </div>
                     {pot > 0 && <span style={{ fontSize: 13, fontWeight: 800, color: ACCENT, flex: '0 0 auto' }}>${pot} pot</span>}
                     {lines.length > 0 && <span style={{ fontSize: 13, color: 'rgba(255,255,255,.5)', flex: '0 0 auto', width: 14, textAlign: 'center' }}>{open ? '▾' : '▸'}</span>}
@@ -220,17 +273,17 @@ export default function HistoryDetailPage() {
             {settlements.length > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.5)' }}>${totalAction} action</span>}
           </div>
           {settlements.length === 0 ? (
-            <div style={S.emptyCard}>All square — nobody owed anybody.</div>
+            <div style={S.emptyCard}>No payouts recorded.</div>
           ) : (
             settlements.map((s, i) => (
-              <div key={`${s.from}-${s.to}-${i}`} style={S.transferRow}>
-                <span style={{ ...S.avatar, width: 32, height: 32, fontSize: 13, boxShadow: 'none', background: colorOf(s.from) ?? '#2dd4bf' }}>{initial(nameOf(s.from))}</span>
+              <div key={`${s?.from}-${s?.to}-${i}`} style={S.transferRow}>
+                <span style={{ ...S.avatar, width: 32, height: 32, fontSize: 13, boxShadow: 'none', background: colorOf(s?.from) ?? '#2dd4bf' }}>{initial(nameOf(s?.from))}</span>
                 <span style={{ fontSize: 18, color: 'rgba(255,255,255,.45)', flex: '0 0 auto' }}>→</span>
-                <span style={{ ...S.avatar, width: 32, height: 32, fontSize: 13, boxShadow: 'none', background: colorOf(s.to) ?? '#2dd4bf' }}>{initial(nameOf(s.to))}</span>
+                <span style={{ ...S.avatar, width: 32, height: 32, fontSize: 13, boxShadow: 'none', background: colorOf(s?.to) ?? '#2dd4bf' }}>{initial(nameOf(s?.to))}</span>
                 <div style={{ flex: 1, minWidth: 0, marginLeft: 2 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nameOf(s.from)} pays {nameOf(s.to)}</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nameOf(s?.from)} pays {nameOf(s?.to)}</div>
                 </div>
-                <span style={{ fontSize: 17, fontWeight: 800, color: '#fff', flex: '0 0 auto' }}>{money(s.amount)}</span>
+                <span style={{ fontSize: 17, fontWeight: 800, color: '#fff', flex: '0 0 auto' }}>{money(s?.amount)}</span>
               </div>
             ))
           )}
@@ -240,7 +293,7 @@ export default function HistoryDetailPage() {
         </div>
 
         {/* footer --------------------------------------------------------- */}
-        {round.summaryText && (
+        {summaryText && (
           <div style={S.footer}>
             <button onClick={doShare} style={S.shareBtn}>↗ Share summary</button>
           </div>
@@ -250,7 +303,7 @@ export default function HistoryDetailPage() {
       {/* SHARE TOAST */}
       {toast && (
         <div style={S.toastWrap}>
-          <div style={S.toast}>Summary copied — paste it in the group chat</div>
+          <div style={S.toast}>{toast}</div>
         </div>
       )}
     </div>

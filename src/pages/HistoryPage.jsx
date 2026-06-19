@@ -35,6 +35,8 @@ const COURSE_BG = {
   'Tetherow': '/courses/tetherow.jpg',
   'Lost Tracks Golf Course': '/courses/losttracks.webp',
 }
+const COURSE_FALLBACK_BG = 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)'
+const DEFAULT_COURSE_BG = '/courses/course.png'
 
 /* ------------------------------------------------------------------- helpers */
 
@@ -48,22 +50,53 @@ function hexA(hex, a) {
   return `rgba(${r},${g},${b},${a})`
 }
 
-const signed = (n) => (n > 0 ? `+$${n}` : n < 0 ? `−$${-n}` : '$0')
-const mcol = (n) => (n > 0 ? '#bef264' : n < 0 ? '#fb7185' : 'rgba(255,255,255,.7)')
-const ord = (n) => {
-  const s = ['th', 'st', 'nd', 'rd']
-  const v = n % 100
-  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`
+const asArray = (value) => (Array.isArray(value) ? value : [])
+const courseBg = (course) => COURSE_BG[course] ?? DEFAULT_COURSE_BG
+const layeredCourseBg = (bg) => `url(${bg}), ${COURSE_FALLBACK_BG}`
+const round2 = (n) => {
+  const value = Number(n)
+  if (!Number.isFinite(value)) return 0
+  const rounded = Math.round((value + Number.EPSILON) * 100) / 100
+  return Object.is(rounded, -0) ? 0 : rounded
 }
-const round2 = (n) => +n.toFixed(2)
+const signed = (n) => {
+  const value = round2(n)
+  if (value > 0) return `+$${value}`
+  if (value < 0) return `−$${Math.abs(value)}`
+  return '$0'
+}
+const mcol = (n) => {
+  const value = round2(n)
+  return value > 0 ? '#bef264' : value < 0 ? '#fb7185' : 'rgba(255,255,255,.7)'
+}
+const ord = (n) => {
+  const value = Number(n)
+  if (!Number.isFinite(value)) return '—'
+  const whole = Math.trunc(value)
+  const s = ['th', 'st', 'nd', 'rd']
+  const v = whole % 100
+  return `${whole}${s[(v - 20) % 10] || s[v] || s[0]}`
+}
 
 /** Total action (sum of settlement transfers) in a saved round. */
-const totalAction = (r) => round2((r.settlements ?? []).reduce((sum, s) => sum + s.amount, 0))
+const totalAction = (r) => round2(asArray(r?.settlements).reduce((sum, s) => {
+  const amount = Number(s?.amount)
+  return Number.isFinite(amount) ? sum + amount : sum
+}, 0))
 
 /** Rank-1 finisher name(s) from a saved leaderboard snapshot. */
 function winnerName(r) {
-  const winners = (r.leaderboard ?? []).filter((e) => e.rank === 1)
-  return winners.length ? winners.map((w) => w.name).join(' & ') : '—'
+  const winners = asArray(r?.leaderboard).filter((e) => Number(e?.rank) === 1)
+  const names = winners.map((w) => w?.name).filter(Boolean)
+  return names.length ? names.join(' & ') : '—'
+}
+
+const roundDateLabel = (r) => {
+  const raw = r?.date ?? r?.completedAt
+  if (!raw) return 'Date unknown'
+  const date = new Date(raw)
+  if (Number.isNaN(date.getTime())) return String(raw)
+  return r?.date || date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 /* --------------------------------------------------------------- component */
@@ -76,44 +109,50 @@ export default function HistoryPage() {
   const profileNick = useProfileStore((s) => s.nickname)
   const profileEmail = useProfileStore((s) => s.email)
   const profilePhone = useProfileStore((s) => s.phone)
+  const savedRounds = asArray(rounds)
 
   // "You" = the profile's identity (email/phone/name), else the most-frequent
   // player across history. Matching is by identity key.
   const profile = { name: profileName, nickname: profileNick, email: profileEmail, phone: profilePhone }
   const meKey = useMemo(
-    () => playerKey(profile) ?? autoKey(rounds),
-    [profileName, profileNick, profileEmail, profilePhone, rounds] // eslint-disable-line react-hooks/exhaustive-deps
+    () => playerKey(profile) ?? autoKey(savedRounds),
+    [profileName, profileNick, profileEmail, profilePhone, savedRounds] // eslint-disable-line react-hooks/exhaustive-deps
   )
-  const nameByKey = useMemo(() => namesByKey(rounds), [rounds])
+  const nameByKey = useMemo(() => namesByKey(savedRounds), [savedRounds])
   const meName = displayName(profile) || (meKey ? nameByKey[meKey] : null) || null
 
   // Per-round display model (history store is already newest-first).
   const items = useMemo(
     () =>
-      rounds.map((r) => {
-        const me = meKey ? r.leaderboard?.find((e) => entryMatches(e, meKey, meName)) : null
+      savedRounds.map((r, i) => {
+        const leaderboard = asArray(r?.leaderboard)
+        const betResults = asArray(r?.betResults)
+        const me = meKey ? leaderboard.find((e) => entryMatches(e, meKey, meName)) : null
+        const rank = Number(me?.rank)
+        const winner = winnerName(r)
         return {
-          roundId: r.roundId,
-          course: r.course || 'Round',
-          date: r.date,
-          bg: COURSE_BG[r.course] ?? '/courses/course.png',
-          games: (r.betResults ?? []).map((b) => b.name).join(' · ') || 'No games',
-          net: myNetInRoundByKey(r, meKey),
-          place: me ? `${ord(me.rank)} of ${r.leaderboard.length}` : `🏆 ${winnerName(r)}`,
+          key: r?.roundId ?? `${r?.course ?? 'round'}-${r?.date ?? r?.completedAt ?? 'unknown'}-${i}`,
+          roundId: r?.roundId,
+          course: r?.course || 'Saved round',
+          date: roundDateLabel(r),
+          bg: courseBg(r?.course),
+          games: betResults.map((b) => b?.name).filter(Boolean).join(' · ') || 'No games',
+          net: meKey ? myNetInRoundByKey(r, meKey) : 0,
+          place: me && leaderboard.length && Number.isFinite(rank) ? `${ord(rank)} of ${leaderboard.length}` : winner === '—' ? '—' : `🏆 ${winner}`,
           action: totalAction(r),
         }
       }),
-    [rounds, meKey, meName]
+    [savedRounds, meKey, meName]
   )
 
   const handleClear = () => {
-    if (rounds.length === 0) return
+    if (savedRounds.length === 0) return
     if (window.confirm('Clear all saved rounds? This cannot be undone.')) clearHistory()
   }
 
   return (
     <div style={S.root}>
-      <div style={{ ...S.backdrop, backgroundImage: `url('${BACKDROP}')` }} />
+      <div style={{ ...S.backdrop, background: COURSE_FALLBACK_BG, backgroundImage: `url(${BACKDROP}), ${COURSE_FALLBACK_BG}`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
       <div style={S.scrim} />
 
       <div style={S.column}>
@@ -128,12 +167,10 @@ export default function HistoryPage() {
               <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: ACCENT }}>YOUR ROUNDS</div>
               <div style={{ fontSize: 28, fontWeight: 800, marginTop: 6, letterSpacing: -0.5 }}>History</div>
               <div style={{ fontSize: 13, color: 'rgba(255,255,255,.6)', marginTop: 2 }}>
-                {rounds.length} saved {rounds.length === 1 ? 'round' : 'rounds'}
+                {savedRounds.length} saved {savedRounds.length === 1 ? 'round' : 'rounds'}
               </div>
             </div>
-            {rounds.length > 0 && (
-              <button onClick={handleClear} style={S.clearBtn}>Clear all</button>
-            )}
+            <button onClick={savedRounds.length === 0 ? undefined : handleClear} disabled={savedRounds.length === 0} style={{ ...S.clearBtn, ...(savedRounds.length === 0 ? S.clearBtnDisabled : null) }}>Clear all</button>
           </div>
         </div>
 
@@ -142,9 +179,9 @@ export default function HistoryPage() {
           {items.length === 0 ? (
             <div style={S.emptyCard}>
               <GoloBall size={40} fill="#ffffff" dimple="rgba(20,40,24,.3)" style={{ margin: '0 auto 10px' }} />
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>No saved rounds yet</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>No saved rounds yet.</div>
               <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,.55)', marginTop: 6, lineHeight: 1.5 }}>
-                Finish a round and it lands here automatically — with the leaderboard, every game, and who paid whom.
+                Finished rounds will show up here with standings and settle-up details.
               </div>
               <button onClick={() => navigate('/setup')} style={S.emptyCta}>Start a round →</button>
             </div>
@@ -155,8 +192,8 @@ export default function HistoryPage() {
                 <span style={S.sectionSub}>newest first</span>
               </div>
               {items.map((g) => (
-                <button key={g.roundId} onClick={() => navigate(`/history/${g.roundId}`)} style={S.roundRow}>
-                  <span style={{ ...S.roundThumb, backgroundImage: `url('${g.bg}')` }} />
+                <button key={g.key} onClick={() => navigate(`/history/${g.roundId}`)} style={S.roundRow}>
+                  <span style={{ ...S.roundThumb, background: COURSE_FALLBACK_BG, backgroundImage: layeredCourseBg(g.bg), backgroundSize: 'cover', backgroundPosition: 'center' }} />
                   <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                     <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.course}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
@@ -226,6 +263,7 @@ const S = {
   header: { flex: '0 0 auto', padding: 'max(10px, env(safe-area-inset-top)) 18px 10px', textShadow: '0 2px 12px rgba(0,0,0,.4)' },
   headerTop: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
   clearBtn: { flex: '0 0 auto', minHeight: 40, padding: '0 14px', borderRadius: 12, background: 'rgba(251,113,133,.12)', border: '1px solid rgba(251,113,133,.32)', color: '#fb7185', fontSize: 13, fontWeight: 800, cursor: 'pointer' },
+  clearBtnDisabled: { opacity: 0.42, cursor: 'default', background: 'rgba(255,255,255,.06)', borderColor: 'rgba(255,255,255,.12)', color: 'rgba(255,255,255,.45)' },
   scroll: { flex: 1, overflowY: 'auto', padding: '6px 16px 14px' },
 
   sectionRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '4px 2px 9px' },

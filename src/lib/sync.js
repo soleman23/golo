@@ -20,7 +20,7 @@ import { fetchRounds, saveRound as dbSaveRound } from './db/rounds'
  */
 
 const PROFILE_FIELDS = [
-  'name', 'nickname', 'email', 'phone', 'avatarUrl', 'homeClub',
+  'name', 'nickname', 'email', 'phone', 'handicapIndex', 'avatarUrl', 'homeClub',
   'venmo', 'ghinSync', 'notifySettle', 'notifyLive', 'skinsDefault',
 ]
 

@@ -361,7 +361,7 @@ function initState() {
         nickname: me.nickname ?? '',
         email: me.email ?? '',
         phone: me.phone ?? '',
-        hdcp: 12,
+        hdcp: me.handicapIndex ?? 12,
         guest: false,
         color: PALETTE[0],
         team: 'A',
@@ -566,19 +566,22 @@ export default function SetupWizard() {
   // Rebuild the card when the hole count changes (keeps it a valid 1..N set).
   const setHoles = (n) => {
     const card = defaultCard(n, st.pars, st.strokeIndex)
-    patch({ holes: n, pars: card.pars, strokeIndex: card.strokeIndex })
+    // On a 9-hole round, "Back 9 only" CTP is invalid — force "All par 3s" (0).
+    const bets = n === 9 && st.bets.ctp.holes !== 0
+      ? { ...st.bets, ctp: { ...st.bets.ctp, holes: 0 } }
+      : st.bets
+    patch({ holes: n, pars: card.pars, strokeIndex: card.strokeIndex, bets })
   }
 
   /* ---- validation ---- */
-  // Every player needs a verified local identity (email or phone) before the
-  // round can continue.
+  // Every player needs a name before the round can continue.
   const organizer = st.players[0]
-  const isReady = (p) => hasContact(p)
+  const isReady = (p) => p.name?.trim().length > 0
   const readyPlayers = st.players.filter((p, i) => isReady(p, i))
   const everyoneReady = st.players.every((p, i) => isReady(p, i))
   const validStep = (step) => {
     if (step === 1) {
-      if (!organizer || !hasContact(organizer)) return false
+      if (!organizer || !isReady(organizer)) return false
       if (!everyoneReady || readyPlayers.length < 2) return false
       if (isScramble) {
         const a = readyPlayers.filter((p) => p.team === 'A').length
@@ -601,8 +604,8 @@ export default function SetupWizard() {
   const valid = isReview ? validStep(1) && validStep(3) : validStep(st.step)
   let hintText = ''
   if (!valid && st.step === 1) {
-    if (!organizer || !hasContact(organizer)) hintText = 'Add your email or phone — the organizer needs a verified account.'
-    else if (!everyoneReady) hintText = 'Add an email or phone for every player.'
+    if (!organizer || !isReady(organizer)) hintText = 'Add your name to continue.'
+    else if (!everyoneReady) hintText = 'Add a name for every player.'
     else if (readyPlayers.length < 2) hintText = 'Add at least one more player.'
     else if (isScramble) hintText = 'Put a player on each team.'
   }
@@ -690,6 +693,17 @@ export default function SetupWizard() {
       if (!prof.phone && me.phone.trim()) fill.phone = me.phone
       if (Object.keys(fill).length) prof.setIdentity(fill)
     }
+
+    const prof = useProfileStore.getState()
+    const profileForMatch = {
+      name: prof.name,
+      nickname: prof.nickname,
+      email: prof.email,
+      phone: prof.phone,
+    }
+    const profileKey = playerKey(profileForMatch)
+    const profilePlayer = players.find((p) => profileKey != null && playerKey(p) === profileKey)
+    if (profilePlayer) prof.setHandicapIndex(profilePlayer.handicapIndex)
   }
 
   const next = () => {
@@ -720,11 +734,11 @@ export default function SetupWizard() {
         position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column',
         fontFamily: "system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",
         color: '#fff', overflow: 'hidden',
-        background: 'radial-gradient(120% 70% at 50% 0%, #2a7d4a 0%, #14532d 45%, #0a2418 85%)',
+        background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)',
       }}
     >
       {/* course photo backdrop + dark overlay */}
-      <div style={{ position: 'absolute', inset: 0, backgroundImage: `url('${course.bg}')`, backgroundSize: 'cover', backgroundPosition: '50% 55%' }} />
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundImage: `url(${course.bg}), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(6,14,9,.7) 0%, rgba(6,14,9,.5) 22%, rgba(6,16,10,.6) 55%, rgba(4,12,8,.92) 100%)', pointerEvents: 'none' }} />
 
       {/* content column */}
@@ -827,7 +841,7 @@ export default function SetupWizard() {
           const sel = c.id === st.courseId
           return (
             <button key={c.id} onClick={() => selectCourse(c.id)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${sel ? hexA(ACCENT, 0.55) : 'rgba(255,255,255,.12)'}`, borderRadius: 16, padding: 12, marginBottom: 10, cursor: 'pointer' }}>
-              <span style={{ width: 54, height: 54, borderRadius: 12, flex: '0 0 auto', backgroundImage: `url('${c.bg}')`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)' }} />
+              <span style={{ width: 54, height: 54, borderRadius: 12, flex: '0 0 auto', background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundImage: `url(${c.bg}), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)' }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{c.name}</div>
                 <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', marginTop: 1 }}>{c.loc} · {c.holes} holes</div>
@@ -961,22 +975,12 @@ export default function SetupWizard() {
             </div>
           )}
 
-          {/* 2 — crew member (functionality lands later) */}
-          <button disabled style={addOption(false, true)}>
-            <span style={addOptionIcon}>👥</span>
-            <span style={{ flex: 1, minWidth: 0 }}>
-              <span style={addOptionTitle}>Add crew member</span>
-              <span style={addOptionSub}>From your crew · coming soon</span>
-            </span>
-            <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, color: 'rgba(255,255,255,.45)', border: '1px solid rgba(255,255,255,.2)', borderRadius: 6, padding: '3px 6px', flex: '0 0 auto' }}>SOON</span>
-          </button>
-
-          {/* 3 — verified player entered manually */}
+          {/* 2 — verified player entered manually */}
           <button onClick={() => !full && addVerifiedPlayer()} disabled={full} style={addOption(false, full)}>
             <span style={addOptionIcon}>🙋</span>
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={addOptionTitle}>Add verified player</span>
-              <span style={addOptionSub}>Enter their email or phone before starting</span>
+              <span style={addOptionSub}>Enter a name before starting</span>
             </span>
             <span style={{ color: ACCENT, fontSize: 22, fontWeight: 800, flex: '0 0 auto' }}>+</span>
           </button>
@@ -1014,11 +1018,11 @@ export default function SetupWizard() {
 
         <div style={{ display: 'flex', gap: 8, marginTop: 11 }}>
           <input value={p.nickname} onChange={(e) => updatePlayer(p.id, { nickname: e.target.value })} placeholder="@handle" autoCapitalize="none" autoCorrect="off" style={{ ...playerField, flex: 1 }} />
-          <input value={p.email} onChange={(e) => updatePlayer(p.id, { email: e.target.value })} placeholder="Email" type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" style={{ ...playerField, flex: 1.4 }} />
+          <input value={p.email} onChange={(e) => updatePlayer(p.id, { email: e.target.value })} placeholder="Email (optional)" type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" style={{ ...playerField, flex: 1.4 }} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-          <input value={p.phone} onChange={(e) => updatePlayer(p.id, { phone: e.target.value })} placeholder="Phone" type="tel" inputMode="tel" style={{ ...playerField, flex: 1 }} />
-          {!ready && <span style={{ fontSize: 11, fontWeight: 700, color: '#fb7185', flex: '0 0 auto' }}>Email or phone needed</span>}
+          <input value={p.phone} onChange={(e) => updatePlayer(p.id, { phone: e.target.value })} placeholder="Phone (optional)" type="tel" inputMode="tel" style={{ ...playerField, flex: 1 }} />
+          {!p.name?.trim() && <span style={{ fontSize: 11, fontWeight: 700, color: '#fb7185', flex: '0 0 auto' }}>Name required</span>}
         </div>
 
         {isScramble && (
@@ -1087,26 +1091,32 @@ export default function SetupWizard() {
         {GAME_DEFS.map((d) => {
           const b = st.bets[d.key]
           const locked = d.requiresExactly != null && st.players.length !== d.requiresExactly
+          const wolfLocked = d.key === 'wolf' && st.players.length !== 4
+          const gameLocked = locked || wolfLocked
           const selCount = b.who.filter((x) => ids.includes(x)).length
           return (
-            <div key={d.key} style={{ background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${b.on && !locked ? hexA(ACCENT, 0.4) : 'rgba(255,255,255,.12)'}`, borderRadius: 20, padding: 14, marginBottom: 12, boxShadow: '0 8px 24px rgba(0,0,0,.28)', opacity: locked ? 0.55 : 1 }}>
+            <div key={d.key} style={{ background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${b.on && !gameLocked ? hexA(ACCENT, 0.4) : 'rgba(255,255,255,.12)'}`, borderRadius: 20, padding: 14, marginBottom: 12, boxShadow: '0 8px 24px rgba(0,0,0,.28)', opacity: gameLocked ? 0.55 : 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ width: 42, height: 42, borderRadius: 13, flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.12)' }}>{d.icon}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{d.title}</div>
-                  <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', marginTop: 2 }}>{locked ? `Needs exactly ${d.requiresExactly} players` : d.desc}</div>
+                  {wolfLocked ? (
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#fb923c', marginTop: 2 }}>Needs exactly 4 players</div>
+                  ) : (
+                    <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', marginTop: 2 }}>{locked ? `Needs exactly ${d.requiresExactly} players` : d.desc}</div>
+                  )}
                 </div>
                 <button
-                  onClick={() => !locked && setBet(d.key, { on: !b.on })}
-                  disabled={locked}
-                  aria-pressed={b.on}
-                  style={{ width: 50, height: 30, borderRadius: 9999, border: 'none', cursor: locked ? 'not-allowed' : 'pointer', flex: '0 0 auto', position: 'relative', background: b.on && !locked ? ACCENT : 'rgba(255,255,255,.18)' }}
+                  onClick={() => !gameLocked && setBet(d.key, { on: !b.on })}
+                  disabled={gameLocked}
+                  aria-pressed={!!b.on}
+                  style={{ width: 50, height: 30, borderRadius: 9999, border: 'none', cursor: gameLocked ? 'not-allowed' : 'pointer', flex: '0 0 auto', position: 'relative', background: b.on && !gameLocked ? ACCENT : 'rgba(255,255,255,.18)' }}
                 >
                   <span style={{ position: 'absolute', top: 3, left: b.on ? 23 : 3, width: 24, height: 24, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.4)', transition: 'left .15s' }} />
                 </button>
               </div>
 
-              {b.on && !locked && (d.key === 'skins' ? renderSkinsConfig(b, selCount) : (
+              {b.on && !gameLocked && (d.key === 'skins' ? renderSkinsConfig(b, selCount) : (
                 <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,.1)', display: 'flex', flexDirection: 'column', gap: 15 }}>
                   {/* stake */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
@@ -1143,7 +1153,7 @@ export default function SetupWizard() {
                     return (
                       <div key={t.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                         <span style={{ fontSize: 13.5, fontWeight: 600, color: 'rgba(255,255,255,.82)' }}>{t.label}</span>
-                        <button onClick={() => setBet(d.key, { [t.key]: !on })} aria-pressed={on} style={{ width: 46, height: 27, borderRadius: 9999, border: 'none', cursor: 'pointer', flex: '0 0 auto', position: 'relative', background: on ? ACCENT : 'rgba(255,255,255,.18)' }}>
+                        <button onClick={() => setBet(d.key, { [t.key]: !on })} aria-pressed={!!on} style={{ width: 46, height: 27, borderRadius: 9999, border: 'none', cursor: 'pointer', flex: '0 0 auto', position: 'relative', background: on ? ACCENT : 'rgba(255,255,255,.18)' }}>
                           <span style={{ position: 'absolute', top: 3, left: on ? 22 : 3, width: 21, height: 21, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.4)', transition: 'left .15s' }} />
                         </button>
                       </div>
@@ -1151,19 +1161,24 @@ export default function SetupWizard() {
                   })}
 
                   {/* selects */}
-                  {d.selects.map((sel) => (
-                    <div key={sel.key}>
-                      <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.2, color: 'rgba(255,255,255,.5)', marginBottom: 9 }}>{sel.label.toUpperCase()}</div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                        {sel.options.map((o, i) => {
-                          const s = optStyle(b[sel.key] === i)
-                          return (
-                            <button key={o} onClick={() => setBet(d.key, { [sel.key]: i })} style={{ padding: '9px 14px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700, background: s.bg, border: `1px solid ${s.border}`, color: s.color }}>{o}</button>
-                          )
-                        })}
+                  {d.selects.map((sel) => {
+                    const ctpNineHoleSelect = d.key === 'ctp' && sel.key === 'holes' && st.holes === 9
+                    const options = ctpNineHoleSelect ? ['All par 3s'] : sel.options
+                    const selectedValue = ctpNineHoleSelect ? 0 : b[sel.key]
+                    return (
+                      <div key={sel.key}>
+                        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.2, color: 'rgba(255,255,255,.5)', marginBottom: 9 }}>{sel.label.toUpperCase()}</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                          {options.map((o, i) => {
+                            const s = optStyle(selectedValue === i)
+                            return (
+                              <button key={o} onClick={() => setBet(d.key, { [sel.key]: i })} style={{ padding: '9px 14px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700, background: s.bg, border: `1px solid ${s.border}`, color: s.color }}>{o}</button>
+                            )
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ))}
             </div>
@@ -1186,7 +1201,7 @@ export default function SetupWizard() {
         <div style={{ background: 'rgba(255,255,255,.04)', border: `1px solid ${c.enabled ? hexA(ACCENT, 0.35) : 'rgba(255,255,255,.12)'}`, borderRadius: 12, padding: 10, marginBottom: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ flex: 1, fontSize: 13.5, fontWeight: 700, color: c.enabled ? '#fff' : 'rgba(255,255,255,.6)' }}>{label}</span>
-            <button onClick={() => setCustomSkin(slot, { enabled: !c.enabled })} aria-pressed={c.enabled} style={miniToggle(c.enabled)}>
+            <button onClick={() => setCustomSkin(slot, { enabled: !c.enabled })} aria-pressed={!!c.enabled} style={miniToggle(c.enabled)}>
               <span style={miniKnob(c.enabled)} />
             </button>
           </div>
@@ -1297,7 +1312,7 @@ export default function SetupWizard() {
         {/* save as default */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <span style={{ fontSize: 13.5, fontWeight: 600, color: 'rgba(255,255,255,.82)' }}>Save as my default for future rounds</span>
-          <button onClick={() => setBet('skins', { savedAsDefault: !skins.savedAsDefault })} aria-pressed={skins.savedAsDefault} style={miniToggle(skins.savedAsDefault)}>
+          <button onClick={() => setBet('skins', { savedAsDefault: !skins.savedAsDefault })} aria-pressed={!!skins.savedAsDefault} style={miniToggle(skins.savedAsDefault)}>
             <span style={miniKnob(skins.savedAsDefault)} />
           </button>
         </div>
