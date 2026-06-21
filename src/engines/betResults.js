@@ -16,7 +16,7 @@
  * @property {string[]} lines - Per-segment / per-hole breakdown.
  */
 
-import { calculateSkins } from './skins'
+import { calculateSkinsBet } from './skins'
 import { calculateNassauPayouts } from './nassau'
 import { calculateStrokePurse, calculateScramblePurse } from './strokePurse'
 import { calculateCTP } from './ctp'
@@ -71,15 +71,6 @@ function headlineFor(players, payouts) {
   return winners.map((w) => `${w.name} won $${w.amount}`).join(', ')
 }
 
-/** Skins breakdown lines from a SkinsResult. */
-function skinsLines(players, result) {
-  return result.skinsByHole.map((s) =>
-    s.winner
-      ? `Hole ${s.hole}: ${nameOf(players, s.winner)} wins $${s.value}`
-      : `Hole ${s.hole}: tie${s.carryCount > 1 ? ` (carry ×${s.carryCount})` : ''}`
-  )
-}
-
 /**
  * Build normalized results for every active bet by running its payout engine.
  *
@@ -93,6 +84,7 @@ function skinsLines(players, result) {
  * @param {Object} args.pars
  * @param {Object} args.strokeAllocations
  * @param {{ closestToPin: object, longestDrive: object }} args.sideGameFlags
+ * @param {Object} [args.skinFlags] - Per-hole manual skins { [hole]: { greenie: string[], sandie: string[] } }.
  * @param {Object} [args.wolfPicks] - Per-hole Wolf decisions { [hole]: { partnerId, blind } }.
  * @param {Object} [args.bbbFlags] - Per-hole BBB winners { [hole]: { bingo, bango, bongo } }.
  * @param {string} [args.scoringType] - Round format; drives Stroke Purse metric (stableford / scramble teams).
@@ -106,13 +98,16 @@ export function buildBetResults({
   pars,
   strokeAllocations,
   sideGameFlags,
+  skinFlags = {},
   wolfPicks = {},
   bbbFlags = {},
   scoringType = 'stroke',
   teams = [],
 }) {
   return bets.map((bet) => {
-    const inBet = players.filter((p) => bet.playerIds.includes(p.id))
+    const inBet = bet.playerIds?.length
+      ? players.filter((p) => bet.playerIds.includes(p.id))
+      : players
     let payouts = {}
     let lines = []
 
@@ -124,9 +119,9 @@ export function buildBetResults({
         break
       }
       case 'skins': {
-        const r = calculateSkins(inBet, scores, pars, strokeAllocations, bet.config)
+        const r = calculateSkinsBet(inBet, scores, pars, strokeAllocations, bet.config, skinFlags)
         payouts = r.payouts
-        lines = skinsLines(inBet, r)
+        lines = r.lines
         break
       }
       case 'strokePurse': {
@@ -175,7 +170,7 @@ export function buildBetResults({
             holeScores,
             wolfId,
             pick.partnerId,
-            bet.config.unit ?? 1,
+            bet.config?.unit ?? bet.amount ?? 1,
             { blind: pick.blind }
           )
           results.push(r)
@@ -197,7 +192,7 @@ export function buildBetResults({
           bangoWinner: f?.bango ?? null,
           bongoWinner: f?.bongo ?? null,
         }))
-        const r = calculateBBBPayouts(flags, inBet, bet.config.valuePerPoint ?? 1)
+        const r = calculateBBBPayouts(flags, inBet, bet.config?.valuePerPoint ?? 1)
         payouts = r.payouts
         lines = inBet.map((p) => {
           const pts = r.points[p.id] ?? 0

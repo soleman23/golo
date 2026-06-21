@@ -118,6 +118,8 @@ const limitHoleKeys = (obj, k) => {
   for (const h in (obj || {})) if (Number(h) <= k) out[h] = obj[h]
   return out
 }
+const playersInBet = (players, bet) =>
+  bet?.playerIds?.length ? players.filter((p) => bet.playerIds.includes(p.id)) : players
 /** The lime "YOU" pill beside the signed-in player. */
 const youBadge = { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, color: ACCENT_DARK, background: ACCENT, padding: '2px 7px', borderRadius: 9999, flex: '0 0 auto' }
 
@@ -134,6 +136,7 @@ export default function ScoringPage() {
   const sideGameFlags = useRoundStore((s) => s.sideGameFlags)
   const wolfPicks = useRoundStore((s) => s.wolfPicks)
   const bbbFlags = useRoundStore((s) => s.bbbFlags)
+  const skinFlags = useRoundStore((s) => s.skinFlags)
   const concededHoles = useRoundStore((s) => s.concededHoles)
   const storedHole = useRoundStore((s) => s.currentHole)
   const roundStatus = useRoundStore((s) => s.status)
@@ -146,6 +149,7 @@ export default function ScoringPage() {
   const setWolfPick = useRoundStore((s) => s.setWolfPick)
   const clearWolfPick = useRoundStore((s) => s.clearWolfPick)
   const flagBBB = useRoundStore((s) => s.flagBBB)
+  const toggleSkinFlag = useRoundStore((s) => s.toggleSkinFlag)
   const concedeHole = useRoundStore((s) => s.concedeHole)
   const completeRound = useRoundStore((s) => s.completeRound)
   const getStrokeAllocations = useRoundStore((s) => s.getStrokeAllocations)
@@ -255,9 +259,24 @@ export default function ScoringPage() {
   const ldBet = bets.find((b) => b.type === 'longestDrive' && b.config.hole === currentHole)
   const wolfBet = bets.find((b) => b.type === 'wolf')
   const bbbBet = bets.find((b) => b.type === 'bingobangobongo')
-  const wolfActive = !isScramble && wolfBet && players.length === 4
-  const bbbActive = !isScramble && bbbBet
-  const wolfId = wolfActive ? getWolfOrder(players, currentHole) : null
+  const skinsBet = bets.find((b) => b.type === 'skins')
+  const ctpPlayers = playersInBet(players, ctpBet)
+  const ldPlayers = playersInBet(players, ldBet)
+  const wolfPlayers = playersInBet(players, wolfBet)
+  const bbbPlayers = playersInBet(players, bbbBet)
+  const skinPlayers = playersInBet(players, skinsBet)
+  const wolfActive = !isScramble && wolfBet && wolfPlayers.length === 4
+  const bbbActive = !isScramble && bbbBet && bbbPlayers.length > 0
+  const wolfId = wolfActive ? getWolfOrder(wolfPlayers, currentHole) : null
+
+  // Manual skins (greenie/sandie) tracked live on this hole. Greenie is par-3
+  // only; both stack and only show when the Skins bet enabled them in setup.
+  const skinSel = skinsBet?.config?.skinsConfig?.selectedSkins ?? {}
+  const baseSkinValue = skinsBet?.config?.skinsConfig?.baseSkinValue ?? skinsBet?.config?.valuePerSkin ?? 0
+  const manualSkinTypes = []
+  if (skinsBet && skinSel.greenie && par === 3) manualSkinTypes.push({ type: 'greenie', label: 'Greenie', hint: 'Par 3 — on in regulation, par or better' })
+  if (skinsBet && skinSel.sandie) manualSkinTypes.push({ type: 'sandie', label: 'Sandie', hint: 'Up and down from a bunker' })
+  const skinsActive = !isScramble && manualSkinTypes.length > 0 && skinPlayers.length >= 2
 
   // Active-bet pills: the five "standard" bets via the engine, plus Wolf / BBB
   // running totals derived locally (those aren't covered by summarizeBets).
@@ -269,6 +288,7 @@ export default function ScoringPage() {
       pars,
       strokeAllocations: playerAllocations,
       sideGameFlags,
+      skinFlags,
       scoringType,
       teams,
     }).map((p) => ({
@@ -281,23 +301,24 @@ export default function ScoringPage() {
     }))
 
     const extra = []
-    if (!isScramble && wolfBet && players.length === 4) {
+    const wolfPillPlayers = playersInBet(players, wolfBet)
+    if (!isScramble && wolfBet && wolfPillPlayers.length === 4) {
       const results = []
       for (let h = 1; h <= totalHoles; h++) {
         const pick = wolfPicks[h]
         if (!pick) continue
         const holeScores = {}
-        players.forEach((p) => {
+        wolfPillPlayers.forEach((p) => {
           holeScores[p.id] = scoreValue(scores[p.id]?.[h])
         })
         results.push(
-          calculateWolfResult(holeScores, getWolfOrder(players, h), pick.partnerId, wolfBet.amount, {
+          calculateWolfResult(holeScores, getWolfOrder(wolfPillPlayers, h), pick.partnerId, wolfBet.config?.unit ?? wolfBet.amount ?? 1, {
             blind: pick.blind,
           })
         )
       }
-      const totals = calculateWolfTotals(results, players)
-      const lead = [...players].sort((a, b) => (totals[b.id] ?? 0) - (totals[a.id] ?? 0))[0]
+      const totals = calculateWolfTotals(results, wolfPillPlayers)
+      const lead = [...wolfPillPlayers].sort((a, b) => (totals[b.id] ?? 0) - (totals[a.id] ?? 0))[0]
       const amt = lead ? totals[lead.id] ?? 0 : 0
       extra.push({
         id: wolfBet.id,
@@ -305,29 +326,30 @@ export default function ScoringPage() {
         iconName: betGlyphName('wolf'),
         title: 'Wolf',
         status: amt > 0 ? `${lead.name} +$${amt}` : 'All even',
-        detailLines: players.map((p) => `${p.name}: ${(totals[p.id] ?? 0) >= 0 ? '+' : ''}$${totals[p.id] ?? 0}`),
+        detailLines: wolfPillPlayers.map((p) => `${p.name}: ${(totals[p.id] ?? 0) >= 0 ? '+' : ''}$${totals[p.id] ?? 0}`),
       })
     }
-    if (!isScramble && bbbBet) {
+    const bbbPillPlayers = playersInBet(players, bbbBet)
+    if (!isScramble && bbbBet && bbbPillPlayers.length > 0) {
       const flags = Object.values(bbbFlags).map((f) => ({
         bingoWinner: f?.bingo ?? null,
         bangoWinner: f?.bango ?? null,
         bongoWinner: f?.bongo ?? null,
       }))
-      const { payouts } = calculateBBBPayouts(flags, players, bbbBet.config?.valuePerPoint ?? 1)
-      const lead = [...players].sort((a, b) => (payouts[b.id] ?? 0) - (payouts[a.id] ?? 0))[0]
+      const { payouts } = calculateBBBPayouts(flags, bbbPillPlayers, bbbBet.config?.valuePerPoint ?? 1)
+      const lead = [...bbbPillPlayers].sort((a, b) => (payouts[b.id] ?? 0) - (payouts[a.id] ?? 0))[0]
       const amt = lead ? payouts[lead.id] ?? 0 : 0
       extra.push({
         id: bbbBet.id,
         icon: BET_ICONS.bingobangobongo,
         title: 'Bingo Bango Bongo',
         status: amt > 0 ? `${lead.name} +$${amt}` : 'All even',
-        detailLines: players.map((p) => `${p.name}: ${(payouts[p.id] ?? 0) >= 0 ? '+' : ''}$${payouts[p.id] ?? 0}`),
+        detailLines: bbbPillPlayers.map((p) => `${p.name}: ${(payouts[p.id] ?? 0) >= 0 ? '+' : ''}$${payouts[p.id] ?? 0}`),
       })
     }
     return [...standard, ...extra]
   }, [
-    bets, players, scores, pars, playerAllocations, sideGameFlags, scoringType, teams,
+    bets, players, scores, pars, playerAllocations, sideGameFlags, skinFlags, scoringType, teams,
     wolfBet, bbbBet, wolfPicks, bbbFlags, totalHoles, isScramble,
   ])
 
@@ -379,12 +401,12 @@ export default function ScoringPage() {
       return m
     }
 
-    const moneyByEntity = (scoreSet, sgf, wp, bbb) => {
+    const moneyByEntity = (scoreSet, sgf, wp, bbb, sf) => {
       const per = {}
       players.forEach((p) => { per[p.id] = 0 })
       buildBetResults({
         bets, players, scores: scoreSet, pars, strokeAllocations: playerAllocations,
-        sideGameFlags: sgf, wolfPicks: wp, bbbFlags: bbb, scoringType, teams,
+        sideGameFlags: sgf, skinFlags: sf, wolfPicks: wp, bbbFlags: bbb, scoringType, teams,
       }).forEach((r) => { for (const pid in (r.payouts ?? {})) per[pid] = (per[pid] ?? 0) + (r.payouts[pid] ?? 0) })
       const m = {}
       ents.forEach((e) => {
@@ -407,7 +429,7 @@ export default function ScoringPage() {
     const rankOf = (ids) => { const m = {}; ids.forEach((id, i) => { m[id] = i + 1 }); return m }
 
     const stats = statsByEntity(scores)
-    const money = view === 'money' ? moneyByEntity(scores, sideGameFlags, wolfPicks, bbbFlags) : {}
+    const money = view === 'money' ? moneyByEntity(scores, sideGameFlags, wolfPicks, bbbFlags, skinFlags) : {}
     const order = sortIds(stats, money)
     const curRank = rankOf(order)
 
@@ -420,6 +442,7 @@ export default function ScoringPage() {
             { closestToPin: limitHoleKeys(sideGameFlags?.closestToPin, N - 1), longestDrive: limitHoleKeys(sideGameFlags?.longestDrive, N - 1) },
             limitHoleKeys(wolfPicks, N - 1),
             limitHoleKeys(bbbFlags, N - 1),
+            limitHoleKeys(skinFlags, N - 1),
           )
         : {}
       prevRank = rankOf(sortIds(ps, pm))
@@ -483,7 +506,7 @@ export default function ScoringPage() {
         unit: view === 'gross' ? 'GROSS' : view === 'money' ? 'NET WON' : isStableford ? 'POINTS' : 'TO PAR',
       },
     }
-  }, [sheet, lbView, isScramble, isStableford, useGrossScoring, teams, players, scores, pars, allocations, playerAllocations, bets, sideGameFlags, wolfPicks, bbbFlags, scoringType, totalHoles, meEntityId])
+  }, [sheet, lbView, isScramble, isStableford, useGrossScoring, teams, players, scores, pars, allocations, playerAllocations, bets, sideGameFlags, skinFlags, wolfPicks, bbbFlags, scoringType, totalHoles, meEntityId])
 
   // No round set up yet — bounce back to setup.
   if (!round) {
@@ -664,7 +687,7 @@ export default function ScoringPage() {
 
           {wolfActive && (
             <WolfPanel
-              players={players}
+              players={wolfPlayers}
               wolfId={wolfId}
               pick={wolfPicks[currentHole]}
               onPick={(d) => setWolfPick(currentHole, d)}
@@ -674,7 +697,7 @@ export default function ScoringPage() {
 
           {bbbActive && (
             <BBBPanel
-              players={players}
+              players={bbbPlayers}
               flags={bbbFlags[currentHole]}
               onFlag={(type, pid) => flagBBB(currentHole, type, pid)}
             />
@@ -683,7 +706,7 @@ export default function ScoringPage() {
           {ctpBet && (
             <PickerPanel
               title={`📍 Closest to pin · Hole ${currentHole}`}
-              players={players}
+              players={ctpPlayers}
               selectedId={sideGameFlags.closestToPin[currentHole]}
               onSelect={(pid) => flagCTP(currentHole, pid)}
             />
@@ -691,9 +714,18 @@ export default function ScoringPage() {
           {ldBet && (
             <PickerPanel
               title={`🚀 Longest drive · Hole ${currentHole}`}
-              players={players}
+              players={ldPlayers}
               selectedId={sideGameFlags.longestDrive[currentHole]}
               onSelect={(pid) => flagLD(currentHole, pid)}
+            />
+          )}
+          {skinsActive && (
+            <SkinsPanel
+              types={manualSkinTypes}
+              players={skinPlayers}
+              flags={skinFlags[currentHole]}
+              value={baseSkinValue}
+              onToggle={(type, pid) => toggleSkinFlag(currentHole, type, pid)}
             />
           )}
         </div>
@@ -1068,6 +1100,44 @@ function BBBPanel({ players, flags, onFlag }) {
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  )
+}
+
+/** Manual skins (greenie / sandie): multi-select, stacking toggles per hole.
+ * Each toggled player adds `value` to the hole, paid head-to-head. */
+function SkinsPanel({ types, players, flags, value, onToggle }) {
+  const current = flags ?? {}
+  const hits = types.reduce((sum, t) => sum + (current[t.type]?.length ?? 0), 0)
+  return (
+    <div style={{ ...S.panel, marginBottom: 13 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
+        <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>🎯 Skins</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: hits > 0 ? ACCENT : 'rgba(255,255,255,.55)' }}>
+          Hole skins: ${hits * value}
+        </span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {types.map(({ type, label, hint }) => {
+          const on = current[type] ?? []
+          return (
+            <div key={type}>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,.6)', marginBottom: 6 }}>{label} — {hint} · ${value}</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {players.map((p) => {
+                  const sel = on.includes(p.id)
+                  return (
+                    <button key={p.id} onClick={() => onToggle(type, p.id)} aria-pressed={!!sel} style={{ ...chip(sel), display: 'flex', alignItems: 'center', gap: 7 }}>
+                      <span style={{ width: 14, height: 14, borderRadius: '50%', background: p.color }} />
+                      {p.name.slice(0, 8)}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

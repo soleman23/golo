@@ -125,16 +125,22 @@ export function buildLeaderboard(players, scores, strokeAllocations, pars, thruH
     return { player, gross, net, toPar, thru }
   })
 
-  // Sort by net ascending; lower net wins.
-  entries.sort((a, b) => a.net - b.net)
+  // Sort by net ascending; lower net wins. Players with no posted scores stay
+  // below active players so a blank card can't lead the board mid-round.
+  entries.sort((a, b) => {
+    if (a.thru === 0 && b.thru > 0) return 1
+    if (b.thru === 0 && a.thru > 0) return -1
+    return a.net - b.net
+  })
 
   // Assign ranks, sharing a rank for equal net scores.
   let lastNet = null
   let lastRank = 0
   return entries.map((entry, index) => {
-    if (entry.net !== lastNet) {
+    const rankNet = entry.thru === 0 ? Number.POSITIVE_INFINITY : entry.net
+    if (rankNet !== lastNet) {
       lastRank = index + 1
-      lastNet = entry.net
+      lastNet = rankNet
     }
     return { rank: lastRank, ...entry }
   })

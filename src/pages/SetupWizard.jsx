@@ -237,8 +237,8 @@ const SKIN_TYPES = [
   { key: 'carryoverSkin', name: 'Carryover Skin', tag: 'Banked skins', desc: 'A tied hole stacks the skin onto the next, growing the payout until won outright.', base: false },
   { key: 'birdieBonusSkin', name: 'Birdie Bonus', tag: '+1 skin', desc: 'Winning a hole with a birdie earns an extra skin on top of the win.', base: true },
   { key: 'eagleBonusSkin', name: 'Eagle Bonus', tag: '×2 value', desc: 'An eagle is worth double; a double eagle more. Eagle beats a birdie — no tie.', base: true },
-  { key: 'greenie', name: 'Greenie', tag: 'Par 3s', desc: 'Par-3 only: closest to the pin off the tee who makes par or better.', base: false },
-  { key: 'sandie', name: 'Sandie', tag: 'Sand save', desc: 'Escape a bunker and make par (up and down from sand).', base: false },
+  { key: 'greenie', name: 'Greenie', tag: 'Par 3s', desc: 'Par-3 only: on in regulation, par or better. Flagged live during scoring; pays the base value per hit, head-to-head, and stacks.', base: false },
+  { key: 'sandie', name: 'Sandie', tag: 'Sand save', desc: 'Up and down from a bunker for par. Flagged live during scoring; pays the base value per hit, head-to-head, and stacks.', base: false },
 ]
 
 /** Fresh Skins selection (the wizard-side shape held in st.bets.skins). */
@@ -486,6 +486,11 @@ export default function SetupWizard() {
   const activeGames = GAME_DEFS.filter(
     (d) => st.bets[d.key].on && (d.requiresExactly == null || st.players.length === d.requiresExactly)
   )
+  const selectedCount = (d) => st.bets[d.key].who.filter((x) => ids.includes(x)).length
+  const validGameSelection = (d) => {
+    const n = selectedCount(d)
+    return d.requiresExactly != null ? n === d.requiresExactly : n >= 2
+  }
 
   /* ---- player mutations ---- */
   const updatePlayer = (id, p) =>
@@ -592,7 +597,7 @@ export default function SetupWizard() {
       return true
     }
     if (step === 3) {
-      const whoOk = activeGames.every((d) => st.bets[d.key].who.filter((x) => ids.includes(x)).length >= 2)
+      const whoOk = activeGames.every(validGameSelection)
       if (!whoOk) return false
       if (skins.on && !anySkinSelected(skins.selectedSkins)) return false
       return true
@@ -611,9 +616,12 @@ export default function SetupWizard() {
     else if (isScramble) hintText = 'Put a player on each team.'
   }
   if (!valid && st.step === 3) {
+    const exactGame = activeGames.find((d) => d.requiresExactly != null && selectedCount(d) !== d.requiresExactly)
     hintText = skins.on && !anySkinSelected(skins.selectedSkins)
       ? 'Pick at least one skin type for Skins.'
-      : 'Each active game needs at least 2 players.'
+      : exactGame
+        ? `${exactGame.title} needs exactly ${exactGame.requiresExactly} players.`
+        : 'Each active game needs at least 2 players.'
   }
   if (!valid && isReview) {
     hintText = !validStep(1) ? 'Add players before starting the round.' : 'Finish the games step before starting.'
@@ -1094,7 +1102,7 @@ export default function SetupWizard() {
           const locked = d.requiresExactly != null && st.players.length !== d.requiresExactly
           const wolfLocked = d.key === 'wolf' && st.players.length !== 4
           const gameLocked = locked || wolfLocked
-          const selCount = b.who.filter((x) => ids.includes(x)).length
+          const selCount = selectedCount(d)
           return (
             <div key={d.key} style={{ background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${b.on && !gameLocked ? hexA(ACCENT, 0.4) : 'rgba(255,255,255,.12)'}`, borderRadius: 20, padding: 14, marginBottom: 12, boxShadow: '0 8px 24px rgba(0,0,0,.28)', opacity: gameLocked ? 0.55 : 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -1135,7 +1143,11 @@ export default function SetupWizard() {
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 }}>
                       <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.2, color: 'rgba(255,255,255,.5)' }}>WHO'S IN</span>
-                      {selCount < 2 && <span style={{ fontSize: 11, fontWeight: 800, color: '#fb7185' }}>Pick at least 2</span>}
+                      {d.requiresExactly != null && selCount !== d.requiresExactly ? (
+                        <span style={{ fontSize: 11, fontWeight: 800, color: '#fb7185' }}>Pick exactly {d.requiresExactly}</span>
+                      ) : selCount < 2 && (
+                        <span style={{ fontSize: 11, fontWeight: 800, color: '#fb7185' }}>Pick at least 2</span>
+                      )}
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                       {st.players.map((p) => {
@@ -1250,7 +1262,7 @@ export default function SetupWizard() {
         {/* live per-hole preview */}
         <div style={{ fontSize: 12.5, fontWeight: 700, color: ACCENT, background: hexA(ACCENT, 0.1), border: `1px solid ${hexA(ACCENT, 0.3)}`, borderRadius: 12, padding: '10px 12px', lineHeight: 1.45 }}>
           Each hole is worth up to ${perHole} in skins{nContrib > 0 ? ` · ${nContrib} skin${nContrib !== 1 ? 's' : ''}` : ''}
-          {sidePots.length > 0 && <span style={{ display: 'block', fontWeight: 600, color: 'rgba(255,255,255,.55)', marginTop: 2 }}>plus {sidePots.join(' & ')} side {sidePots.length > 1 ? 'pots' : 'pot'}</span>}
+          {sidePots.length > 0 && <span style={{ display: 'block', fontWeight: 600, color: 'rgba(255,255,255,.55)', marginTop: 2 }}>plus {sidePots.join(' & ')} — ${skins.baseSkinValue} each, flagged live &amp; stacking</span>}
         </div>
 
         {/* scoring */}

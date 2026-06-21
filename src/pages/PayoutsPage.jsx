@@ -146,6 +146,7 @@ export default function PayoutsPage() {
   const sideGameFlags = useRoundStore((s) => s.sideGameFlags)
   const wolfPicks = useRoundStore((s) => s.wolfPicks)
   const bbbFlags = useRoundStore((s) => s.bbbFlags)
+  const skinFlags = useRoundStore((s) => s.skinFlags)
   const teams = useRoundStore((s) => s.teams)
   const getStrokeAllocations = useRoundStore((s) => s.getStrokeAllocations)
   const completeRound = useRoundStore((s) => s.completeRound)
@@ -231,12 +232,13 @@ export default function PayoutsPage() {
         pars,
         strokeAllocations,
         sideGameFlags,
+        skinFlags,
         wolfPicks,
         bbbFlags,
         scoringType: round?.scoringType,
         teams,
       }),
-    [bets, players, scores, pars, strokeAllocations, sideGameFlags, wolfPicks, bbbFlags, round?.scoringType, teams]
+    [bets, players, scores, pars, strokeAllocations, sideGameFlags, skinFlags, wolfPicks, bbbFlags, round?.scoringType, teams]
   )
 
   const netPayouts = useMemo(() => aggregatePayouts(betResults.map((b) => b.payouts)), [betResults])
@@ -279,7 +281,12 @@ export default function PayoutsPage() {
   // repeated effect never writes the same round twice.
   async function persistRound() {
     if (!round || players.length === 0) return null
-    if (historyRounds.some((r) => r.roundId === round.roundId)) return null
+    const existingEntry = historyRounds.find((r) => r.roundId === round.roundId)
+    if (existingEntry) {
+      const userId = useAuthStore.getState().user?.id
+      if (userId) await dbSaveRound(existingEntry, userId)
+      return existingEntry
+    }
     const playerGameData = players.map((p) => {
         const team = teams.find((t) => t.playerIds?.includes(p.id))
         return {
@@ -338,6 +345,7 @@ export default function PayoutsPage() {
       scores,
       bets,
       sideGameFlags,
+      skinFlags,
       wolfPicks,
       bbbFlags,
       strokeAllocations,

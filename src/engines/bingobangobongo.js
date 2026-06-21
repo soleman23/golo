@@ -22,14 +22,13 @@
  * @property {{ [playerId: string]: number }} payouts - Net per player (sums to ~0).
  */
 
-/** Credit a point (split equally if multiple winners). */
-function award(points, winner) {
+/** Credit a point (split equally if multiple in-bet winners). */
+function award(points, winner, validIds) {
   if (winner == null) return
-  const winners = Array.isArray(winner) ? winner : [winner]
+  const winners = (Array.isArray(winner) ? winner : [winner]).filter((id) => validIds.has(id))
   if (winners.length === 0) return
   const each = 1 / winners.length
   winners.forEach((id) => {
-    if (id == null) return
     points[id] = (points[id] ?? 0) + each
   })
 }
@@ -44,6 +43,7 @@ function award(points, winner) {
  */
 export function calculateBBBPayouts(holeFlags, players, valuePerPoint = 1) {
   const points = {}
+  const validIds = new Set(players.map((p) => p.id))
   players.forEach((p) => {
     points[p.id] = 0
   })
@@ -51,9 +51,9 @@ export function calculateBBBPayouts(holeFlags, players, valuePerPoint = 1) {
   const entries = Array.isArray(holeFlags) ? holeFlags : Object.values(holeFlags ?? {})
   for (const f of entries) {
     if (!f) continue
-    award(points, f.bingoWinner)
-    award(points, f.bangoWinner)
-    award(points, f.bongoWinner)
+    award(points, f.bingoWinner, validIds)
+    award(points, f.bangoWinner, validIds)
+    award(points, f.bongoWinner, validIds)
   }
 
   // Equal-ante netting (mirrors skins) so the table sums to zero.

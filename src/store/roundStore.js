@@ -19,6 +19,9 @@ const useRoundStore = create(
       wolfPicks: {},
       // Bingo Bango Bongo: per-hole winners { bingo, bango, bongo } (id or null).
       bbbFlags: {},
+      // Manual skins (greenie/sandie): per-hole achievers that stack, so each is
+      // an array of playerIds. Shape: { [hole]: { greenie: [], sandie: [] } }.
+      skinFlags: {},
       // Match Play: holes given to a side without finishing { [hole]: playerId }.
       concededHoles: {},
       currentHole: 1,
@@ -42,6 +45,7 @@ const useRoundStore = create(
           teams: [],
           wolfPicks: {},
           bbbFlags: {},
+          skinFlags: {},
           concededHoles: {},
           currentHole: 1,
           status: 'setup',
@@ -201,6 +205,7 @@ const useRoundStore = create(
           teams: [],
           wolfPicks: {},
           bbbFlags: {},
+          skinFlags: {},
           concededHoles: {},
           currentHole: 1,
           status: 'setup',
@@ -244,6 +249,24 @@ const useRoundStore = create(
             [hole]: { ...state.bbbFlags[hole], [type]: playerId },
           },
         })),
+
+      // Manual skins: toggle a player's greenie/sandie on a hole. These stack
+      // (multiple players per type, and a player can earn more than one type),
+      // so each type holds an array of playerIds. type is 'greenie' | 'sandie'.
+      toggleSkinFlag: (hole, type, playerId) =>
+        set((state) => {
+          const holeFlags = state.skinFlags[hole] ?? {}
+          const current = holeFlags[type] ?? []
+          const next = current.includes(playerId)
+            ? current.filter((id) => id !== playerId)
+            : [...current, playerId]
+          return {
+            skinFlags: {
+              ...state.skinFlags,
+              [hole]: { ...holeFlags, [type]: next },
+            },
+          }
+        }),
 
       // Match Play: concede a hole to a player (they win it without finishing).
       // Pass null to clear the concession.

@@ -73,16 +73,21 @@ export function buildStablefordLeaderboard(players, scores, pars, strokeAllocati
     return { player, points, gross, thru, pointsByHole }
   })
 
-  // Highest points wins.
-  entries.sort((a, b) => b.points - a.points)
+  // Highest points wins. Blank scorecards stay below active players.
+  entries.sort((a, b) => {
+    if (a.thru === 0 && b.thru > 0) return 1
+    if (b.thru === 0 && a.thru > 0) return -1
+    return b.points - a.points
+  })
 
   // Assign ranks, sharing a rank for equal point totals.
   let lastPoints = null
   let lastRank = 0
   return entries.map((entry, index) => {
-    if (entry.points !== lastPoints) {
+    const rankPoints = entry.thru === 0 ? Number.NEGATIVE_INFINITY : entry.points
+    if (rankPoints !== lastPoints) {
       lastRank = index + 1
-      lastPoints = entry.points
+      lastPoints = rankPoints
     }
     return { rank: lastRank, ...entry }
   })

@@ -66,8 +66,9 @@ export function calculateSkins(players, scores, pars, strokeAllocations, betConf
       .map((p) => ({ id: p.id, score: holeScore(scores, strokeAllocations, p.id, hole, useNetScores) }))
       .filter((s) => s.score != null)
 
-    // Hole not yet played by anyone — leave it out of the results entirely.
-    if (scored.length === 0) continue
+    // Only settle a skin once every participant has posted the hole. This keeps
+    // live payout views from awarding a skin while the group is still entering scores.
+    if (players.length === 0 || scored.length < players.length) continue
 
     const carryCount = carried + 1
     const lowest = Math.min(...scored.map((s) => s.score))
@@ -96,6 +97,115 @@ export function calculateSkins(players, scores, pars, strokeAllocations, betConf
   })
 
   return { skinsByHole, payouts }
+}
+
+/** Manual skin types that are tracked by hand during scoring (not derivable
+ * from strokes). Greenie is par-3 only; both stack and pay head-to-head. */
+export const MANUAL_SKIN_TYPES = ['greenie', 'sandie']
+
+/**
+ * Head-to-head manual skins (greenie / sandie).
+ *
+ * Each "hit" is worth `valuePerSkin`, paid to the achiever by every OTHER player
+ * in the bet. So a $2 sandie by Mike in a 4-some nets Mike +$6 and each opponent
+ * -$2. Skins stack: multiple players can earn the same type on a hole, and one
+ * player can earn more than one type. Always sums to zero across the field.
+ *
+ * @param {Array<{ id: string, name?: string }>} players - Players in the bet.
+ * @param {Object} skinFlags - { [hole]: { greenie: string[], sandie: string[] } }
+ * @param {{ valuePerSkin?: number, greenie?: boolean, sandie?: boolean }} config
+ * @returns {{ payouts: { [playerId: string]: number }, lines: string[], holeTotals: { [hole: number]: number } }}
+ */
+export function calculateManualSkins(players, skinFlags = {}, config = {}) {
+  const { valuePerSkin = 0, greenie = false, sandie = false } = config
+  const enabled = MANUAL_SKIN_TYPES.filter((t) => (t === 'greenie' ? greenie : sandie))
+
+  const payouts = {}
+  players.forEach((p) => {
+    payouts[p.id] = 0
+  })
+  const lines = []
+  const holeTotals = {}
+
+  if (players.length < 2 || valuePerSkin <= 0 || enabled.length === 0) {
+    return { payouts, lines, holeTotals }
+  }
+
+  const validIds = new Set(players.map((p) => p.id))
+  const labelOf = { greenie: 'Greenie', sandie: 'Sandie' }
+  const nameOf = (id) => players.find((p) => p.id === id)?.name ?? '—'
+
+  const holes = Object.keys(skinFlags)
+    .map(Number)
+    .sort((a, b) => a - b)
+
+  for (const hole of holes) {
+    const holeFlags = skinFlags[hole] ?? {}
+    let holeHits = 0
+    for (const type of enabled) {
+      const achievers = [...new Set((holeFlags[type] ?? []).filter((id) => validIds.has(id)))]
+      for (const id of achievers) {
+        // Head-to-head: every other player pays `valuePerSkin` to the achiever.
+        players.forEach((p) => {
+          if (p.id === id) payouts[id] += valuePerSkin * (players.length - 1)
+          else payouts[p.id] -= valuePerSkin
+        })
+        holeHits += 1
+        lines.push(`Hole ${hole}: ${nameOf(id)} ${labelOf[type]} +$${valuePerSkin}`)
+      }
+    }
+    if (holeHits > 0) holeTotals[hole] = holeHits * valuePerSkin
+  }
+
+  players.forEach((p) => {
+    payouts[p.id] = +payouts[p.id].toFixed(2)
+  })
+
+  return { payouts, lines, holeTotals }
+}
+
+/**
+ * Full Skins settlement: the classic low-score skins (standard + carryover) PLUS
+ * the manually tracked head-to-head greenie/sandie skins, merged into one result
+ * so live pills, payouts, and history all agree.
+ *
+ * @param {Array<{ id: string, name?: string }>} players
+ * @param {Object} scores
+ * @param {Object} pars
+ * @param {Object} strokeAllocations
+ * @param {Object} config - The skins bet config (with optional `skinsConfig`).
+ * @param {Object} [skinFlags] - { [hole]: { greenie: string[], sandie: string[] } }
+ * @returns {{ payouts: { [playerId: string]: number }, lines: string[], skinsByHole: SkinHole[], holeTotals: { [hole: number]: number } }}
+ */
+export function calculateSkinsBet(players, scores, pars, strokeAllocations, config = {}, skinFlags = {}) {
+  const lowScore = calculateSkins(players, scores, pars, strokeAllocations, config)
+
+  const sc = config.skinsConfig ?? {}
+  const sel = sc.selectedSkins ?? {}
+  const base = sc.baseSkinValue ?? config.valuePerSkin ?? 0
+  const manual = calculateManualSkins(players, skinFlags, {
+    valuePerSkin: base,
+    greenie: !!sel.greenie,
+    sandie: !!sel.sandie,
+  })
+
+  const payouts = {}
+  players.forEach((p) => {
+    payouts[p.id] = +(((lowScore.payouts[p.id] ?? 0) + (manual.payouts[p.id] ?? 0)).toFixed(2))
+  })
+
+  const lowLines = lowScore.skinsByHole.map((s) =>
+    s.winner
+      ? `Hole ${s.hole}: ${players.find((p) => p.id === s.winner)?.name ?? '—'} wins $${s.value}`
+      : `Hole ${s.hole}: tie${s.carryCount > 1 ? ` (carry ×${s.carryCount})` : ''}`
+  )
+
+  return {
+    payouts,
+    lines: [...lowLines, ...manual.lines],
+    skinsByHole: lowScore.skinsByHole,
+    holeTotals: manual.holeTotals,
+  }
 }
 
 /* ---------------------------------------------------------------------------

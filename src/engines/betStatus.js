@@ -14,7 +14,7 @@
  * @property {string[]} detailLines - Longer per-bet breakdown for the detail sheet.
  */
 
-import { calculateSkins } from './skins'
+import { calculateSkinsBet } from './skins'
 import { calculateNassau, calculateNassauGroup } from './nassau'
 import { buildLeaderboard } from './scoring'
 import { buildStablefordLeaderboard } from './stableford'
@@ -112,13 +112,16 @@ function nassauPill(bet, players, scores, pars, alloc) {
 }
 
 /** Skins pill — carried pot if currently carrying, else the money leader. */
-function skinsPill(bet, players, scores, pars, alloc) {
+function skinsPill(bet, players, scores, pars, alloc, skinFlags) {
   const inBet = participants(bet, players)
-  const res = calculateSkins(inBet, scores, pars, alloc, bet.config)
+  const res = calculateSkinsBet(inBet, scores, pars, alloc, bet.config, skinFlags)
   const last = res.skinsByHole[res.skinsByHole.length - 1]
+  const anyManual = Object.keys(res.holeTotals ?? {}).length > 0
 
   let label
-  if (last && last.winner == null) {
+  // Only surface a "carried" pot when nothing else has paid out yet — a manual
+  // greenie/sandie hit means the leader/all-even framing is more informative.
+  if (last && last.winner == null && !anyManual) {
     const carried = last.carryCount * (bet.config.valuePerSkin ?? 0)
     label = `$${carried} carried`
   } else {
@@ -129,11 +132,7 @@ function skinsPill(bet, players, scores, pars, alloc) {
     label = amt > 0 ? `${leader.name} +$${amt}` : 'All even'
   }
 
-  const detailLines = res.skinsByHole.map((s) => {
-    if (s.winner) return `Hole ${s.hole}: ${nameOf(players, s.winner)} wins $${s.value}`
-    return `Hole ${s.hole}: tie${s.carryCount > 1 ? ` (carry ×${s.carryCount})` : ''}`
-  })
-  return { label, detailLines }
+  return { label, detailLines: res.lines }
 }
 
 /**
@@ -239,6 +238,7 @@ const NAMES = {
  * @param {Object} args.pars - { [hole]: number }
  * @param {Object} args.strokeAllocations - { [playerId]: { [hole]: number } }
  * @param {{ closestToPin: object, longestDrive: object }} args.sideGameFlags
+ * @param {Object} [args.skinFlags] - Per-hole manual skins { [hole]: { greenie: string[], sandie: string[] } }.
  * @param {string} [args.scoringType] - Round format; drives the Stroke Purse metric.
  * @param {Array<{ id: string, name: string, playerIds: string[] }>} [args.teams] - Scramble teams.
  * @returns {BetPill[]}
@@ -250,6 +250,7 @@ export function summarizeBets({
   pars,
   strokeAllocations,
   sideGameFlags,
+  skinFlags = {},
   scoringType = 'stroke',
   teams = [],
 }) {
@@ -260,7 +261,7 @@ export function summarizeBets({
         result = nassauPill(bet, players, scores, pars, strokeAllocations)
         break
       case 'skins':
-        result = skinsPill(bet, players, scores, pars, strokeAllocations)
+        result = skinsPill(bet, players, scores, pars, strokeAllocations, skinFlags)
         break
       case 'strokePurse':
         result = strokePursePill(
