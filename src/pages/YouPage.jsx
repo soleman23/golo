@@ -117,6 +117,8 @@ export default function YouPage() {
   const authEmail = useAuthStore((s) => s.user?.email ?? null)
   const authUserId = useAuthStore((s) => s.user?.id ?? null)
   const signOut = useAuthStore((s) => s.signOut)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const initialGhinStatus = searchParams.get('ghin')
 
   const [editing, setEditing] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -128,9 +130,12 @@ export default function YouPage() {
   const [ghinOpen, setGhinOpen] = useState(false)
   const [ghinBusy, setGhinBusy] = useState(false)
   const [ghinError, setGhinError] = useState(null)
-  const [ghinPending, setGhinPending] = useState(false)
-  const [ghinToast, setGhinToast] = useState(null)
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [ghinPending, setGhinPending] = useState(() => initialGhinStatus === 'pending')
+  const [ghinToast, setGhinToast] = useState(() => {
+    if (initialGhinStatus === 'pending') return 'GHIN integration pending USGA approval'
+    if (initialGhinStatus === 'error') return 'GHIN connection failed — try again'
+    return null
+  })
   const [venmoDraft, setVenmoDraft] = useState('')
   const [copiedVenmo, setCopiedVenmo] = useState(false)
   const [view, setView] = useState('season')
@@ -174,13 +179,8 @@ export default function YouPage() {
         if (remote) useProfileStore.setState(remote)
         setGhinToast('GHIN connected')
       })
-    } else if (status === 'pending') {
-      setGhinPending(true)
-      setGhinToast('GHIN integration pending USGA approval')
-    } else if (status === 'error') {
-      setGhinToast('GHIN connection failed — try again')
     }
-  }, [searchParams, setSearchParams, authUserId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [searchParams, setSearchParams, authUserId])
 
   useEffect(() => {
     if (!ghinToast) return

@@ -8,6 +8,7 @@ import { saveRound as dbSaveRound } from '../lib/db/rounds'
 import { fetchCourseGhinMapping } from '../lib/db/courses'
 import { postRoundToGhin } from '../lib/ghin/client'
 import { canPostToGhin, isGhinConnected } from '../lib/ghin/eligibility'
+import { getCourseImage } from '../lib/courseImages'
 import { buildLeaderboard } from '../engines/scoring'
 import { buildStablefordLeaderboard } from '../engines/stableford'
 import { buildBetResults, formatRoundSummary, betGlyphName } from '../engines/betResults'
@@ -38,15 +39,6 @@ import BackButton from '../components/shared/BackButton'
 
 const ACCENT = '#d4f23a'
 const ACCENT_DARK = '#13250a'
-
-// Course name → backdrop photo (mirrors ScoringPage / SetupWizard).
-const COURSE_BG = {
-  'Pinehurst No.2': '/courses/course.png',
-  'Harbor Dunes': '/courses/sunset.png',
-  'Lincoln Park': '/courses/turf.png',
-  'Tetherow': '/courses/tetherow.jpg',
-  'Lost Tracks Golf Course': '/courses/losttracks.webp',
-}
 
 const FORMAT_LABEL = {
   stroke: 'STROKE',
@@ -171,12 +163,11 @@ export default function PayoutsPage() {
   const [celebrate, setCelebrate] = useState(false)
   const [confirming, setConfirming] = useState(false) // final-complete confirm modal
   const [completing, setCompleting] = useState(false)
-  const [courseGhin, setCourseGhin] = useState(null)
+  const [courseGhinResult, setCourseGhinResult] = useState(null)
   const [ghinConfirm, setGhinConfirm] = useState(false)
   const [ghinPosting, setGhinPosting] = useState(false)
-  const [ghinPostError, setGhinPostError] = useState(null)
-  const [ghinPostedAt, setGhinPostedAt] = useState(null)
-  const [ghinPostId, setGhinPostId] = useState(null)
+  const [ghinPostErrorState, setGhinPostErrorState] = useState(null)
+  const [ghinPostResult, setGhinPostResult] = useState(null)
   const toastTimer = useRef()
   const savedRef = useRef(false)
   const expandedSeeded = useRef(false)
@@ -284,21 +275,24 @@ export default function PayoutsPage() {
     [historyRounds, round?.roundId]
   )
 
-  useEffect(() => {
-    setGhinPostedAt(existingHistoryEntry?.ghinPostedAt ?? null)
-    setGhinPostId(existingHistoryEntry?.ghinPostId ?? null)
-    setGhinPostError(null)
-  }, [round?.roundId, existingHistoryEntry?.ghinPostedAt, existingHistoryEntry?.ghinPostId])
+  const localGhinPost = ghinPostResult?.roundId === round?.roundId ? ghinPostResult : null
+  const ghinPostedAt = localGhinPost?.postedAt ?? existingHistoryEntry?.ghinPostedAt ?? null
+  const ghinPostId = localGhinPost?.postId ?? existingHistoryEntry?.ghinPostId ?? null
+  const ghinPostError =
+    ghinPostErrorState?.roundId === round?.roundId ? ghinPostErrorState.message : null
+  const setCurrentGhinPostError = (message) =>
+    setGhinPostErrorState(message ? { roundId: round?.roundId ?? null, message } : null)
+  const courseGhin =
+    authEnabled && courseGhinResult?.courseId === round?.courseId
+      ? courseGhinResult.mapping
+      : null
 
   useEffect(() => {
     const courseId = round?.courseId
-    if (!courseId || !authEnabled) {
-      setCourseGhin(null)
-      return
-    }
+    if (!courseId || !authEnabled) return
     let cancelled = false
     fetchCourseGhinMapping(courseId).then((mapping) => {
-      if (!cancelled) setCourseGhin(mapping)
+      if (!cancelled) setCourseGhinResult({ courseId, mapping })
     })
     return () => { cancelled = true }
   }, [round?.courseId, authEnabled])
@@ -320,27 +314,27 @@ export default function PayoutsPage() {
   const handlePostToGhin = async () => {
     if (!round?.roundId || !defaultMeId || ghinPosting || ghinPostedAt) return
     setGhinPosting(true)
-    setGhinPostError(null)
+    setCurrentGhinPostError(null)
     try {
       await persistRound()
       const { data, error } = await postRoundToGhin({ roundId: round.roundId, playerId: defaultMeId })
       if (error) throw error
       if (data?.configured === false) {
-        setGhinPostError('GHIN integration is not enabled yet.')
+        setCurrentGhinPostError('GHIN integration is not enabled yet.')
         return
       }
       if (data?.error) throw new Error(data.message ?? data.error)
       const postedAt = data.postedAt ?? new Date().toISOString()
-      setGhinPostedAt(postedAt)
-      setGhinPostId(data.postId ?? null)
-      const patch = { ghinPostedAt: postedAt, ghinPostId: data.postId ?? null }
+      const postId = data.postId ?? null
+      setGhinPostResult({ roundId: round.roundId, postedAt, postId })
+      const patch = { ghinPostedAt: postedAt, ghinPostId: postId }
       saveRound({ ...(existingHistoryEntry ?? {}), roundId: round.roundId, ...patch })
       setGhinConfirm(false)
       setToast('Score posted to GHIN')
       clearTimeout(toastTimer.current)
       toastTimer.current = setTimeout(() => setToast(null), 2200)
     } catch (err) {
-      setGhinPostError(err?.message ?? 'Could not post to GHIN.')
+      setCurrentGhinPostError(err?.message ?? 'Could not post to GHIN.')
     } finally {
       setGhinPosting(false)
     }
@@ -398,6 +392,7 @@ export default function PayoutsPage() {
       roundId: round.roundId,
       courseId: round.courseId ?? null,
       course: round.course,
+      courseBg: getCourseImage(round),
       tee: round.tee ?? null,
       date: round.date,
       holes: round.holes,
@@ -568,7 +563,7 @@ export default function PayoutsPage() {
 
   const scoringLabel = `FINAL · ${FORMAT_LABEL[scoringType] ?? 'STROKE'} · ${useGrossScoring ? 'GROSS' : 'NET'}`
   const headerDetail = `${totalHoles} holes · ${round.date || ''}`.trim().replace(/·\s*$/, '').trim()
-  const backdrop = COURSE_BG[round.course] ?? '/courses/course.png'
+  const backdrop = getCourseImage(round)
 
   const settleLabel = settlements.length === 0 ? 'Done' : allPaid ? 'All settled ✓' : 'Mark all paid'
 

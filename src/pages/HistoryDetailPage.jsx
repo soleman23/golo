@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import useHistoryStore from '../store/historyStore'
+import { getCourseImage } from '../lib/courseImages'
 import { betGlyphName } from '../engines/betResults'
 import { Icon } from '../components/shared/GoloIcons'
 import BackButton from '../components/shared/BackButton'
@@ -18,15 +19,7 @@ import BackButton from '../components/shared/BackButton'
 
 const ACCENT = '#d4f23a'
 
-const COURSE_BG = {
-  'Pinehurst No.2': '/courses/course.png',
-  'Harbor Dunes': '/courses/sunset.png',
-  'Lincoln Park': '/courses/turf.png',
-  'Tetherow': '/courses/tetherow.jpg',
-  'Lost Tracks Golf Course': '/courses/losttracks.webp',
-}
 const COURSE_FALLBACK_BG = 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)'
-const DEFAULT_COURSE_BG = '/courses/course.png'
 
 /* ------------------------------------------------------------------- helpers */
 
@@ -42,7 +35,6 @@ function hexA(hex, a) {
 
 const initial = (name) => (name || '').trim().charAt(0).toUpperCase() || '?'
 const asArray = (value) => (Array.isArray(value) ? value : [])
-const courseBg = (course) => COURSE_BG[course] ?? DEFAULT_COURSE_BG
 const layeredCourseBg = (bg) => `url(${bg}), ${COURSE_FALLBACK_BG}`
 const round2 = (n) => {
   const value = Number(n)
@@ -131,7 +123,7 @@ export default function HistoryDetailPage() {
   }, 0))
   const winners = leaderboard.filter((e) => Number(e?.rank) === 1)
   const winnerNames = winners.map((w) => w?.name).filter(Boolean)
-  const backdrop = courseBg(round.course)
+  const backdrop = getCourseImage(round)
   const summaryText = typeof round.summaryText === 'string' ? round.summaryText : ''
   const courseLabel = round.course || 'Saved round'
   const dateLabel = roundDateLabel(round)

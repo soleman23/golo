@@ -6,6 +6,7 @@ import useProfileStore from '../store/profileStore'
 import useAuthStore from '../store/authStore'
 import useSyncStore from '../store/syncStore'
 import { retrySyncOnLogin } from '../lib/sync'
+import { getCourseImage } from '../lib/courseImages'
 import { GoloWordmark, GoloBall } from '../components/shared/Logo'
 import BackButton from '../components/shared/BackButton'
 import {
@@ -33,15 +34,7 @@ const ACCENT = '#d4f23a'
 const ACCENT_DARK = '#13250a'
 const BACKDROP = '/courses/sunset.png'
 
-const COURSE_BG = {
-  'Pinehurst No.2': '/courses/course.png',
-  'Harbor Dunes': '/courses/sunset.png',
-  'Lincoln Park': '/courses/turf.png',
-  'Tetherow': '/courses/tetherow.jpg',
-  'Lost Tracks Golf Course': '/courses/losttracks.webp',
-}
 const COURSE_FALLBACK_BG = 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)'
-const DEFAULT_COURSE_BG = '/courses/course.png'
 
 /* ------------------------------------------------------------------- helpers */
 
@@ -83,7 +76,6 @@ const ord = (n) => {
   return `${whole}${s[(v - 20) % 10] || s[v] || s[0]}`
 }
 const asArray = (value) => (Array.isArray(value) ? value : [])
-const courseBg = (course) => COURSE_BG[course] ?? DEFAULT_COURSE_BG
 const layeredCourseBg = (bg) => `url(${bg}), ${COURSE_FALLBACK_BG}`
 const roundDateLabel = (r) => {
   const raw = r?.date ?? r?.completedAt
@@ -121,7 +113,7 @@ export default function HomePage() {
       ? {
           title: round.course || 'Current round',
           sub: `${safeLivePlayers.length || 0} players · ${round.holes || 18} holes`,
-          bg: courseBg(round.course),
+          bg: getCourseImage(round),
         }
       : null
 
@@ -198,7 +190,7 @@ export default function HomePage() {
         key: r?.roundId ?? `${r?.course ?? 'round'}-${r?.date ?? r?.completedAt ?? 'unknown'}-${i}`,
         roundId: r?.roundId,
         course: r?.course || 'Saved round',
-        bg: courseBg(r?.course),
+        bg: getCourseImage(r),
         date: roundDateLabel(r),
         games,
         net,

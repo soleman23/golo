@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useHistoryStore from '../store/historyStore'
 import useProfileStore from '../store/profileStore'
+import { getCourseImage } from '../lib/courseImages'
 import { GoloWordmark, GoloBall } from '../components/shared/Logo'
 import BackButton from '../components/shared/BackButton'
 import {
@@ -28,15 +29,7 @@ const ACCENT = '#d4f23a'
 const ACCENT_DARK = '#13250a'
 const BACKDROP = '/courses/sunset.png'
 
-const COURSE_BG = {
-  'Pinehurst No.2': '/courses/course.png',
-  'Harbor Dunes': '/courses/sunset.png',
-  'Lincoln Park': '/courses/turf.png',
-  'Tetherow': '/courses/tetherow.jpg',
-  'Lost Tracks Golf Course': '/courses/losttracks.webp',
-}
 const COURSE_FALLBACK_BG = 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)'
-const DEFAULT_COURSE_BG = '/courses/course.png'
 
 /* ------------------------------------------------------------------- helpers */
 
@@ -51,7 +44,6 @@ function hexA(hex, a) {
 }
 
 const asArray = (value) => (Array.isArray(value) ? value : [])
-const courseBg = (course) => COURSE_BG[course] ?? DEFAULT_COURSE_BG
 const layeredCourseBg = (bg) => `url(${bg}), ${COURSE_FALLBACK_BG}`
 const round2 = (n) => {
   const value = Number(n)
@@ -135,7 +127,7 @@ export default function HistoryPage() {
           roundId: r?.roundId,
           course: r?.course || 'Saved round',
           date: roundDateLabel(r),
-          bg: courseBg(r?.course),
+          bg: getCourseImage(r),
           games: betResults.map((b) => b?.name).filter(Boolean).join(' · ') || 'No games',
           net: meKey ? myNetInRoundByKey(r, meKey) : 0,
           place: me && leaderboard.length && Number.isFinite(rank) ? `${ord(rank)} of ${leaderboard.length}` : winner === '—' ? '—' : `🏆 ${winner}`,

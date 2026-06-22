@@ -6,6 +6,7 @@ import useProfileStore from '../store/profileStore'
 import { calculateCourseHandicap } from '../engines/handicap'
 import { hasContact, displayName, playerKey } from '../lib/identity'
 import { fetchCourses } from '../lib/db/courses'
+import { getCourseImage } from '../lib/courseImages'
 import { GoloWordmark } from '../components/shared/Logo'
 import { Icon } from '../components/shared/GoloIcons'
 import BackButton from '../components/shared/BackButton'
@@ -332,7 +333,9 @@ function initState() {
   const storedTeams = round ? rawTeams : []
 
   const holes = round?.holes ?? 18
-  const courseMatch = COURSES.find((c) => c.name === round?.course)
+  const courseMatch =
+    COURSES.find((c) => c.id === round?.courseId) ??
+    COURSES.find((c) => c.name === round?.course)
 
   // Players
   const teamOf = (id) =>
@@ -636,6 +639,7 @@ export default function SetupWizard() {
     const data = {
       courseId: course.id,
       course: course.name,
+      courseBg: getCourseImage(course),
       // Date is stamped now, the moment the user starts the round — no picker.
       date: today(),
       holes: st.holes,
@@ -748,7 +752,7 @@ export default function SetupWizard() {
       }}
     >
       {/* course photo backdrop + dark overlay */}
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundImage: `url(${course.bg}), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundImage: `url(${getCourseImage(course)}), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(6,14,9,.7) 0%, rgba(6,14,9,.5) 22%, rgba(6,16,10,.6) 55%, rgba(4,12,8,.92) 100%)', pointerEvents: 'none' }} />
 
       {/* content column */}

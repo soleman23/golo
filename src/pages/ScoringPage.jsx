@@ -13,6 +13,7 @@ import { summarizeBets } from '../engines/betStatus'
 import { buildBetResults, betGlyphName } from '../engines/betResults'
 import useProfileStore from '../store/profileStore'
 import { playerKey } from '../lib/identity'
+import { getCourseImage } from '../lib/courseImages'
 import { GoloWordmark } from '../components/shared/Logo'
 import { Icon } from '../components/shared/GoloIcons'
 import BackButton from '../components/shared/BackButton'
@@ -40,15 +41,6 @@ const ACCENT = '#d4f23a'
 const ACCENT_DARK = '#13250a'
 const COURSE_FALLBACK_BG = 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)'
 const DASH = '–'
-
-// Course name → backdrop photo (mirrors SetupWizard's COURSES list).
-const COURSE_BG = {
-  'Pinehurst No.2': '/courses/course.png',
-  'Harbor Dunes': '/courses/sunset.png',
-  'Lincoln Park': '/courses/turf.png',
-  'Tetherow': '/courses/tetherow.jpg',
-  'Lost Tracks Golf Course': '/courses/losttracks.webp',
-}
 
 const BET_ICONS = {
   skins: '🎯',
@@ -513,7 +505,7 @@ export default function ScoringPage() {
     return <Navigate to="/setup" replace />
   }
 
-  const backdrop = COURSE_BG[round.course] ?? '/courses/course.png'
+  const backdrop = getCourseImage(round)
 
   if (isScramble && teams.length === 0) {
     return (
