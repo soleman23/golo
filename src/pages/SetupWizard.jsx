@@ -311,19 +311,19 @@ const skinsConfigOf = (b) => ({
   savedAsDefault: !!b.savedAsDefault,
 })
 
-/** Re-resolve skins longest-drive hole against the current course card. */
-const betsWithNormalizedLdHole = (bets, pars) => {
-  const skins = {
+/** Re-resolve longest-drive holes (skins + standalone long) against the current course card. */
+const betsWithNormalizedLdHole = (bets, pars) => ({
+  ...bets,
+  skins: {
     ...bets.skins,
     ldHole: bets.skins.selectedSkins?.longestDrive
       ? normalizeSkinsLdHole(bets.skins.ldHole, pars)
       : bets.skins.ldHole,
-  }
-  const long = bets.long?.on
+  },
+  long: bets.long
     ? { ...bets.long, hole: normalizeSkinsLdHole(bets.long.hole, pars) }
-    : bets.long
-  return { ...bets, skins, long }
-}
+    : bets.long,
+})
 
 /** Persisted SkinsConfig (or saved default) → the wizard skins selection shape. */
 const skinsSelectionFrom = (c) => {
