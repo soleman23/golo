@@ -331,6 +331,29 @@ export default function HomePage() {
                     </div>
                   </div>
 
+                  {/* RECENT ROUNDS */}
+                  <div style={{ ...S.sectionRow, marginTop: 18 }}>
+                    <span style={S.sectionLabel}>RECENT ROUNDS</span>
+                    <span style={S.sectionSub}>{model.recent.length} shown</span>
+                  </div>
+                  {model.recent.map((g) => (
+                    <button key={g.key} onClick={() => navigate(`/history/${g.roundId}`)} style={S.roundRow}>
+                      <span style={{ ...S.roundThumb, background: COURSE_FALLBACK_BG, backgroundImage: layeredCourseBg(g.bg), backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                      <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                        <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.course}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
+                          <span style={{ fontSize: 12, color: 'rgba(255,255,255,.5)' }}>{g.date}</span>
+                          <span style={{ fontSize: 12, color: 'rgba(255,255,255,.3)' }}>·</span>
+                          <span style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.games}</span>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: mcol(g.net) }}>{signed(g.net)}</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.45)' }}>{g.place}</div>
+                      </div>
+                    </button>
+                  ))}
+
                   {/* THE CREW */}
                   <div style={{ ...S.sectionRow, marginTop: 18 }}>
                     <span style={S.sectionLabel}>THE CREW · {model.scope}</span>
@@ -356,29 +379,6 @@ export default function HomePage() {
                       </div>
                     ))
                   )}
-
-                  {/* RECENT ROUNDS */}
-                  <div style={{ ...S.sectionRow, marginTop: 18 }}>
-                    <span style={S.sectionLabel}>RECENT ROUNDS</span>
-                    <span style={S.sectionSub}>{model.recent.length} shown</span>
-                  </div>
-                  {model.recent.map((g) => (
-                    <button key={g.key} onClick={() => navigate(`/history/${g.roundId}`)} style={S.roundRow}>
-                      <span style={{ ...S.roundThumb, background: COURSE_FALLBACK_BG, backgroundImage: layeredCourseBg(g.bg), backgroundSize: 'cover', backgroundPosition: 'center' }} />
-                      <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-                        <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.course}</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
-                          <span style={{ fontSize: 12, color: 'rgba(255,255,255,.5)' }}>{g.date}</span>
-                          <span style={{ fontSize: 12, color: 'rgba(255,255,255,.3)' }}>·</span>
-                          <span style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.games}</span>
-                        </div>
-                      </div>
-                      <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
-                        <div style={{ fontSize: 18, fontWeight: 800, color: mcol(g.net) }}>{signed(g.net)}</div>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.45)' }}>{g.place}</div>
-                      </div>
-                    </button>
-                  ))}
                 </>
               )}
             </>
