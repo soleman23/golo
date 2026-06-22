@@ -285,11 +285,10 @@ export default function PayoutsPage() {
   )
 
   useEffect(() => {
-    if (existingHistoryEntry?.ghinPostedAt) {
-      setGhinPostedAt(existingHistoryEntry.ghinPostedAt)
-      setGhinPostId(existingHistoryEntry.ghinPostId ?? null)
-    }
-  }, [existingHistoryEntry?.ghinPostedAt, existingHistoryEntry?.ghinPostId])
+    setGhinPostedAt(existingHistoryEntry?.ghinPostedAt ?? null)
+    setGhinPostId(existingHistoryEntry?.ghinPostId ?? null)
+    setGhinPostError(null)
+  }, [round?.roundId, existingHistoryEntry?.ghinPostedAt, existingHistoryEntry?.ghinPostId])
 
   useEffect(() => {
     const courseId = round?.courseId
