@@ -10,9 +10,8 @@ import { persist } from 'zustand/middleware'
  * sessions.
  *
  * The account/payout fields below back the "You" page's settings rows. There's
- * no real Venmo/GHIN/push backend in the MVP, so these are local preferences:
- * the toggles and handle persist and drive the row badges, nothing leaves the
- * device.
+ * Venmo is still a local preference. GHIN connection state syncs via Supabase
+ * edge functions when the backend and GPA credentials are configured.
  */
 const useProfileStore = create(
   persist(
@@ -26,7 +25,10 @@ const useProfileStore = create(
       onboarded: false, // seen the first-run onboarding flow (set on finish or skip)
       homeClub: null, // optional home-club override; null = auto (most-played course)
       venmo: null, // payout handle, e.g. "@mike"; null = not linked
-      ghinSync: false, // GHIN auto-sync preference (local toggle)
+      ghinNumber: null, // official GHIN # after connect, or null
+      ghinConnectedAt: null, // ISO timestamp when OAuth completed
+      ghinLastSyncAt: null, // ISO timestamp of last handicap pull
+      ghinSync: false, // auto-sync handicap from GHIN on login when connected
       notifySettle: true, // notify on settle-up
       notifyLive: true, // notify on live-round updates
       skinsDefault: null, // saved Skins setup (the wizard selection shape), or null
@@ -53,6 +55,20 @@ const useProfileStore = create(
         set({ venmo: h ? `@${h}` : null })
       },
       setGhinSync: (on) => set({ ghinSync: !!on }),
+      setGhinMeta: (fields = {}) =>
+        set((state) => ({
+          ghinNumber: 'ghinNumber' in fields ? fields.ghinNumber : state.ghinNumber,
+          ghinConnectedAt: 'ghinConnectedAt' in fields ? fields.ghinConnectedAt : state.ghinConnectedAt,
+          ghinLastSyncAt: 'ghinLastSyncAt' in fields ? fields.ghinLastSyncAt : state.ghinLastSyncAt,
+          handicapIndex: 'handicapIndex' in fields ? fields.handicapIndex : state.handicapIndex,
+        })),
+      clearGhinConnection: () =>
+        set({
+          ghinNumber: null,
+          ghinConnectedAt: null,
+          ghinLastSyncAt: null,
+          ghinSync: false,
+        }),
       setNotify: (settle, live) => set({ notifySettle: !!settle, notifyLive: !!live }),
       completeOnboarding: () => set({ onboarded: true }),
     }),

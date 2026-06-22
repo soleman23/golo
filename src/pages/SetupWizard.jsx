@@ -634,6 +634,7 @@ export default function SetupWizard() {
   const commit = () => {
     const existing = useRoundStore.getState().round
     const data = {
+      courseId: course.id,
       course: course.name,
       // Date is stamped now, the moment the user starts the round — no picker.
       date: today(),

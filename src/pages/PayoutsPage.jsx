@@ -5,6 +5,9 @@ import useHistoryStore from '../store/historyStore'
 import useProfileStore from '../store/profileStore'
 import useAuthStore from '../store/authStore'
 import { saveRound as dbSaveRound } from '../lib/db/rounds'
+import { fetchCourseGhinMapping } from '../lib/db/courses'
+import { postRoundToGhin } from '../lib/ghin/client'
+import { canPostToGhin, isGhinConnected } from '../lib/ghin/eligibility'
 import { buildLeaderboard } from '../engines/scoring'
 import { buildStablefordLeaderboard } from '../engines/stableford'
 import { buildBetResults, formatRoundSummary, betGlyphName } from '../engines/betResults'
@@ -158,6 +161,8 @@ export default function PayoutsPage() {
   const profileNick = useProfileStore((s) => s.nickname)
   const profileEmail = useProfileStore((s) => s.email)
   const profilePhone = useProfileStore((s) => s.phone)
+  const ghinConnectedAt = useProfileStore((s) => s.ghinConnectedAt)
+  const authEnabled = useAuthStore((s) => s.enabled)
 
   const [meOverride, setMe] = useState(null) // hero player id, once the user taps
   const [paid, setPaid] = useState({}) // settlement key `${from}>${to}` → true
@@ -166,6 +171,12 @@ export default function PayoutsPage() {
   const [celebrate, setCelebrate] = useState(false)
   const [confirming, setConfirming] = useState(false) // final-complete confirm modal
   const [completing, setCompleting] = useState(false)
+  const [courseGhin, setCourseGhin] = useState(null)
+  const [ghinConfirm, setGhinConfirm] = useState(false)
+  const [ghinPosting, setGhinPosting] = useState(false)
+  const [ghinPostError, setGhinPostError] = useState(null)
+  const [ghinPostedAt, setGhinPostedAt] = useState(null)
+  const [ghinPostId, setGhinPostId] = useState(null)
   const toastTimer = useRef()
   const savedRef = useRef(false)
   const expandedSeeded = useRef(false)
@@ -268,6 +279,74 @@ export default function PayoutsPage() {
   }, [players, meKey])
   const me = meOverride ?? defaultMeId
 
+  const existingHistoryEntry = useMemo(
+    () => historyRounds.find((r) => r.roundId === round?.roundId),
+    [historyRounds, round?.roundId]
+  )
+
+  useEffect(() => {
+    if (existingHistoryEntry?.ghinPostedAt) {
+      setGhinPostedAt(existingHistoryEntry.ghinPostedAt)
+      setGhinPostId(existingHistoryEntry.ghinPostId ?? null)
+    }
+  }, [existingHistoryEntry?.ghinPostedAt, existingHistoryEntry?.ghinPostId])
+
+  useEffect(() => {
+    const courseId = round?.courseId
+    if (!courseId || !authEnabled) {
+      setCourseGhin(null)
+      return
+    }
+    let cancelled = false
+    fetchCourseGhinMapping(courseId).then((mapping) => {
+      if (!cancelled) setCourseGhin(mapping)
+    })
+    return () => { cancelled = true }
+  }, [round?.courseId, authEnabled])
+
+  const ghinEligibility = useMemo(
+    () =>
+      canPostToGhin({
+        round,
+        teams,
+        scores,
+        playerId: defaultMeId,
+        courseGhin,
+        ghinConnected: authEnabled && isGhinConnected({ ghinConnectedAt }),
+        ghinPostedAt,
+      }),
+    [round, teams, scores, defaultMeId, courseGhin, authEnabled, ghinConnectedAt, ghinPostedAt]
+  )
+
+  const handlePostToGhin = async () => {
+    if (!round?.roundId || !defaultMeId || ghinPosting || ghinPostedAt) return
+    setGhinPosting(true)
+    setGhinPostError(null)
+    try {
+      await persistRound()
+      const { data, error } = await postRoundToGhin({ roundId: round.roundId, playerId: defaultMeId })
+      if (error) throw error
+      if (data?.configured === false) {
+        setGhinPostError('GHIN integration is not enabled yet.')
+        return
+      }
+      if (data?.error) throw new Error(data.message ?? data.error)
+      const postedAt = data.postedAt ?? new Date().toISOString()
+      setGhinPostedAt(postedAt)
+      setGhinPostId(data.postId ?? null)
+      const patch = { ghinPostedAt: postedAt, ghinPostId: data.postId ?? null }
+      saveRound({ ...(existingHistoryEntry ?? {}), roundId: round.roundId, ...patch })
+      setGhinConfirm(false)
+      setToast('Score posted to GHIN')
+      clearTimeout(toastTimer.current)
+      toastTimer.current = setTimeout(() => setToast(null), 2200)
+    } catch (err) {
+      setGhinPostError(err?.message ?? 'Could not post to GHIN.')
+    } finally {
+      setGhinPosting(false)
+    }
+  }
+
   // Expand the first game by default, once results are known.
   useEffect(() => {
     if (expandedSeeded.current || betResults.length === 0) return
@@ -318,7 +397,9 @@ export default function PayoutsPage() {
       })
     const entry = {
       roundId: round.roundId,
+      courseId: round.courseId ?? null,
       course: round.course,
+      tee: round.tee ?? null,
       date: round.date,
       holes: round.holes,
       scoring: round.scoring ?? 'net',
@@ -326,6 +407,8 @@ export default function PayoutsPage() {
       pars,
       strokeIndex: round.strokeIndex ?? {},
       completedAt: existingEntry?.completedAt ?? new Date().toISOString(),
+      ghinPostedAt: ghinPostedAt ?? existingEntry?.ghinPostedAt ?? null,
+      ghinPostId: ghinPostId ?? existingEntry?.ghinPostId ?? null,
       players: players.map((p) => ({
         id: p.id,
         name: p.name,
@@ -751,6 +834,39 @@ export default function PayoutsPage() {
 
         {/* footer --------------------------------------------------------- */}
         <div style={S.footer}>
+          {authEnabled && (
+            <div style={{ marginBottom: 10 }}>
+              {ghinPostedAt ? (
+                <div style={{ ...S.ghinBanner, borderColor: hexA(ACCENT, 0.45) }}>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: ACCENT }}>Posted to GHIN</span>
+                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,.55)', marginTop: 2 }}>
+                    Gross {ghinEligibility.gross ?? '—'} · {round.date || 'today'}
+                  </span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => ghinEligibility.ok && setGhinConfirm(true)}
+                  disabled={!ghinEligibility.ok || ghinPosting}
+                  style={{
+                    ...S.ghinBtn,
+                    opacity: ghinEligibility.ok && !ghinPosting ? 1 : 0.55,
+                    cursor: ghinEligibility.ok && !ghinPosting ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  {ghinPosting ? 'Posting to GHIN…' : 'Post to GHIN'}
+                </button>
+              )}
+              {!ghinPostedAt && !ghinEligibility.ok && ghinEligibility.reasons[0] && (
+                <div style={{ fontSize: 11.5, fontWeight: 600, color: 'rgba(255,255,255,.45)', marginTop: 6, lineHeight: 1.35 }}>
+                  {ghinEligibility.reasons[0]}
+                </div>
+              )}
+              {ghinPostError && (
+                <div style={{ fontSize: 11.5, fontWeight: 600, color: '#fb7185', marginTop: 6 }}>{ghinPostError}</div>
+              )}
+            </div>
+          )}
           <button onClick={() => setConfirming(true)} disabled={completing} style={{ ...S.completeBtn, opacity: completing ? 0.68 : 1, cursor: completing ? 'wait' : 'pointer' }}>
             {completing ? 'Completing...' : 'Complete'}
           </button>
@@ -782,6 +898,27 @@ export default function PayoutsPage() {
               {completing ? 'Completing...' : 'Complete'}
             </button>
             <button onClick={() => setCelebrate(false)} style={S.modalGhost}>Back to summary</button>
+          </div>
+        </div>
+      )}
+
+      {/* CONFIRM · post to GHIN */}
+      {ghinConfirm && (
+        <div style={{ ...S.modalWrap, zIndex: 60 }} role="dialog" aria-modal="true" aria-label="Post to GHIN">
+          <div onClick={() => !ghinPosting && setGhinConfirm(false)} style={S.modalScrim} />
+          <div style={S.modalCard}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', letterSpacing: -0.3 }}>Post to GHIN?</div>
+            <div style={{ fontSize: 14, color: 'rgba(255,255,255,.62)', marginTop: 10, lineHeight: 1.5 }}>
+              Submit your official gross score ({ghinEligibility.gross ?? '—'}) for {round.course || 'this round'}
+              {round.tee?.name ? ` · ${round.tee.name} tees` : ''}. Side-game results are not sent.
+            </div>
+            {ghinPostError && (
+              <div style={{ fontSize: 13, color: '#fb7185', marginTop: 10 }}>{ghinPostError}</div>
+            )}
+            <button onClick={handlePostToGhin} disabled={ghinPosting} style={{ ...S.modalPrimary, opacity: ghinPosting ? 0.68 : 1, cursor: ghinPosting ? 'wait' : 'pointer' }}>
+              {ghinPosting ? 'Posting…' : 'Post score'}
+            </button>
+            <button onClick={() => setGhinConfirm(false)} disabled={ghinPosting} style={S.modalGhost}>Cancel</button>
           </div>
         </div>
       )}
@@ -853,6 +990,8 @@ const S = {
   recapCard: { background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.13)', borderRadius: 16, padding: '13px 14px', minWidth: 0 },
 
   footer: { flex: '0 0 auto', padding: '10px 16px max(18px, env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: 9 },
+  ghinBtn: { width: '100%', minHeight: 48, borderRadius: 15, border: `1px solid ${hexA(ACCENT, 0.38)}`, fontSize: 15, fontWeight: 800, background: hexA(ACCENT, 0.1), color: ACCENT },
+  ghinBanner: { width: '100%', borderRadius: 15, border: '1px solid rgba(255,255,255,.14)', background: 'rgba(255,255,255,.06)', padding: '12px 14px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' },
   footerRow: { display: 'flex', gap: 10, alignItems: 'center' },
   completeBtn: { width: '100%', minHeight: 54, borderRadius: 16, border: 'none', fontSize: 16, fontWeight: 800, background: ACCENT, color: ACCENT_DARK, boxShadow: `0 8px 22px ${hexA(ACCENT, 0.4)}` },
   shareBtn: { minHeight: 48, padding: '0 18px', borderRadius: 15, background: 'rgba(255,255,255,.1)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.18)', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer' },

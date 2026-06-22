@@ -20,7 +20,7 @@ After connecting the repo in Netlify, copy your site URL from **Site configurati
 3. **Site configuration → General → Site details** — pick a readable name (`YOUR-SITE.netlify.app`).
 4. Confirm continuous deployment from `main` is on.
 
-### Supabase migrations (0001 → 0004)
+### Supabase migrations (0001 → 0005)
 
 Run in order in **SQL Editor** (or Supabase CLI), if not already applied:
 
@@ -30,12 +30,15 @@ Run in order in **SQL Editor** (or Supabase CLI), if not already applied:
 | `supabase/migrations/0002_seed_courses.sql` | Course catalogue |
 | `supabase/migrations/0003_avatars.sql` | Profile photos + storage bucket |
 | `supabase/migrations/0004_profile_handicap.sql` | Handicap on profile |
+| `supabase/migrations/0005_ghin.sql` | GHIN OAuth tokens, course mapping, post status |
 
 Verify locally:
 
 ```bash
 npm run verify:prod
 ```
+
+**GHIN (optional):** Deploy edge functions and set Supabase secrets per [docs/GHIN.md](docs/GHIN.md). Until USGA GPA approval, `GHIN_ENABLED=false` and the UI shows “pending.”
 
 **If 0004 fails**, run in SQL Editor:
 
@@ -128,7 +131,7 @@ After `npm run build && npm run preview`, open `http://localhost:4173` and confi
 ## Printable production checklist
 
 - [ ] Netlify build green with env vars (Supabase URL in JS bundle)
-- [ ] `npm run verify:prod` passes (all four migrations)
+- [ ] `npm run verify:prod` passes (all five migrations)
 - [ ] Supabase Site URL + Redirect URLs match `https://YOUR-SITE.netlify.app`
 - [ ] Email confirm OFF for crew week (or tested ON flow)
 - [ ] Sign up / sign in / sign out on phone

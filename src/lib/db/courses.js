@@ -15,7 +15,34 @@ const fromDb = (r) => ({
   ...(r.pars ? { pars: r.pars } : {}),
   ...(r.stroke_index ? { strokeIndex: r.stroke_index } : {}),
   ...(r.tees ? { tees: r.tees } : {}),
+  ...(r.ghin_facility_id ? { ghinFacilityId: r.ghin_facility_id } : {}),
+  ...(r.ghin_course_id ? { ghinCourseId: r.ghin_course_id } : {}),
+  ...(r.ghin_tee_sets ? { ghinTeeSets: r.ghin_tee_sets } : {}),
 })
+
+/** GHIN mapping subset for score-posting eligibility checks. */
+export function ghinMappingFromCourse(course) {
+  if (!course) return null
+  return {
+    ghinFacilityId: course.ghinFacilityId ?? course.ghin_facility_id ?? null,
+    ghinCourseId: course.ghinCourseId ?? course.ghin_course_id ?? null,
+    ghinTeeSets: course.ghinTeeSets ?? course.ghin_tee_sets ?? null,
+  }
+}
+
+export async function fetchCourseGhinMapping(courseId) {
+  if (!isSupabaseConfigured || !courseId) return null
+  const { data, error } = await supabase
+    .from('courses')
+    .select('ghin_facility_id, ghin_course_id, ghin_tee_sets')
+    .eq('id', courseId)
+    .maybeSingle()
+  if (error) {
+    console.error('[db] fetchCourseGhinMapping', error)
+    return null
+  }
+  return ghinMappingFromCourse(data)
+}
 
 export async function fetchCourses() {
   if (!isSupabaseConfigured) return null

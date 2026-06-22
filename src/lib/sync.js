@@ -4,6 +4,8 @@ import useHistoryStore from '../store/historyStore'
 import useSyncStore from '../store/syncStore'
 import { isSupabaseConfigured } from './supabaseClient'
 import { fetchProfile, upsertProfile } from './db/profiles'
+import { syncGhinHandicap, isGhinConfiguredResponse } from './ghin/client'
+import { isGhinConnected } from './ghin/eligibility'
 import { fetchRounds, saveRound as dbSaveRound } from './db/rounds'
 
 /**
@@ -22,7 +24,8 @@ import { fetchRounds, saveRound as dbSaveRound } from './db/rounds'
 
 const PROFILE_FIELDS = [
   'name', 'nickname', 'email', 'phone', 'handicapIndex', 'avatarUrl', 'homeClub',
-  'venmo', 'ghinSync', 'notifySettle', 'notifyLive', 'skinsDefault',
+  'venmo', 'ghinNumber', 'ghinConnectedAt', 'ghinLastSyncAt', 'ghinSync',
+  'notifySettle', 'notifyLive', 'skinsDefault',
 ]
 
 let currentUserId = null
@@ -85,6 +88,23 @@ export async function syncOnLogin(userId, { force = false } = {}) {
     }
     const finalRounds = toPush.length ? ((await fetchRounds()) ?? remoteRounds) : remoteRounds
     useHistoryStore.getState().setRounds(finalRounds)
+
+    // Optional: pull official handicap when GHIN is connected and auto-sync is on.
+    const prof = useProfileStore.getState()
+    if (prof.ghinSync && isGhinConnected(prof)) {
+      try {
+        const { data, error } = await syncGhinHandicap()
+        if (!error && isGhinConfiguredResponse(data)) {
+          useProfileStore.getState().setGhinMeta({
+            handicapIndex: data.handicapIndex,
+            ghinNumber: data.ghinNumber,
+            ghinLastSyncAt: data.lastSyncAt,
+          })
+        }
+      } catch (e) {
+        console.warn('[sync] GHIN auto-sync skipped', e)
+      }
+    }
 
     startProfileSync(userId)
     currentUserId = userId

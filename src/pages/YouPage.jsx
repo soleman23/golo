@@ -1,10 +1,13 @@
-import { useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useMemo, useRef, useState, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import useRoundStore from '../store/roundStore'
 import useHistoryStore from '../store/historyStore'
 import useProfileStore from '../store/profileStore'
 import useAuthStore from '../store/authStore'
 import { uploadAvatar, removeAvatar } from '../lib/db/avatars'
+import { fetchProfile } from '../lib/db/profiles'
+import { startGhinConnect, syncGhinHandicap, isGhinConfiguredResponse } from '../lib/ghin/client'
+import { isGhinConnected } from '../lib/ghin/eligibility'
 import { GoloWordmark, GoloBall } from '../components/shared/Logo'
 import { Icon } from '../components/shared/GoloIcons'
 import BackButton from '../components/shared/BackButton'
@@ -93,6 +96,11 @@ export default function YouPage() {
   const profileEmail = useProfileStore((s) => s.email)
   const profilePhone = useProfileStore((s) => s.phone)
   const profileHandicap = useProfileStore((s) => s.handicapIndex)
+  const ghinNumber = useProfileStore((s) => s.ghinNumber)
+  const ghinConnectedAt = useProfileStore((s) => s.ghinConnectedAt)
+  const ghinLastSyncAt = useProfileStore((s) => s.ghinLastSyncAt)
+  const setGhinMeta = useProfileStore((s) => s.setGhinMeta)
+  const setHandicapIndex = useProfileStore((s) => s.setHandicapIndex)
   const avatarUrl = useProfileStore((s) => s.avatarUrl)
   const setAvatarUrl = useProfileStore((s) => s.setAvatarUrl)
   const setIdentity = useProfileStore((s) => s.setIdentity)
@@ -117,6 +125,12 @@ export default function YouPage() {
   const [confirmBusy, setConfirmBusy] = useState(false)
   const [confirmError, setConfirmError] = useState(null)
   const [venmoOpen, setVenmoOpen] = useState(false)
+  const [ghinOpen, setGhinOpen] = useState(false)
+  const [ghinBusy, setGhinBusy] = useState(false)
+  const [ghinError, setGhinError] = useState(null)
+  const [ghinPending, setGhinPending] = useState(false)
+  const [ghinToast, setGhinToast] = useState(null)
+  const [searchParams, setSearchParams] = useSearchParams()
   const [venmoDraft, setVenmoDraft] = useState('')
   const [copiedVenmo, setCopiedVenmo] = useState(false)
   const [view, setView] = useState('season')
@@ -145,6 +159,100 @@ export default function YouPage() {
     null
   const meHandle = handleOf(profile)
   const venmoHandle = venmo ? (venmo.startsWith('@') ? venmo : `@${venmo}`) : null
+  const ghinLinked = isGhinConnected({ ghinConnectedAt })
+
+  useEffect(() => {
+    const status = searchParams.get('ghin')
+    if (!status) return
+    const next = new URLSearchParams(searchParams)
+    next.delete('ghin')
+    next.delete('message')
+    setSearchParams(next, { replace: true })
+
+    if (status === 'connected' && authUserId) {
+      fetchProfile(authUserId).then((remote) => {
+        if (remote) useProfileStore.setState(remote)
+        setGhinToast('GHIN connected')
+      })
+    } else if (status === 'pending') {
+      setGhinPending(true)
+      setGhinToast('GHIN integration pending USGA approval')
+    } else if (status === 'error') {
+      setGhinToast('GHIN connection failed — try again')
+    }
+  }, [searchParams, setSearchParams, authUserId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!ghinToast) return
+    const t = setTimeout(() => setGhinToast(null), 2600)
+    return () => clearTimeout(t)
+  }, [ghinToast])
+
+  const openGhin = () => {
+    setGhinError(null)
+    setGhinOpen(true)
+  }
+
+  const handleGhinConnect = async () => {
+    if (!authEnabled || !authUserId) return
+    setGhinBusy(true)
+    setGhinError(null)
+    try {
+      const { data, error } = await startGhinConnect()
+      if (error) throw error
+      if (data?.configured === false) {
+        setGhinPending(true)
+        setGhinError('GHIN integration is pending USGA GPA approval.')
+        return
+      }
+      if (data?.url) window.location.href = data.url
+      else throw new Error('Could not start GHIN connection.')
+    } catch (err) {
+      setGhinError(err?.message ?? 'Could not connect to GHIN.')
+    } finally {
+      setGhinBusy(false)
+    }
+  }
+
+  const handleGhinSync = async () => {
+    if (!authEnabled) return
+    setGhinBusy(true)
+    setGhinError(null)
+    try {
+      const { data, error } = await syncGhinHandicap()
+      if (error) throw error
+      if (data?.configured === false) {
+        setGhinPending(true)
+        setGhinError('GHIN integration is pending USGA GPA approval.')
+        return
+      }
+      if (data?.error === 'reconnect') {
+        setGhinError(data.message ?? 'Reconnect GHIN.')
+        return
+      }
+      if (isGhinConfiguredResponse(data)) {
+        setGhinMeta({
+          handicapIndex: data.handicapIndex,
+          ghinNumber: data.ghinNumber,
+          ghinLastSyncAt: data.lastSyncAt,
+        })
+        if (data.handicapIndex != null) setHandicapIndex(data.handicapIndex)
+        setGhinToast('Handicap synced from GHIN')
+      }
+    } catch (err) {
+      setGhinError(err?.message ?? 'Sync failed.')
+    } finally {
+      setGhinBusy(false)
+    }
+  }
+
+  const ghinSub = ghinLinked
+    ? `GHIN #${ghinNumber ?? '—'} · index ${profileHandicap != null ? Number(profileHandicap).toFixed(1) : '—'}`
+    : ghinPending
+      ? 'Integration pending USGA approval'
+      : ghinSync
+        ? 'Auto-sync on · not connected'
+        : 'Connect for official handicap'
 
   const model = useMemo(() => {
     if (!meKey) return null
@@ -811,9 +919,9 @@ export default function YouPage() {
             <SettingRow
               icon="🚩"
               title="Handicap"
-              sub={ghinSync ? 'GHIN · auto-sync on' : 'Not connected'}
-              onClick={() => setGhinSync(!ghinSync)}
-              badge={ghinSync ? { label: 'Synced', on: true } : { label: 'Off', on: false }}
+              sub={ghinSub}
+              onClick={openGhin}
+              badge={ghinLinked ? { label: 'Synced', on: true } : ghinPending ? { label: 'Pending', on: false } : { label: 'Connect', on: false }}
               divider
             />
             <SettingRow
@@ -870,8 +978,29 @@ export default function YouPage() {
           />
         )}
 
+        {ghinOpen && (
+          <GhinSheet
+            linked={ghinLinked}
+            pending={ghinPending}
+            ghinNumber={ghinNumber}
+            handicapIndex={profileHandicap}
+            lastSyncAt={ghinLastSyncAt}
+            autoSync={ghinSync}
+            busy={ghinBusy}
+            error={ghinError}
+            authEnabled={authEnabled}
+            onToggleAutoSync={() => setGhinSync(!ghinSync)}
+            onConnect={handleGhinConnect}
+            onSync={handleGhinSync}
+            onCancel={() => setGhinOpen(false)}
+          />
+        )}
+
         {copiedVenmo && venmoHandle && (
           <div style={S.toast}>Copied {venmoHandle}</div>
+        )}
+        {ghinToast && (
+          <div style={S.toast}>{ghinToast}</div>
         )}
       </div>
     </div>
@@ -902,6 +1031,55 @@ function ConfirmSheet({ title, body, confirmLabel, danger, busy, error, onCancel
           {confirmLabel}
         </button>
         <button onClick={onCancel} disabled={busy} style={S.sheetSecondary}>Cancel</button>
+      </div>
+    </div>
+  )
+}
+
+function GhinSheet({
+  linked, pending, ghinNumber, handicapIndex, lastSyncAt, autoSync, busy, error, authEnabled,
+  onToggleAutoSync, onConnect, onSync, onCancel,
+}) {
+  const syncLabel = lastSyncAt
+    ? `Last synced ${new Date(lastSyncAt).toLocaleDateString()}`
+    : 'Not synced yet'
+  return (
+    <div style={S.sheetLayer} role="dialog" aria-modal="true" aria-labelledby="you-ghin-title">
+      <button aria-label="Close GHIN settings" onClick={onCancel} style={S.sheetScrim} />
+      <div style={S.actionSheet}>
+        <div style={S.grab} />
+        <div id="you-ghin-title" style={S.sheetTitle}>GHIN Handicap</div>
+        <div style={S.sheetBody}>
+          {pending
+            ? 'GoLo is wired for official GHIN sync and score posting. USGA GPA credentials are pending — connect will activate once approved.'
+            : linked
+              ? 'Your official USGA Handicap Index syncs from GHIN. Post eligible stroke rounds from Settle Up.'
+              : 'Link your GHIN account to pull your official Handicap Index and post stroke-play scores.'}
+        </div>
+        {linked && (
+          <div style={{ ...S.sheetBody, marginTop: 0, fontSize: 13, color: 'rgba(255,255,255,.72)' }}>
+            GHIN #{ghinNumber ?? '—'} · Index {handicapIndex != null ? Number(handicapIndex).toFixed(1) : '—'}
+            <div style={{ marginTop: 4, fontSize: 12, color: 'rgba(255,255,255,.5)' }}>{syncLabel}</div>
+          </div>
+        )}
+        {error && <div style={S.sheetError}>{error}</div>}
+        {!authEnabled && (
+          <div style={{ ...S.sheetBody, fontSize: 13, color: 'rgba(255,255,255,.55)' }}>Sign in to connect GHIN.</div>
+        )}
+        {authEnabled && !linked && (
+          <button type="button" onClick={onConnect} disabled={busy} style={{ ...S.sheetPrimary, opacity: busy ? 0.72 : 1 }}>
+            {busy ? 'Connecting…' : pending ? 'GHIN pending approval' : 'Connect GHIN'}
+          </button>
+        )}
+        {authEnabled && linked && (
+          <button type="button" onClick={onSync} disabled={busy} style={{ ...S.sheetPrimary, opacity: busy ? 0.72 : 1 }}>
+            {busy ? 'Syncing…' : 'Sync handicap now'}
+          </button>
+        )}
+        <button type="button" onClick={onToggleAutoSync} style={S.sheetSecondary}>
+          Auto-sync on login: {autoSync ? 'On' : 'Off'}
+        </button>
+        <button type="button" onClick={onCancel} style={S.sheetSecondary}>Close</button>
       </div>
     </div>
   )

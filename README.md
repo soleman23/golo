@@ -25,9 +25,11 @@ shared database:
    - `supabase/migrations/0002_seed_courses.sql` - seeds the course catalogue.
    - `supabase/migrations/0003_avatars.sql` - profile photos + `avatars` storage bucket.
    - `supabase/migrations/0004_profile_handicap.sql` - `handicap_index` on profiles.
+   - `supabase/migrations/0005_ghin.sql` - GHIN connection, course mapping, score post status.
 
    Verify a linked project with `node scripts/verify-production.mjs` (reads
    `.env.local`). See [docs/LAUNCH.md](docs/LAUNCH.md) for the full crew launch checklist.
+   GHIN sync/posting setup: [docs/GHIN.md](docs/GHIN.md).
 4. Authentication uses **email + password**. By default Supabase requires email
    confirmation; toggle that under **Authentication -> Providers -> Email** to
    suit your testing.

@@ -1,0 +1,4 @@
+# Supabase local / deploy config for GoLo edge functions.
+
+[functions.ghin-oauth-callback]
+verify_jwt = false

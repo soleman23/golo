@@ -75,6 +75,26 @@ await check('profiles.handicap_index column (0004)', async () => {
   if (error) throw error
 })
 
+await check('profiles.ghin_number column (0005)', async () => {
+  const { error } = await supabase.from('profiles').select('ghin_number, ghin_connected_at, ghin_last_sync_at').limit(0)
+  if (error) throw error
+})
+
+await check('courses GHIN mapping columns (0005)', async () => {
+  const { error } = await supabase.from('courses').select('ghin_facility_id, ghin_course_id, ghin_tee_sets').limit(0)
+  if (error) throw error
+})
+
+await check('rounds GHIN post columns (0005)', async () => {
+  const { error } = await supabase.from('rounds').select('ghin_posted_at, ghin_post_id, ghin_post_error').limit(0)
+  if (error) throw error
+})
+
+await check('ghin_connections table (0005)', async () => {
+  const { error } = await supabase.from('ghin_connections').select('user_id').limit(0)
+  if (error) throw error
+})
+
 await check('avatars storage bucket (0003)', async () => {
   const { data, error } = await supabase.storage.from('avatars').list('', { limit: 1 })
   if (error) throw error
@@ -91,7 +111,7 @@ await check('rounds + round_participants readable', async () => {
 const failed = checks.filter((c) => !c.ok)
 console.log('')
 if (failed.length) {
-  console.error(`${failed.length} check(s) failed. Apply missing migrations in supabase/migrations/ (0001–0004).`)
+  console.error(`${failed.length} check(s) failed. Apply missing migrations in supabase/migrations/ (0001–0005).`)
   process.exit(1)
 }
 console.log('All Supabase production checks passed.')
