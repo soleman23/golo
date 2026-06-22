@@ -1,3 +1,6 @@
+import { calculateCTP } from './ctp'
+import { calculateLongestDrive } from './longestDrive'
+
 /**
  * skins.js — Pure Skins betting math.
  *
@@ -103,6 +106,43 @@ export function calculateSkins(players, scores, pars, strokeAllocations, betConf
  * from strokes). Greenie is par-3 only; both stack and pay head-to-head. */
 export const MANUAL_SKIN_TYPES = ['greenie', 'sandie']
 
+/** Longest-drive hole presets (wizard index → hole number). */
+export const LONGEST_DRIVE_HOLES = [8, 13, 18]
+
+/** Par-3 holes on the card, optionally limited to the back nine. */
+export function skinsCtpHoles(skinsConfig, pars) {
+  if (!skinsConfig?.selectedSkins?.closestToPin) return []
+  const totalHoles = Object.keys(pars).length
+  const par3 = Array.from({ length: totalHoles }, (_, i) => i + 1).filter((h) => pars[h] === 3)
+  return (skinsConfig.ctpHoles ?? 0) === 1 ? par3.filter((h) => h > 9) : par3
+}
+
+/** Configured longest-drive hole, or null when disabled or not on the card. */
+export function skinsLongestDriveHole(skinsConfig, pars = null) {
+  if (!skinsConfig?.selectedSkins?.longestDrive) return null
+  const hole = LONGEST_DRIVE_HOLES[skinsConfig.ldHole ?? 0] ?? LONGEST_DRIVE_HOLES[0]
+  if (pars != null && pars[hole] == null && pars[String(hole)] == null) return null
+  return hole
+}
+
+/** Avoid paying CTP/LD twice when the same side game also exists as a standalone bet. */
+export function skinsConfigForSettlement(config, { hasStandaloneCtp = false, hasStandaloneLd = false } = {}) {
+  if (!hasStandaloneCtp && !hasStandaloneLd) return config
+  const sc = config.skinsConfig
+  if (!sc?.selectedSkins) return config
+  return {
+    ...config,
+    skinsConfig: {
+      ...sc,
+      selectedSkins: {
+        ...sc.selectedSkins,
+        ...(hasStandaloneCtp ? { closestToPin: false } : {}),
+        ...(hasStandaloneLd ? { longestDrive: false } : {}),
+      },
+    },
+  }
+}
+
 /**
  * Head-to-head manual skins (greenie / sandie).
  *
@@ -175,9 +215,10 @@ export function calculateManualSkins(players, skinFlags = {}, config = {}) {
  * @param {Object} strokeAllocations
  * @param {Object} config - The skins bet config (with optional `skinsConfig`).
  * @param {Object} [skinFlags] - { [hole]: { greenie: string[], sandie: string[] } }
+ * @param {{ closestToPin?: object, longestDrive?: object }} [sideGameFlags]
  * @returns {{ payouts: { [playerId: string]: number }, lines: string[], skinsByHole: SkinHole[], holeTotals: { [hole: number]: number } }}
  */
-export function calculateSkinsBet(players, scores, pars, strokeAllocations, config = {}, skinFlags = {}) {
+export function calculateSkinsBet(players, scores, pars, strokeAllocations, config = {}, skinFlags = {}, sideGameFlags = {}) {
   const lowScore = calculateSkins(players, scores, pars, strokeAllocations, config)
 
   const sc = config.skinsConfig ?? {}
@@ -189,9 +230,30 @@ export function calculateSkinsBet(players, scores, pars, strokeAllocations, conf
     sandie: !!sel.sandie,
   })
 
+  const sideLines = []
+  const sidePayouts = {}
+  players.forEach((p) => {
+    sidePayouts[p.id] = 0
+  })
+
+  if (sel.closestToPin) {
+    const ctp = calculateCTP(players, sideGameFlags, { amount: base, holes: skinsCtpHoles(sc, pars) })
+    sideLines.push(...ctp.lines)
+    players.forEach((p) => {
+      sidePayouts[p.id] += ctp.payouts[p.id] ?? 0
+    })
+  }
+  if (sel.longestDrive) {
+    const ld = calculateLongestDrive(players, sideGameFlags, { amount: base, hole: skinsLongestDriveHole(sc, pars) })
+    sideLines.push(...ld.lines)
+    players.forEach((p) => {
+      sidePayouts[p.id] += ld.payouts[p.id] ?? 0
+    })
+  }
+
   const payouts = {}
   players.forEach((p) => {
-    payouts[p.id] = +(((lowScore.payouts[p.id] ?? 0) + (manual.payouts[p.id] ?? 0)).toFixed(2))
+    payouts[p.id] = +(((lowScore.payouts[p.id] ?? 0) + (manual.payouts[p.id] ?? 0) + (sidePayouts[p.id] ?? 0)).toFixed(2))
   })
 
   const lowLines = lowScore.skinsByHole.map((s) =>
@@ -202,7 +264,7 @@ export function calculateSkinsBet(players, scores, pars, strokeAllocations, conf
 
   return {
     payouts,
-    lines: [...lowLines, ...manual.lines],
+    lines: [...lowLines, ...manual.lines, ...sideLines],
     skinsByHole: lowScore.skinsByHole,
     holeTotals: manual.holeTotals,
   }

@@ -14,7 +14,7 @@
  * @property {string[]} detailLines - Longer per-bet breakdown for the detail sheet.
  */
 
-import { calculateSkinsBet } from './skins'
+import { calculateSkinsBet, skinsConfigForSettlement } from './skins'
 import { calculateNassau, calculateNassauGroup } from './nassau'
 import { buildLeaderboard } from './scoring'
 import { buildStablefordLeaderboard } from './stableford'
@@ -112,9 +112,13 @@ function nassauPill(bet, players, scores, pars, alloc) {
 }
 
 /** Skins pill — carried pot if currently carrying, else the money leader. */
-function skinsPill(bet, players, scores, pars, alloc, skinFlags) {
+function skinsPill(bet, players, scores, pars, alloc, skinFlags, sideGameFlags, allBets = []) {
   const inBet = participants(bet, players)
-  const res = calculateSkinsBet(inBet, scores, pars, alloc, bet.config, skinFlags)
+  const skinsConfig = skinsConfigForSettlement(bet.config, {
+    hasStandaloneCtp: allBets.some((b) => b.type === 'ctp'),
+    hasStandaloneLd: allBets.some((b) => b.type === 'longestDrive'),
+  })
+  const res = calculateSkinsBet(inBet, scores, pars, alloc, skinsConfig, skinFlags, sideGameFlags)
   const last = res.skinsByHole[res.skinsByHole.length - 1]
   const anyManual = Object.keys(res.holeTotals ?? {}).length > 0
 
@@ -261,7 +265,7 @@ export function summarizeBets({
         result = nassauPill(bet, players, scores, pars, strokeAllocations)
         break
       case 'skins':
-        result = skinsPill(bet, players, scores, pars, strokeAllocations, skinFlags)
+        result = skinsPill(bet, players, scores, pars, strokeAllocations, skinFlags, sideGameFlags, bets)
         break
       case 'strokePurse':
         result = strokePursePill(

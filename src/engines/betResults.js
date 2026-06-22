@@ -16,7 +16,7 @@
  * @property {string[]} lines - Per-segment / per-hole breakdown.
  */
 
-import { calculateSkinsBet } from './skins'
+import { calculateSkinsBet, skinsConfigForSettlement } from './skins'
 import { calculateNassauPayouts } from './nassau'
 import { calculateStrokePurse, calculateScramblePurse } from './strokePurse'
 import { calculateCTP } from './ctp'
@@ -119,7 +119,11 @@ export function buildBetResults({
         break
       }
       case 'skins': {
-        const r = calculateSkinsBet(inBet, scores, pars, strokeAllocations, bet.config, skinFlags)
+        const skinsConfig = skinsConfigForSettlement(bet.config, {
+          hasStandaloneCtp: bets.some((b) => b.type === 'ctp'),
+          hasStandaloneLd: bets.some((b) => b.type === 'longestDrive'),
+        })
+        const r = calculateSkinsBet(inBet, scores, pars, strokeAllocations, skinsConfig, skinFlags, sideGameFlags)
         payouts = r.payouts
         lines = r.lines
         break

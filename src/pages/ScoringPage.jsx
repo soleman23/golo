@@ -247,11 +247,28 @@ export default function ScoringPage() {
   }, [isMatchplay, players, allocations, scores, concededHoles, totalHoles])
 
   // Side games / panels active on *this* hole.
-  const ctpBet = bets.find((b) => b.type === 'ctp' && (b.config.holes ?? []).includes(currentHole))
-  const ldBet = bets.find((b) => b.type === 'longestDrive' && b.config.hole === currentHole)
+  const skinsBet = bets.find((b) => b.type === 'skins')
+  const skinsCfg = skinsBet?.config?.skinsConfig
+  const skinSel = skinsCfg?.selectedSkins ?? {}
+  const skinsCtpHoles = useMemo(() => {
+    if (!skinsBet || !skinSel.closestToPin) return []
+    const par3 = Object.keys(pars).map(Number).filter((h) => pars[h] === 3)
+    return (skinsCfg?.ctpHoles ?? 0) === 1 ? par3.filter((h) => h > 9) : par3
+  }, [skinsBet, skinSel.closestToPin, skinsCfg?.ctpHoles, pars])
+  const skinsLdHole = useMemo(() => {
+    if (!skinsBet || !skinSel.longestDrive) return null
+    const hole = [8, 13, 18][skinsCfg?.ldHole ?? 0] ?? 8
+    return hole <= totalHoles ? hole : null
+  }, [skinsBet, skinSel.longestDrive, skinsCfg?.ldHole, totalHoles])
+
+  const ctpBet =
+    bets.find((b) => b.type === 'ctp' && (b.config.holes ?? []).includes(currentHole)) ??
+    (skinsBet && skinSel.closestToPin && skinsCtpHoles.includes(currentHole) ? skinsBet : null)
+  const ldBet =
+    bets.find((b) => b.type === 'longestDrive' && b.config.hole === currentHole) ??
+    (skinsBet && skinSel.longestDrive && skinsLdHole === currentHole ? skinsBet : null)
   const wolfBet = bets.find((b) => b.type === 'wolf')
   const bbbBet = bets.find((b) => b.type === 'bingobangobongo')
-  const skinsBet = bets.find((b) => b.type === 'skins')
   const ctpPlayers = playersInBet(players, ctpBet)
   const ldPlayers = playersInBet(players, ldBet)
   const wolfPlayers = playersInBet(players, wolfBet)
@@ -263,7 +280,6 @@ export default function ScoringPage() {
 
   // Manual skins (greenie/sandie) tracked live on this hole. Greenie is par-3
   // only; both stack and only show when the Skins bet enabled them in setup.
-  const skinSel = skinsBet?.config?.skinsConfig?.selectedSkins ?? {}
   const baseSkinValue = skinsBet?.config?.skinsConfig?.baseSkinValue ?? skinsBet?.config?.valuePerSkin ?? 0
   const manualSkinTypes = []
   if (skinsBet && skinSel.greenie && par === 3) manualSkinTypes.push({ type: 'greenie', label: 'Greenie', hint: 'Par 3 — on in regulation, par or better' })

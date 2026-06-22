@@ -240,6 +240,8 @@ const SKIN_TYPES = [
   { key: 'eagleBonusSkin', name: 'Eagle Bonus', tag: '×2 value', desc: 'An eagle is worth double; a double eagle more. Eagle beats a birdie — no tie.', base: true },
   { key: 'greenie', name: 'Greenie', tag: 'Par 3s', desc: 'Par-3 only: on in regulation, par or better. Flagged live during scoring; pays the base value per hit, head-to-head, and stacks.', base: false },
   { key: 'sandie', name: 'Sandie', tag: 'Sand save', desc: 'Up and down from a bunker for par. Flagged live during scoring; pays the base value per hit, head-to-head, and stacks.', base: false },
+  { key: 'closestToPin', name: 'Closest to Pin', tag: 'Par 3s', desc: 'Nearest the flag on par 3s. Flag one winner per hole live during scoring; pays the base value head-to-head.', base: false },
+  { key: 'longestDrive', name: 'Longest Drive', tag: 'Long drive', desc: 'Longest drive in the fairway on the chosen hole. Flag the winner live during scoring; pays the base value head-to-head.', base: false },
 ]
 
 /** Fresh Skins selection (the wizard-side shape held in st.bets.skins). */
@@ -248,6 +250,8 @@ const defaultSkinsSelection = () => ({
   basePreset: '1', // '1' | '2' | '5' | '10' | 'custom'
   scoring: 'net', // 'net' | 'gross'
   savedAsDefault: false,
+  ctpHoles: 0, // 0 = all par 3s, 1 = back 9 only
+  ldHole: 0, // index into [8, 13, 18]
   selectedSkins: {
     standardSkin: true,
     carryoverSkin: true,
@@ -255,6 +259,8 @@ const defaultSkinsSelection = () => ({
     eagleBonusSkin: false,
     greenie: false,
     sandie: false,
+    closestToPin: false,
+    longestDrive: false,
     custom1: { enabled: false, name: '', value: 1, mode: 'dollar' }, // mode: 'dollar' | 'multiplier'
     custom2: { enabled: false, name: '', value: 1, mode: 'dollar' },
   },
@@ -275,13 +281,16 @@ const perHoleSkinValue = (sel, base) =>
 /** Any skin type selected at all (used for validation). */
 const anySkinSelected = (sel) =>
   sel.standardSkin || sel.carryoverSkin || sel.birdieBonusSkin || sel.eagleBonusSkin ||
-  sel.greenie || sel.sandie || sel.custom1.enabled || sel.custom2.enabled
+  sel.greenie || sel.sandie || sel.closestToPin || sel.longestDrive ||
+  sel.custom1.enabled || sel.custom2.enabled
 
 /** Wizard skins state → the persisted SkinsConfig (data schema #1). */
 const skinsConfigOf = (b) => ({
   enabled: true,
   baseSkinValue: b.baseSkinValue,
   scoring: b.scoring,
+  ctpHoles: b.ctpHoles ?? 0,
+  ldHole: b.ldHole ?? 0,
   selectedSkins: {
     standardSkin: !!b.selectedSkins.standardSkin,
     carryoverSkin: !!b.selectedSkins.carryoverSkin,
@@ -289,6 +298,8 @@ const skinsConfigOf = (b) => ({
     eagleBonusSkin: !!b.selectedSkins.eagleBonusSkin,
     greenie: !!b.selectedSkins.greenie,
     sandie: !!b.selectedSkins.sandie,
+    closestToPin: !!b.selectedSkins.closestToPin,
+    longestDrive: !!b.selectedSkins.longestDrive,
     custom1: { ...b.selectedSkins.custom1 },
     custom2: { ...b.selectedSkins.custom2 },
   },
@@ -306,6 +317,8 @@ const skinsSelectionFrom = (c) => {
     basePreset: SKIN_PRESETS.includes(c.baseSkinValue) ? String(c.baseSkinValue) : 'custom',
     scoring: c.scoring ?? base.scoring,
     savedAsDefault: !!c.savedAsDefault,
+    ctpHoles: c.ctpHoles ?? base.ctpHoles,
+    ldHole: c.ldHole ?? base.ldHole,
     selectedSkins: {
       standardSkin: !!s.standardSkin,
       carryoverSkin: !!s.carryoverSkin,
@@ -313,6 +326,8 @@ const skinsSelectionFrom = (c) => {
       eagleBonusSkin: !!s.eagleBonusSkin,
       greenie: !!s.greenie,
       sandie: !!s.sandie,
+      closestToPin: !!s.closestToPin,
+      longestDrive: !!s.longestDrive,
       custom1: { ...base.selectedSkins.custom1, ...(s.custom1 ?? {}) },
       custom2: { ...base.selectedSkins.custom2, ...(s.custom2 ?? {}) },
     },
@@ -576,8 +591,9 @@ export default function SetupWizard() {
   const setHoles = (n) => {
     const card = defaultCard(n, st.pars, st.strokeIndex)
     // On a 9-hole round, "Back 9 only" CTP is invalid — force "All par 3s" (0).
-    const bets = n === 9 && st.bets.ctp.holes !== 0
-      ? { ...st.bets, ctp: { ...st.bets.ctp, holes: 0 } }
+    const skinsNeedsReset = st.bets.skins.ctpHoles !== 0 || (st.bets.skins.ldHole ?? 0) > 0
+    const bets = n === 9 && (st.bets.ctp.holes !== 0 || skinsNeedsReset)
+      ? { ...st.bets, ctp: { ...st.bets.ctp, holes: 0 }, skins: { ...st.bets.skins, ctpHoles: 0, ldHole: 0 } }
       : st.bets
     patch({ holes: n, pars: card.pars, strokeIndex: card.strokeIndex, bets })
   }
@@ -1213,7 +1229,9 @@ export default function SetupWizard() {
     const sel = skins.selectedSkins
     const perHole = perHoleSkinValue(sel, skins.baseSkinValue)
     const nContrib = [sel.standardSkin, sel.birdieBonusSkin, sel.eagleBonusSkin, sel.custom1.enabled, sel.custom2.enabled].filter(Boolean).length
-    const sidePots = [sel.greenie && 'Greenie', sel.sandie && 'Sandie'].filter(Boolean)
+    const sidePots = [sel.greenie && 'Greenie', sel.sandie && 'Sandie', sel.closestToPin && 'CTP', sel.longestDrive && 'Long Drive'].filter(Boolean)
+    const sidePotStacking = [sel.greenie && 'Greenie', sel.sandie && 'Sandie'].filter(Boolean)
+    const sidePotSingle = [sel.closestToPin && 'CTP', sel.longestDrive && 'Long Drive'].filter(Boolean)
 
     const renderCustomSkin = (slot, label) => {
       const c = sel[slot]
@@ -1267,8 +1285,46 @@ export default function SetupWizard() {
         {/* live per-hole preview */}
         <div style={{ fontSize: 12.5, fontWeight: 700, color: ACCENT, background: hexA(ACCENT, 0.1), border: `1px solid ${hexA(ACCENT, 0.3)}`, borderRadius: 12, padding: '10px 12px', lineHeight: 1.45 }}>
           Each hole is worth up to ${perHole} in skins{nContrib > 0 ? ` · ${nContrib} skin${nContrib !== 1 ? 's' : ''}` : ''}
-          {sidePots.length > 0 && <span style={{ display: 'block', fontWeight: 600, color: 'rgba(255,255,255,.55)', marginTop: 2 }}>plus {sidePots.join(' & ')} — ${skins.baseSkinValue} each, flagged live &amp; stacking</span>}
+          {sidePots.length > 0 && (
+            <span style={{ display: 'block', fontWeight: 600, color: 'rgba(255,255,255,.55)', marginTop: 2 }}>
+              {sidePotStacking.length > 0 && <>plus {sidePotStacking.join(' & ')} — ${skins.baseSkinValue} each, flagged live &amp; stacking</>}
+              {sidePotStacking.length > 0 && sidePotSingle.length > 0 && ' · '}
+              {sidePotSingle.length > 0 && <>{sidePotSingle.join(' & ')} — ${skins.baseSkinValue} each, flagged live per hole</>}
+            </span>
+          )}
         </div>
+
+        {(sel.closestToPin || sel.longestDrive) && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {sel.closestToPin && (
+              <div>
+                <div style={skinSectionLabel}>CTP HOLES</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {(st.holes === 9 ? ['All par 3s'] : ['All par 3s', 'Back 9 only']).map((o, i) => {
+                    const s = optStyle((skins.ctpHoles ?? 0) === i)
+                    return (
+                      <button key={o} onClick={() => setBet('skins', { ctpHoles: i })} style={{ padding: '9px 14px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700, background: s.bg, border: `1px solid ${s.border}`, color: s.color }}>{o}</button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+            {sel.longestDrive && (
+              <div>
+                <div style={skinSectionLabel}>LONGEST DRIVE HOLE</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {[8, 13, 18].filter((h) => h <= st.holes).map((h) => {
+                    const i = [8, 13, 18].indexOf(h)
+                    const s = optStyle((skins.ldHole ?? 0) === i)
+                    return (
+                      <button key={h} onClick={() => setBet('skins', { ldHole: i })} style={{ padding: '9px 14px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700, background: s.bg, border: `1px solid ${s.border}`, color: s.color }}>Hole {h}</button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* scoring */}
         <div>
