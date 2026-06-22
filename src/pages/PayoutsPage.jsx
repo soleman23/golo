@@ -276,17 +276,15 @@ export default function PayoutsPage() {
   }, [betResults])
 
   // Build + save the round snapshot to history (and mirror to Supabase). This is
-  // pure persistence — it does NOT finalize the live round. Idempotent: if a
-  // snapshot for this roundId already exists locally we skip, so a remount or a
-  // repeated effect never writes the same round twice.
+  // pure persistence — it does NOT finalize the live round. Always rebuilds the
+  // snapshot from current live state so re-saves capture the latest scores/bets
+  // (e.g. a just-toggled skin); both the local history store and dbSaveRound
+  // upsert by roundId, so a remount or repeated effect updates in place rather
+  // than duplicating. The original completedAt is preserved so re-saves don't
+  // churn the timestamp or reorder history.
   async function persistRound() {
     if (!round || players.length === 0) return null
     const existingEntry = historyRounds.find((r) => r.roundId === round.roundId)
-    if (existingEntry) {
-      const userId = useAuthStore.getState().user?.id
-      if (userId) await dbSaveRound(existingEntry, userId)
-      return existingEntry
-    }
     const playerGameData = players.map((p) => {
         const team = teams.find((t) => t.playerIds?.includes(p.id))
         return {
@@ -327,7 +325,7 @@ export default function PayoutsPage() {
       scoringType: round.scoringType ?? 'stroke',
       pars,
       strokeIndex: round.strokeIndex ?? {},
-      completedAt: new Date().toISOString(),
+      completedAt: existingEntry?.completedAt ?? new Date().toISOString(),
       players: players.map((p) => ({
         id: p.id,
         name: p.name,
