@@ -106,8 +106,33 @@ export function calculateSkins(players, scores, pars, strokeAllocations, betConf
  * from strokes). Greenie is par-3 only; both stack and pay head-to-head. */
 export const MANUAL_SKIN_TYPES = ['greenie', 'sandie']
 
-/** Longest-drive hole presets (wizard index → hole number). */
-export const LONGEST_DRIVE_HOLES = [8, 13, 18]
+/** Par-5 holes on the card (longest drive is par-5 only). */
+export function par5HolesFromPars(pars, totalHoles = null) {
+  const n = totalHoles ?? Object.keys(pars).length
+  return Array.from({ length: n }, (_, i) => i + 1).filter((h) => pars[h] === 5)
+}
+
+/** Resolve stored longest-drive selection to a hole number on this card. */
+export function resolveLdHoleNumber(ldHole, pars) {
+  const par5 = par5HolesFromPars(pars)
+  if (par5.length === 0) return null
+  if (ldHole == null) return par5[0]
+
+  // Prefer an explicit hole number when that hole is par 5 on this card.
+  if (pars[ldHole] === 5) return ldHole
+
+  // Legacy: index into the par-5 list (saved before hole-number storage).
+  if (Number.isInteger(ldHole) && ldHole >= 0 && ldHole < par5.length) {
+    return par5[ldHole]
+  }
+
+  return par5[0]
+}
+
+/** Normalize wizard/persisted ldHole against the current course card. */
+export function normalizeSkinsLdHole(ldHole, pars) {
+  return resolveLdHoleNumber(ldHole, pars)
+}
 
 /** Par-3 holes on the card, optionally limited to the back nine. */
 export function skinsCtpHoles(skinsConfig, pars) {
@@ -117,12 +142,11 @@ export function skinsCtpHoles(skinsConfig, pars) {
   return (skinsConfig.ctpHoles ?? 0) === 1 ? par3.filter((h) => h > 9) : par3
 }
 
-/** Configured longest-drive hole, or null when disabled or not on the card. */
+/** Configured longest-drive hole, or null when disabled, not on the card, or not par 5. */
 export function skinsLongestDriveHole(skinsConfig, pars = null) {
-  if (!skinsConfig?.selectedSkins?.longestDrive) return null
-  const hole = LONGEST_DRIVE_HOLES[skinsConfig.ldHole ?? 0] ?? LONGEST_DRIVE_HOLES[0]
-  if (pars != null && pars[hole] == null && pars[String(hole)] == null) return null
-  return hole
+  if (!skinsConfig?.selectedSkins?.longestDrive || pars == null) return null
+  const hole = resolveLdHoleNumber(skinsConfig.ldHole, pars)
+  return hole != null && pars[hole] === 5 ? hole : null
 }
 
 /** Avoid paying CTP/LD twice when the same side game also exists as a standalone bet. */

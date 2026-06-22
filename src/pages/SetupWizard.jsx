@@ -7,6 +7,7 @@ import { calculateCourseHandicap } from '../engines/handicap'
 import { hasContact, displayName, playerKey } from '../lib/identity'
 import { fetchCourses } from '../lib/db/courses'
 import { getCourseImage } from '../lib/courseImages'
+import { normalizeSkinsLdHole, resolveLdHoleNumber } from '../engines/skins'
 import { GoloWordmark } from '../components/shared/Logo'
 import { Icon } from '../components/shared/GoloIcons'
 import BackButton from '../components/shared/BackButton'
@@ -166,10 +167,13 @@ const GAME_DEFS = [
   },
   {
     key: 'long', appType: 'longestDrive', icon: '🚀', iconName: 'longestDrive', title: 'Longest Drive',
-    desc: 'Longest drive in the fairway.', unit: 'pot',
+    desc: 'Longest drive in the fairway on a par 5.', unit: 'pot',
     toggles: [],
-    selects: [{ key: 'hole', label: 'Hole', options: ['Hole 8', 'Hole 13', 'Hole 18'] }],
-    toConfig: (b) => ({ amount: b.stake, hole: [8, 13, 18][b.hole] ?? null }),
+    selects: [{ key: 'hole', label: 'Par 5 hole', options: [] }],
+    toConfig: (b, who, ctx) => ({
+      amount: b.stake,
+      hole: ctx.par5Holes.includes(b.hole) ? b.hole : (ctx.par5Holes[0] ?? null),
+    }),
   },
   {
     key: 'wolf', appType: 'wolf', icon: '🐺', iconName: 'wolf', title: 'Wolf',
@@ -241,7 +245,7 @@ const SKIN_TYPES = [
   { key: 'greenie', name: 'Greenie', tag: 'Par 3s', desc: 'Par-3 only: on in regulation, par or better. Flagged live during scoring; pays the base value per hit, head-to-head, and stacks.', base: false },
   { key: 'sandie', name: 'Sandie', tag: 'Sand save', desc: 'Up and down from a bunker for par. Flagged live during scoring; pays the base value per hit, head-to-head, and stacks.', base: false },
   { key: 'closestToPin', name: 'Closest to Pin', tag: 'Par 3s', desc: 'Nearest the flag on par 3s. Flag one winner per hole live during scoring; pays the base value head-to-head.', base: false },
-  { key: 'longestDrive', name: 'Longest Drive', tag: 'Long drive', desc: 'Longest drive in the fairway on the chosen hole. Flag the winner live during scoring; pays the base value head-to-head.', base: false },
+  { key: 'longestDrive', name: 'Longest Drive', tag: 'Par 5', desc: 'Longest drive in the fairway on a par 5. Flag the winner live during scoring; pays the base value head-to-head.', base: false },
 ]
 
 /** Fresh Skins selection (the wizard-side shape held in st.bets.skins). */
@@ -251,7 +255,7 @@ const defaultSkinsSelection = () => ({
   scoring: 'net', // 'net' | 'gross'
   savedAsDefault: false,
   ctpHoles: 0, // 0 = all par 3s, 1 = back 9 only
-  ldHole: 0, // index into [8, 13, 18]
+  ldHole: null, // hole number on the card (par 5 only)
   selectedSkins: {
     standardSkin: true,
     carryoverSkin: true,
@@ -290,7 +294,7 @@ const skinsConfigOf = (b) => ({
   baseSkinValue: b.baseSkinValue,
   scoring: b.scoring,
   ctpHoles: b.ctpHoles ?? 0,
-  ldHole: b.ldHole ?? 0,
+  ldHole: b.ldHole ?? null,
   selectedSkins: {
     standardSkin: !!b.selectedSkins.standardSkin,
     carryoverSkin: !!b.selectedSkins.carryoverSkin,
@@ -306,6 +310,20 @@ const skinsConfigOf = (b) => ({
   perHoleSkinValue: perHoleSkinValue(b.selectedSkins, b.baseSkinValue),
   savedAsDefault: !!b.savedAsDefault,
 })
+
+/** Re-resolve skins longest-drive hole against the current course card. */
+const betsWithNormalizedLdHole = (bets, pars) => {
+  const skins = {
+    ...bets.skins,
+    ldHole: bets.skins.selectedSkins?.longestDrive
+      ? normalizeSkinsLdHole(bets.skins.ldHole, pars)
+      : bets.skins.ldHole,
+  }
+  const long = bets.long?.on
+    ? { ...bets.long, hole: normalizeSkinsLdHole(bets.long.hole, pars) }
+    : bets.long
+  return { ...bets, skins, long }
+}
 
 /** Persisted SkinsConfig (or saved default) → the wizard skins selection shape. */
 const skinsSelectionFrom = (c) => {
@@ -407,10 +425,15 @@ function initState() {
   // Skins has its own config panel: seed from a saved round's skinsConfig, else
   // the player's saved default, else a fresh selection.
   const savedSkins = findBet('skins')
+  const skinsFromSaved = skinsSelectionFrom(savedSkins?.config?.skinsConfig ?? useProfileStore.getState().skinsDefault)
+  const card = defaultCard(holes, round?.pars, round?.strokeIndex)
   const skinsBet = {
     on: !!savedSkins,
     who: savedSkins?.playerIds?.length ? savedSkins.playerIds.filter((x) => ids.includes(x)) : ids.slice(),
-    ...skinsSelectionFrom(savedSkins?.config?.skinsConfig ?? useProfileStore.getState().skinsDefault),
+    ...skinsFromSaved,
+    ldHole: skinsFromSaved.selectedSkins?.longestDrive
+      ? normalizeSkinsLdHole(skinsFromSaved.ldHole, card.pars)
+      : skinsFromSaved.ldHole,
   }
 
   // Every game starts untoggled (the bet() helper returns on:false for a fresh
@@ -420,12 +443,10 @@ function initState() {
     nassau: bet('nassau', { stake: 1, press: false }),
     purse: bet('strokePurse', { stake: 1, payout: 0 }),
     ctp: bet('ctp', { stake: 1, holes: 0 }),
-    long: bet('longestDrive', { stake: 1, hole: 2 }),
+    long: bet('longestDrive', { stake: 1, hole: null }),
     wolf: bet('wolf', { stake: 1 }),
     bbb: bet('bingobangobongo', { stake: 1 }),
   }
-
-  const card = defaultCard(holes, round?.pars, round?.strokeIndex)
 
   return {
     step: 0,
@@ -496,7 +517,8 @@ export default function SetupWizard() {
   const holeNumbers = Array.from({ length: st.holes }, (_, i) => i + 1)
   const par3Holes = holeNumbers.filter((h) => st.pars[h] === 3)
   const backNinePar3s = par3Holes.filter((h) => h > 9)
-  const ctx = { holeNumbers, par3Holes, backNinePar3s, playerCount: st.players.length }
+  const par5Holes = holeNumbers.filter((h) => st.pars[h] === 5)
+  const ctx = { holeNumbers, par3Holes, backNinePar3s, par5Holes, playerCount: st.players.length }
   const skins = st.bets.skins
   // Base amount shown in summaries — Skins reports its per-skin base value.
   const baseAmount = (d, b) => (d.key === 'skins' ? b.baseSkinValue : b.stake)
@@ -556,7 +578,13 @@ export default function SetupWizard() {
   }
 
   /* ---- skins config (its own panel, not the generic game pattern) ---- */
-  const setSkinType = (k, v) => setBet('skins', { selectedSkins: { ...skins.selectedSkins, [k]: v } })
+  const setSkinType = (k, v) => {
+    const next = { selectedSkins: { ...skins.selectedSkins, [k]: v } }
+    if (k === 'longestDrive' && v && par5Holes.length) {
+      next.ldHole = normalizeSkinsLdHole(skins.ldHole, st.pars)
+    }
+    setBet('skins', next)
+  }
   const setCustomSkin = (slot, p) =>
     setBet('skins', { selectedSkins: { ...skins.selectedSkins, [slot]: { ...skins.selectedSkins[slot], ...p } } })
   const setSkinBasePreset = (preset) =>
@@ -576,11 +604,20 @@ export default function SetupWizard() {
       c.pars && c.strokeIndex
         ? { pars: { ...c.pars }, strokeIndex: { ...c.strokeIndex } }
         : defaultCard(st.holes)
-    patch({ courseId: id, teeIdx: 1, pars: card.pars, strokeIndex: card.strokeIndex })
+    patch({
+      courseId: id,
+      teeIdx: 1,
+      pars: card.pars,
+      strokeIndex: card.strokeIndex,
+      bets: betsWithNormalizedLdHole(st.bets, card.pars),
+    })
   }
 
   /* ---- course card ---- */
-  const setPar = (hole, par) => patch({ pars: { ...st.pars, [hole]: par } })
+  const setPar = (hole, par) => {
+    const pars = { ...st.pars, [hole]: par }
+    patch({ pars, bets: betsWithNormalizedLdHole(st.bets, pars) })
+  }
   const setSi = (hole, raw) => {
     if (raw === '') return
     const n = Math.max(1, Math.min(st.holes, Math.round(Number(raw))))
@@ -590,11 +627,11 @@ export default function SetupWizard() {
   // Rebuild the card when the hole count changes (keeps it a valid 1..N set).
   const setHoles = (n) => {
     const card = defaultCard(n, st.pars, st.strokeIndex)
-    // On a 9-hole round, "Back 9 only" CTP is invalid — force "All par 3s" (0).
-    const skinsNeedsReset = st.bets.skins.ctpHoles !== 0 || (st.bets.skins.ldHole ?? 0) > 0
-    const bets = n === 9 && (st.bets.ctp.holes !== 0 || skinsNeedsReset)
-      ? { ...st.bets, ctp: { ...st.bets.ctp, holes: 0 }, skins: { ...st.bets.skins, ctpHoles: 0, ldHole: 0 } }
-      : st.bets
+    let bets = st.bets
+    if (n === 9 && (st.bets.ctp.holes !== 0 || st.bets.skins.ctpHoles !== 0)) {
+      bets = { ...bets, ctp: { ...bets.ctp, holes: 0 }, skins: { ...bets.skins, ctpHoles: 0 } }
+    }
+    bets = betsWithNormalizedLdHole(bets, card.pars)
     patch({ holes: n, pars: card.pars, strokeIndex: card.strokeIndex, bets })
   }
 
@@ -1199,19 +1236,43 @@ export default function SetupWizard() {
                   {/* selects */}
                   {d.selects.map((sel) => {
                     const ctpNineHoleSelect = d.key === 'ctp' && sel.key === 'holes' && st.holes === 9
-                    const options = ctpNineHoleSelect ? ['All par 3s'] : sel.options
-                    const selectedValue = ctpNineHoleSelect ? 0 : b[sel.key]
+                    const ldPar5Select = d.key === 'long' && sel.key === 'hole'
+                    const selectedLongHole = ldPar5Select ? resolveLdHoleNumber(b.hole, st.pars) : null
+                    const options = ldPar5Select
+                      ? par5Holes.map((h) => `Hole ${h} (par 5)`)
+                      : ctpNineHoleSelect
+                        ? ['All par 3s']
+                        : sel.options
+                    const selectedValue = ldPar5Select
+                      ? selectedLongHole
+                      : ctpNineHoleSelect
+                        ? 0
+                        : b[sel.key]
                     return (
                       <div key={sel.key}>
                         <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.2, color: 'rgba(255,255,255,.5)', marginBottom: 9 }}>{sel.label.toUpperCase()}</div>
+                        {ldPar5Select && par5Holes.length === 0 ? (
+                          <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', lineHeight: 1.45 }}>
+                            No par 5s on the card — set at least one hole to par 5 in course setup.
+                          </div>
+                        ) : (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                          {options.map((o, i) => {
-                            const s = optStyle(selectedValue === i)
+                          {(ldPar5Select ? par5Holes : options).map((item, i) => {
+                            const hole = ldPar5Select ? item : null
+                            const label = ldPar5Select ? `Hole ${hole} (par 5)` : item
+                            const s = optStyle(ldPar5Select ? selectedValue === hole : selectedValue === i)
                             return (
-                              <button key={o} onClick={() => setBet(d.key, { [sel.key]: i })} style={{ padding: '9px 14px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700, background: s.bg, border: `1px solid ${s.border}`, color: s.color }}>{o}</button>
+                              <button
+                                key={label}
+                                onClick={() => setBet(d.key, { [sel.key]: ldPar5Select ? hole : i })}
+                                style={{ padding: '9px 14px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700, background: s.bg, border: `1px solid ${s.border}`, color: s.color }}
+                              >
+                                {label}
+                              </button>
                             )
                           })}
                         </div>
+                        )}
                       </div>
                     )
                   })}
@@ -1232,6 +1293,7 @@ export default function SetupWizard() {
     const sidePots = [sel.greenie && 'Greenie', sel.sandie && 'Sandie', sel.closestToPin && 'CTP', sel.longestDrive && 'Long Drive'].filter(Boolean)
     const sidePotStacking = [sel.greenie && 'Greenie', sel.sandie && 'Sandie'].filter(Boolean)
     const sidePotSingle = [sel.closestToPin && 'CTP', sel.longestDrive && 'Long Drive'].filter(Boolean)
+    const selectedLdHole = resolveLdHoleNumber(skins.ldHole, st.pars)
 
     const renderCustomSkin = (slot, label) => {
       const c = sel[slot]
@@ -1311,16 +1373,21 @@ export default function SetupWizard() {
             )}
             {sel.longestDrive && (
               <div>
-                <div style={skinSectionLabel}>LONGEST DRIVE HOLE</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {[8, 13, 18].filter((h) => h <= st.holes).map((h) => {
-                    const i = [8, 13, 18].indexOf(h)
-                    const s = optStyle((skins.ldHole ?? 0) === i)
-                    return (
-                      <button key={h} onClick={() => setBet('skins', { ldHole: i })} style={{ padding: '9px 14px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700, background: s.bg, border: `1px solid ${s.border}`, color: s.color }}>Hole {h}</button>
-                    )
-                  })}
-                </div>
+                <div style={skinSectionLabel}>LONGEST DRIVE · PAR 5</div>
+                {par5Holes.length === 0 ? (
+                  <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', lineHeight: 1.45 }}>
+                    No par 5s on the card — set at least one hole to par 5 in course setup.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {par5Holes.map((h) => {
+                      const s = optStyle(selectedLdHole === h)
+                      return (
+                        <button key={h} onClick={() => setBet('skins', { ldHole: h })} style={{ padding: '9px 14px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700, background: s.bg, border: `1px solid ${s.border}`, color: s.color }}>Hole {h}</button>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>

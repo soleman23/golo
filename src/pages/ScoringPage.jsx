@@ -11,6 +11,7 @@ import { getWolfOrder, calculateWolfResult, calculateWolfTotals } from '../engin
 import { calculateBBBPayouts } from '../engines/bingobangobongo'
 import { summarizeBets } from '../engines/betStatus'
 import { buildBetResults, betGlyphName } from '../engines/betResults'
+import { skinsLongestDriveHole } from '../engines/skins'
 import useProfileStore from '../store/profileStore'
 import { playerKey } from '../lib/identity'
 import { getCourseImage } from '../lib/courseImages'
@@ -257,16 +258,15 @@ export default function ScoringPage() {
   }, [skinsBet, skinSel.closestToPin, skinsCfg?.ctpHoles, pars])
   const skinsLdHole = useMemo(() => {
     if (!skinsBet || !skinSel.longestDrive) return null
-    const hole = [8, 13, 18][skinsCfg?.ldHole ?? 0] ?? 8
-    return hole <= totalHoles ? hole : null
-  }, [skinsBet, skinSel.longestDrive, skinsCfg?.ldHole, totalHoles])
+    return skinsLongestDriveHole(skinsCfg, pars)
+  }, [skinsBet, skinSel.longestDrive, skinsCfg, pars])
 
   const ctpBet =
     bets.find((b) => b.type === 'ctp' && (b.config.holes ?? []).includes(currentHole)) ??
     (skinsBet && skinSel.closestToPin && skinsCtpHoles.includes(currentHole) ? skinsBet : null)
   const ldBet =
-    bets.find((b) => b.type === 'longestDrive' && b.config.hole === currentHole) ??
-    (skinsBet && skinSel.longestDrive && skinsLdHole === currentHole ? skinsBet : null)
+    bets.find((b) => b.type === 'longestDrive' && b.config.hole === currentHole && pars[currentHole] === 5) ??
+    (skinsBet && skinSel.longestDrive && skinsLdHole === currentHole && par === 5 ? skinsBet : null)
   const wolfBet = bets.find((b) => b.type === 'wolf')
   const bbbBet = bets.find((b) => b.type === 'bingobangobongo')
   const ctpPlayers = playersInBet(players, ctpBet)

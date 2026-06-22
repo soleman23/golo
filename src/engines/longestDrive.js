@@ -1,7 +1,7 @@
 /**
  * longestDrive.js — Pure Longest-Drive payout math.
  *
- * A single-hole challenge. The flagged winner on the configured hole collects
+ * A single-hole par-5 challenge. The flagged winner on the configured hole collects
  * `amount` from every other participant. Nets to zero. If no hole is configured
  * or no winner is flagged, nobody pays.
  *
