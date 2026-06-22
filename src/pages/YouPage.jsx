@@ -179,6 +179,11 @@ export default function YouPage() {
         if (remote) useProfileStore.setState(remote)
         setGhinToast('GHIN connected')
       })
+    } else if (status === 'pending') {
+      setGhinPending(true)
+      setGhinToast('GHIN integration pending USGA approval')
+    } else if (status === 'error') {
+      setGhinToast('GHIN connection failed — try again')
     }
   }, [searchParams, setSearchParams, authUserId])
 
