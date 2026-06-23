@@ -95,6 +95,11 @@ await check('ghin_connections table (0005)', async () => {
   if (error) throw error
 })
 
+await check('profiles.onboarded column (0006)', async () => {
+  const { error } = await supabase.from('profiles').select('onboarded').limit(0)
+  if (error) throw error
+})
+
 await check('avatars storage bucket (0003)', async () => {
   const { data, error } = await supabase.storage.from('avatars').list('', { limit: 1 })
   if (error) throw error
@@ -111,7 +116,7 @@ await check('rounds + round_participants readable', async () => {
 const failed = checks.filter((c) => !c.ok)
 console.log('')
 if (failed.length) {
-  console.error(`${failed.length} check(s) failed. Apply missing migrations in supabase/migrations/ (0001–0005).`)
+  console.error(`${failed.length} check(s) failed. Apply missing migrations in supabase/migrations/ (0001–0006).`)
   process.exit(1)
 }
 console.log('All Supabase production checks passed.')

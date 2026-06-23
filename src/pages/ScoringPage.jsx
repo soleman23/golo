@@ -262,7 +262,7 @@ export default function ScoringPage() {
 
   const ctpBet =
     bets.find((b) => b.type === 'ctp' && (b.config.holes ?? []).includes(currentHole)) ??
-    (skinsBet && skinSel.closestToPin && skinsCtpHoles.includes(currentHole) ? skinsBet : null)
+    (skinsBet && skinSel.closestToPin && !skinSel.greenie && skinsCtpHoles.includes(currentHole) ? skinsBet : null)
   const ldBet =
     bets.find((b) => b.type === 'longestDrive' && b.config.hole === currentHole && pars[currentHole] === 5) ??
     (skinsBet && skinSel.longestDrive && skinsLdHole === currentHole && par === 5 ? skinsBet : null)
@@ -1096,16 +1096,18 @@ function BBBPanel({ players, flags, onFlag }) {
 }
 
 /** Manual skins (greenie / sandie): multi-select, stacking toggles per hole.
- * Each toggled player adds `value` to the hole, paid head-to-head. */
+ * Each toggled player adds head-to-head exposure: value × (players − 1). */
 function SkinsPanel({ types, players, flags, value, onToggle }) {
   const current = flags ?? {}
   const hits = types.reduce((sum, t) => sum + (current[t.type]?.length ?? 0), 0)
+  const opponents = Math.max(0, players.length - 1)
+  const holeTotal = hits * value * opponents
   return (
     <div style={{ ...S.panel, marginBottom: 13 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
         <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>🎯 Skins</span>
         <span style={{ fontSize: 12, fontWeight: 700, color: hits > 0 ? ACCENT : 'rgba(255,255,255,.55)' }}>
-          Hole skins: ${hits * value}
+          Hole skins: ${holeTotal}
         </span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1113,7 +1115,7 @@ function SkinsPanel({ types, players, flags, value, onToggle }) {
           const on = current[type] ?? []
           return (
             <div key={type}>
-              <div style={{ fontSize: 12, color: 'rgba(255,255,255,.6)', marginBottom: 6 }}>{label} — {hint} · ${value}</div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,.6)', marginBottom: 6 }}>{label} — {hint} · ${value} each vs {opponents} opponent{opponents !== 1 ? 's' : ''}</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {players.map((p) => {
                   const sel = on.includes(p.id)

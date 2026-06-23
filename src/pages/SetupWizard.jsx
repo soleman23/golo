@@ -237,9 +237,9 @@ const SKIN_TYPES = [
   { key: 'carryoverSkin', name: 'Carryover Skin', tag: 'Banked skins', desc: 'A tied hole stacks the skin onto the next, growing the payout until won outright.', base: false },
   { key: 'birdieBonusSkin', name: 'Birdie Skin', tag: 'Birdie+', desc: 'Every birdie-or-better wins its own flat skin, separate from the standard low-score skin.', base: true },
   { key: 'eagleBonusSkin', name: 'Eagle Skin', tag: 'Carries', desc: 'Eagle-or-better carries hole to hole until exactly one player wins it outright.', base: true },
-  { key: 'greenie', name: 'Greenie', tag: 'Par 3s', desc: 'Par-3 CTP plus par or better. One winner; unclaimed Greenies carry to the next par 3.', base: false },
+  { key: 'greenie', name: 'Greenie', tag: 'Par 3s', desc: 'Par-3 CTP plus par or better. One winner; unclaimed Greenies carry to the next par 3. Cannot combine with CTP skin.', base: false },
   { key: 'sandie', name: 'Sandie', tag: 'Sand save', desc: 'Flag players who were in a bunker; each par-or-better sand save wins a flat skin.', base: false },
-  { key: 'closestToPin', name: 'Closest to Pin', tag: 'Par 3s', desc: 'Nearest the flag on par 3s. Flag one winner per hole live during scoring; pays the base value head-to-head.', base: false },
+  { key: 'closestToPin', name: 'Closest to Pin', tag: 'Par 3s', desc: 'Nearest the flag on par 3s. Flag one winner per hole live during scoring; pays the base value head-to-head. Cannot combine with Greenie.', base: false },
   { key: 'longestDrive', name: 'Longest Drive', tag: 'Par 5', desc: 'Longest drive in the fairway on a par 5. Flag the winner live during scoring; pays the base value head-to-head.', base: false },
 ]
 
@@ -271,9 +271,9 @@ const perHoleSkinValue = (sel, base) =>
   (sel.birdieBonusSkin ? base : 0) +
   (sel.eagleBonusSkin ? base : 0)
 
-/** Any skin type selected at all (used for validation). */
+/** Any payable skin type selected (carryover alone is not valid — it's a modifier). */
 const anySkinSelected = (sel) =>
-  sel.standardSkin || sel.carryoverSkin || sel.birdieBonusSkin || sel.eagleBonusSkin ||
+  sel.standardSkin || sel.birdieBonusSkin || sel.eagleBonusSkin ||
   sel.greenie || sel.sandie || sel.closestToPin || sel.longestDrive
 
 /** Wizard skins state → the persisted SkinsConfig (data schema #1). */
@@ -318,6 +318,8 @@ const skinsSelectionFrom = (c) => {
   const base = defaultSkinsSelection()
   if (!c) return base
   const s = c.selectedSkins ?? {}
+  const greenie = !!s.greenie
+  const closestToPin = !!s.closestToPin && !greenie
   return {
     baseSkinValue: c.baseSkinValue ?? base.baseSkinValue,
     basePreset: SKIN_PRESETS.includes(c.baseSkinValue) ? String(c.baseSkinValue) : 'custom',
@@ -330,9 +332,9 @@ const skinsSelectionFrom = (c) => {
       carryoverSkin: !!s.carryoverSkin,
       birdieBonusSkin: !!s.birdieBonusSkin,
       eagleBonusSkin: !!s.eagleBonusSkin,
-      greenie: !!s.greenie,
+      greenie,
       sandie: !!s.sandie,
-      closestToPin: !!s.closestToPin,
+      closestToPin,
       longestDrive: !!s.longestDrive,
       custom1: { ...base.selectedSkins.custom1, ...(s.custom1 ?? {}) },
       custom2: { ...base.selectedSkins.custom2, ...(s.custom2 ?? {}) },
@@ -567,7 +569,12 @@ export default function SetupWizard() {
 
   /* ---- skins config (its own panel, not the generic game pattern) ---- */
   const setSkinType = (k, v) => {
-    const next = { selectedSkins: { ...skins.selectedSkins, [k]: v } }
+    const nextSel = { ...skins.selectedSkins, [k]: v }
+    if (k === 'carryoverSkin' && v) nextSel.standardSkin = true
+    if (k === 'standardSkin' && !v) nextSel.carryoverSkin = false
+    if (k === 'greenie' && v) nextSel.closestToPin = false
+    if (k === 'closestToPin' && v) nextSel.greenie = false
+    const next = { selectedSkins: nextSel }
     if (k === 'longestDrive' && v && par5Holes.length) {
       next.ldHole = normalizeSkinsLdHole(skins.ldHole, st.pars)
     }
@@ -1360,8 +1367,17 @@ export default function SetupWizard() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {SKIN_TYPES.map((t) => {
               const on = !!sel[t.key]
+              const carryoverLocked = t.key === 'carryoverSkin' && !sel.standardSkin
+              const greenieBlocked = t.key === 'closestToPin' && sel.greenie
+              const ctpBlocked = t.key === 'greenie' && sel.closestToPin
+              const blocked = carryoverLocked || greenieBlocked || ctpBlocked
               return (
-                <button key={t.key} onClick={() => setSkinType(t.key, !on)} style={skinCard(on)}>
+                <button
+                  key={t.key}
+                  onClick={() => !blocked && setSkinType(t.key, !on)}
+                  disabled={blocked}
+                  style={{ ...skinCard(on), opacity: blocked ? 0.45 : 1, cursor: blocked ? 'not-allowed' : 'pointer' }}
+                >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                       <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{t.name}</span>

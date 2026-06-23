@@ -362,7 +362,7 @@ export function calculateSkinsBet(players, scores, pars, strokeAllocations, conf
     sidePayouts[p.id] = 0
   })
 
-  if (sel.closestToPin) {
+  if (sel.closestToPin && !sel.greenie) {
     const ctp = calculateCTP(players, sideGameFlags, { amount: base, holes: skinsCtpHoles(sc, pars) })
     sideLines.push(...ctp.lines)
     players.forEach((p) => {
@@ -421,7 +421,7 @@ export function calculateSkinsBet(players, scores, pars, strokeAllocations, conf
  *   //   skinsByHole: [
  *   //     { hole: 1, winner: null, value: 0, carryCount: 1 },
  *   //     { hole: 2, winner: null, value: 0, carryCount: 2 },
- *   //     { hole: 3, winner: 'p1', value: 6, carryCount: 3 },
+ *   //     { hole: 3, winner: 'p1', value: 18, carryCount: 3 },
  *   //   ],
  *   //   payouts: { p1: 18, p2: -6, p3: -6, p4: -6 },  // sums to 0
  *   // }

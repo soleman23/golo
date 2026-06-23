@@ -1,17 +1,37 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import AppHeader from '../components/shared/AppHeader'
+import useProfileStore from '../store/profileStore'
 
 const ACCENT = '#d4f23a'
 const ACCENT_DARK = '#13250a'
 const BACKDROP = '/courses/course.png'
 const COURSE_FALLBACK_BG = 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)'
+const SUPPORT_EMAIL = 'support@gologolf.app'
 
 export default function ContactPage() {
+  const profileName = useProfileStore((s) => s.name)
+  const profileEmail = useProfileStore((s) => s.email)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
   const [sent, setSent] = useState(false)
+
+  useEffect(() => {
+    if (profileName && !name) setName(profileName)
+    if (profileEmail && !email) setEmail(profileEmail)
+  }, [profileName, profileEmail, name, email])
+
   const canSend = name.trim() && email.trim() && message.trim()
+
+  const send = () => {
+    if (!canSend) return
+    const subject = encodeURIComponent(`GoLo support — ${name.trim()}`)
+    const body = encodeURIComponent(
+      `From: ${name.trim()}\nEmail: ${email.trim()}\n\n${message.trim()}`
+    )
+    window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`
+    setSent(true)
+  }
 
   return (
     <div style={S.root}>
@@ -27,10 +47,14 @@ export default function ContactPage() {
           <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" type="email" style={S.input} />
           <label style={S.label}>MESSAGE</label>
           <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Describe the issue, what you expected, and what happened..." style={S.textarea} />
-          {sent && <div style={S.success}>Message staged. Send this through your support channel when backend support forms are connected.</div>}
+          {sent && (
+            <div style={S.success}>
+              Your email app should open with the message ready to send to {SUPPORT_EMAIL}. If it didn't, email us directly at {SUPPORT_EMAIL}.
+            </div>
+          )}
         </div>
         <div style={S.footer}>
-          <button type="button" disabled={!canSend} onClick={() => setSent(true)} style={{ ...S.sendBtn, opacity: canSend ? 1 : 0.5, cursor: canSend ? 'pointer' : 'not-allowed' }}>
+          <button type="button" disabled={!canSend} onClick={send} style={{ ...S.sendBtn, opacity: canSend ? 1 : 0.5, cursor: canSend ? 'pointer' : 'not-allowed' }}>
             Send message
           </button>
         </div>
