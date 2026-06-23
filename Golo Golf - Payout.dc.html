@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @keyframes goloPop { 0%{transform:scale(.9);opacity:0;} 100%{transform:scale(1);opacity:1;} }
+    .golo-scroll::-webkit-scrollbar{ display:none; }
+    .golo-scroll{ -ms-overflow-style:none; scrollbar-width:none; }
+  </style>
+</helmet>
+<div style="min-height:100vh;background:radial-gradient(130% 90% at 50% -10%, #1c2a22 0%, #12161a 55%, #0c0f12 100%);font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:44px 32px 90px;box-sizing:border-box;color:#fff;">
+  <div style="max-width:1180px;margin:0 auto;">
+
+    <header style="text-align:center;margin-bottom:30px;">
+      <div style="display:flex;justify-content:center;margin-bottom:16px;"><span style="width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:#0c0f12;border:1px solid rgba(255,255,255,.1);box-shadow:0 10px 26px rgba(212,242,58,.22);"><svg width="30" height="30" viewBox="0 0 120 124" fill="none" style="display:block"><path d="M56 20 A40 40 0 1 0 95.8 64" stroke="#d4f23a" stroke-width="12" stroke-linecap="round"></path><line x1="95.8" y1="64" x2="64" y2="64" stroke="#d4f23a" stroke-width="12" stroke-linecap="round"></line><circle cx="56" cy="58" r="15" fill="#fff"></circle><circle cx="56" cy="58" r="9" fill="none" stroke="rgba(10,36,24,0.28)" stroke-width="2.4"></circle><line x1="56" y1="44" x2="56" y2="14" stroke="#d4f23a" stroke-width="3.4"></line><path d="M56 14 L86 22 L56 34 Z" fill="#fff"></path></svg></span></div>
+      <div style="font-size:12px;font-weight:800;letter-spacing:3px;color: {{ accent }};">GOLO GOLF · SETTLE UP</div>
+      <h1 style="font-size:36px;font-weight:800;margin:10px 0 12px;letter-spacing:-0.6px;">Settle up the moment the last putt drops</h1>
+      <p style="font-size:16px;line-height:1.6;color:rgba(255,255,255,.62);max-width:700px;margin:0 auto;">The post-round payout screen, same glass-over-turf language as setup and scoring. It reads the round you played and computes every payout — <strong style="color:#fff;">Skins</strong>, <strong style="color:#fff;">Nassau</strong>, the <strong style="color:#fff;">purse</strong>, CTP and long drive — then nets it all into the fewest transfers that settle the group. Tap any player to see it from their side, expand a game for the hole-by-hole story, and check off each payment as it lands.</p>
+
+      <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:20px;">
+        <span style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;"><span style="width:14px;height:14px;border-radius:4px;background: {{ accent }};"></span>net settlement</span>
+        <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;">every game scored</span>
+        <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;">tap to switch player</span>
+        <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;">mark paid</span>
+        <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;">reads your round</span>
+      </div>
+    </header>
+
+    <!-- phone -->
+    <div style="display:flex;justify-content:center;position:relative;">
+      <div style="position:absolute;width:520px;height:520px;border-radius:50%;background: {{ accentGlow }};filter:blur(90px);top:120px;z-index:0;"></div>
+
+      <div style="position:relative;z-index:1;width:390px;height:844px;border-radius:48px;border:1px solid rgba(255,255,255,.16);box-shadow:0 50px 90px -30px rgba(0,0,0,.8);overflow:hidden;background:#0b2c1a;">
+        <div style="position:absolute;inset:0;overflow:hidden;background:radial-gradient(120% 70% at 50% 0%, #2a7d4a 0%, #14532d 45%, #0a2418 85%);">
+
+          <!-- course photo backdrop -->
+          <div style="position:absolute;inset:0;background-image:url('{{ M.backdrop }}');background-size:cover;background-position:50% 60%;"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(6,14,9,.74) 0%, rgba(6,14,9,.6) 26%, rgba(6,16,10,.66) 58%, rgba(4,12,8,.9) 100%);pointer-events:none;"></div>
+
+          <!-- content -->
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;">
+
+            <!-- app header -->
+            <dc-import name="Golo Golf - App Header" accent="{{ accent }}" back-href="Golo%20Golf%20-%20Leaderboard.dc.html" logo="wordmark" right-action="pin" kicker="FINAL · {{ M.scoringLabel }}" title="Settle Up" context-pill="{{ M.courseName }}" hint-size="100%,190px" style="flex:0 0 auto;display:block;"></dc-import>
+
+            <!-- header detail -->
+            <div style="flex:0 0 auto;padding:0 18px 12px;text-shadow:0 2px 12px rgba(0,0,0,.4);">
+              <div style="font-size:13px;color:rgba(255,255,255,.6);">{{ M.headerDetail }}</div>
+            </div>
+
+            <!-- scrollable body -->
+            <div class="golo-scroll" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:4px 16px 14px;">
+
+              <!-- HERO · me result -->
+              <div style="position:relative;overflow:hidden;background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid {{ M.heroBorder }};border-radius:24px;padding:20px 18px;margin-bottom:14px;box-shadow:0 12px 32px rgba(0,0,0,.34);">
+                <span style="position:absolute;right:-30px;top:-30px;width:140px;height:140px;border-radius:50%;background: {{ M.heroGlow }};filter:blur(34px);pointer-events:none;"></span>
+                <div style="position:relative;display:flex;align-items:center;gap:11px;">
+                  <span style="width:40px;height:40px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:#fff;background: {{ M.meColor }};box-shadow:0 0 0 2px rgba(255,255,255,.25);">{{ M.meInitial }}</span>
+                  <div style="min-width:0;">
+                    <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.55);">{{ M.meName }} · {{ M.mePlaceLine }}</div>
+                    <div style="font-size:13px;font-weight:600;color:rgba(255,255,255,.6);margin-top:1px;">{{ M.meHeadline }}</div>
+                  </div>
+                </div>
+                <div style="position:relative;display:flex;align-items:flex-end;gap:10px;margin-top:10px;">
+                  <span style="font-size:52px;font-weight:800;line-height:0.95;letter-spacing:-1px;color: {{ M.meAmountColor }};">{{ M.meAmount }}</span>
+                  <span style="font-size:13px;font-weight:700;color:rgba(255,255,255,.6);padding-bottom:8px;">{{ M.meScoreLine }}</span>
+                </div>
+                <div style="position:relative;font-size:12.5px;font-weight:600;color:rgba(255,255,255,.55);margin-top:8px;">{{ M.changedHands }}</div>
+              </div>
+
+              <!-- STANDINGS · net winnings -->
+              <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 2px 9px;">
+                <span style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);">NET WINNINGS</span>
+                <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.42);">tap to view as</span>
+              </div>
+              <sc-for list="{{ M.standings }}" as="r" hint-placeholder-count="4">
+                <button onClick="{{ r.onMe }}" style="width:100%;display:flex;align-items:center;gap:12px;text-align:left;background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid {{ r.border }};border-radius:16px;padding:11px 13px;margin-bottom:9px;cursor:pointer;">
+                  <span style="font-size:13px;font-weight:800;color:rgba(255,255,255,.5);width:16px;flex:0 0 auto;text-align:center;">{{ r.rank }}</span>
+                  <span style="width:38px;height:38px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff;background: {{ r.color }};box-shadow:0 0 0 2px {{ r.avatarRing }};">{{ r.initial }}</span>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:16px;font-weight:800;color:#fff;display:flex;align-items:center;gap:7px;">{{ r.name }}<span style="font-size:10px;font-weight:800;letter-spacing:.5px;color:#13250a;background: {{ accent }};padding:2px 7px;border-radius:9999px;display: {{ r.youBadgeShow }};">YOU</span></div>
+                    <div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:1px;">{{ r.scoreSub }}</div>
+                  </div>
+                  <span style="font-size:20px;font-weight:800;color: {{ r.netColor }};flex:0 0 auto;">{{ r.netLabel }}</span>
+                </button>
+              </sc-for>
+
+              <!-- SETTLE UP · transfers -->
+              <div style="display:flex;align-items:center;justify-content:space-between;margin:18px 2px 9px;">
+                <span style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);">WHO PAYS WHOM</span>
+                <span style="font-size:11px;font-weight:700;color: {{ M.settleSummaryColor }};">{{ M.settleSummary }}</span>
+              </div>
+              <sc-if value="{{ M.hasTransfers }}" hint-placeholder-val="{{ true }}">
+                <div>
+                  <sc-for list="{{ M.transfers }}" as="t" hint-placeholder-count="3">
+                    <div style="display:flex;align-items:center;gap:11px;background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid {{ t.cardBorder }};border-radius:16px;padding:11px 13px;margin-bottom:9px;opacity: {{ t.opacity }};">
+                      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
+                        <span style="width:32px;height:32px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;background: {{ t.fromColor }};">{{ t.fromInitial }}</span>
+                        <span style="font-size:18px;color:rgba(255,255,255,.45);flex:0 0 auto;">→</span>
+                        <span style="width:32px;height:32px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;background: {{ t.toColor }};">{{ t.toInitial }}</span>
+                        <div style="min-width:0;margin-left:2px;">
+                          <div style="font-size:13.5px;font-weight:700;color:#fff;line-height:1.2;">{{ t.label }}</div>
+                          <div style="font-size:11px;font-weight:800;letter-spacing:.4px;color: {{ M.accent }};display: {{ t.meTagShow }};">{{ t.meTag }}</div>
+                        </div>
+                      </div>
+                      <span style="font-size:17px;font-weight:800;color:#fff;flex:0 0 auto;">{{ t.amount }}</span>
+                      <button onClick="{{ t.toggle }}" style="flex:0 0 auto;min-height:36px;padding:0 13px;border-radius:11px;border:1px solid {{ t.btnBorder }};background: {{ t.btnBg }};color: {{ t.btnColor }};font-size:12.5px;font-weight:800;cursor:pointer;">{{ t.btnLabel }}</button>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <sc-if value="{{ M.noTransfers }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size:13.5px;color:rgba(255,255,255,.55);background:rgba(20,28,24,.5);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:15px;line-height:1.5;">All square — nobody owes anybody. Rare, and worth a photo.</div>
+              </sc-if>
+
+              <!-- GAMES breakdown -->
+              <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);margin:18px 2px 9px;">THE GAMES</div>
+              <sc-for list="{{ M.games }}" as="g" hint-placeholder-count="4">
+                <div style="background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.13);border-radius:18px;padding:13px 14px;margin-bottom:11px;box-shadow:0 8px 22px rgba(0,0,0,.26);">
+                  <button onClick="{{ g.toggle }}" style="width:100%;display:flex;align-items:center;gap:12px;text-align:left;background:transparent;border:none;padding:0;cursor:pointer;">
+                    <span style="width:40px;height:40px;border-radius:12px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:19px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);">{{ g.icon }}</span>
+                    <div style="flex:1;min-width:0;">
+                      <div style="font-size:15.5px;font-weight:800;color:#fff;">{{ g.title }}</div>
+                      <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:1px;">{{ g.sub }}</div>
+                    </div>
+                    <span style="font-size:13px;font-weight:800;color: {{ accent }};flex:0 0 auto;">{{ g.potLabel }}</span>
+                    <span style="font-size:13px;color:rgba(255,255,255,.5);flex:0 0 auto;width:14px;text-align:center;">{{ g.chevron }}</span>
+                  </button>
+
+                  <!-- net chips (always shown) -->
+                  <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:12px;">
+                    <sc-for list="{{ g.playerNets }}" as="pn" hint-placeholder-count="4">
+                      <span style="display:flex;align-items:center;gap:6px;padding:5px 10px 5px 5px;border-radius:9999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);">
+                        <span style="width:22px;height:22px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;background: {{ pn.color }};">{{ pn.initial }}</span>
+                        <span style="font-size:13px;font-weight:800;color: {{ pn.amountColor }};">{{ pn.amount }}</span>
+                      </span>
+                    </sc-for>
+                  </div>
+
+                  <!-- expandable detail -->
+                  <sc-if value="{{ g.expanded }}" hint-placeholder-val="{{ false }}">
+                    <div style="margin-top:13px;padding-top:13px;border-top:1px solid rgba(255,255,255,.1);">
+                      <sc-for list="{{ g.detailRows }}" as="d" hint-placeholder-count="3">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0;">
+                          <span style="font-size:13px;font-weight:700;color:rgba(255,255,255,.62);display:flex;align-items:center;gap:8px;min-width:0;"><span style="font-size:11px;font-weight:800;color:rgba(255,255,255,.4);width:46px;flex:0 0 auto;">{{ d.tag }}</span>{{ d.label }}</span>
+                          <span style="font-size:13.5px;font-weight:800;color: {{ d.valueColor }};flex:0 0 auto;text-align:right;">{{ d.value }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+
+              <!-- ROUND RECAP -->
+              <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);margin:18px 2px 9px;">ROUND RECAP</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;">
+                <sc-for list="{{ M.recap }}" as="s" hint-placeholder-count="4">
+                  <div style="background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.13);border-radius:16px;padding:13px 14px;">
+                    <div style="display:flex;align-items:center;gap:7px;font-size:10px;font-weight:800;letter-spacing:1px;color:rgba(255,255,255,.5);"><span style="font-size:13px;">{{ s.icon }}</span>{{ s.label }}</div>
+                    <div style="font-size:20px;font-weight:800;color:#fff;margin-top:6px;letter-spacing:-0.3px;">{{ s.value }}</div>
+                    <div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:1px;">{{ s.sub }}</div>
+                  </div>
+                </sc-for>
+              </div>
+
+            </div>
+
+            <!-- footer -->
+            <div style="flex:0 0 auto;padding:10px 16px 18px;">
+              <div style="display:flex;gap:10px;align-items:center;">
+                <button onClick="{{ M.share }}" style="min-height:54px;padding:0 18px;border-radius:16px;background:rgba(255,255,255,.1);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.18);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px;">↗ Share</button>
+                <button onClick="{{ M.settleAll }}" style="flex:1;min-height:54px;border-radius:16px;border:none;font-size:16px;font-weight:800;cursor:pointer;background: {{ M.settleBg }};color: {{ M.settleColor }};box-shadow:0 8px 22px {{ M.settleShadow }};">{{ M.settleLabel }}</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- SHARE TOAST -->
+          <sc-if value="{{ M.toast }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;left:0;right:0;bottom:96px;display:flex;justify-content:center;z-index:50;pointer-events:none;">
+              <div style="background:rgba(16,22,18,.94);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:12px 18px;font-size:13.5px;font-weight:700;color:#fff;box-shadow:0 12px 30px rgba(0,0,0,.5);animation:goloPop .2s ease;">{{ M.toastText }}</div>
+            </div>
+          </sc-if>
+
+          <!-- ALL SETTLED OVERLAY -->
+          <sc-if value="{{ M.celebrate }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:24px;">
+              <div onClick="{{ M.closeCelebrate }}" style="position:absolute;inset:0;background:rgba(0,0,0,.6);"></div>
+              <div style="position:relative;background:rgba(16,22,18,.94);backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);border:1px solid rgba(255,255,255,.14);border-radius:24px;padding:26px 24px;width:100%;box-shadow:0 30px 60px rgba(0,0,0,.5);text-align:center;animation:goloPop .22s ease;">
+                <div style="width:66px;height:66px;border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:800;color:#13250a;background: {{ accent }};box-shadow:0 8px 24px {{ accentGlow }};">✓</div>
+                <div style="font-size:23px;font-weight:800;color:#fff;letter-spacing:-0.3px;">All settled</div>
+                <div style="font-size:14px;color:rgba(255,255,255,.62);margin-top:8px;line-height:1.5;">{{ M.celebrateMeta }}</div>
+                <a href="Golo%20Golf%20-%20Setup.dc.html" style="margin-top:20px;display:flex;align-items:center;justify-content:center;width:100%;min-height:54px;border-radius:16px;background: {{ accent }};color:#13250a;font-size:16px;font-weight:800;text-decoration:none;box-shadow:0 8px 22px {{ accentGlow }};">New round →</a>
+                <button onClick="{{ M.closeCelebrate }}" style="margin-top:9px;width:100%;min-height:48px;border-radius:14px;background:transparent;border:none;font-size:14px;font-weight:700;color:rgba(255,255,255,.6);cursor:pointer;">Back to summary</button>
+              </div>
+            </div>
+          </sc-if>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1180,&quot;height&quot;:1000},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#d4f23a&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;currency&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;$&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  ICONS = {
+    target:'<path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm0 4a2 2 0 1 1 0 4 2 2 0 0 1 0-4z"/>',
+    trophy:'<path d="M6 3h12v2h3a1 1 0 0 1 1 1c0 2.9-1.9 5.2-4.6 5.8A6.5 6.5 0 0 1 13 15.8V18h3a1 1 0 0 1 1 1v2H7v-2a1 1 0 0 1 1-1h3v-2.2a6.5 6.5 0 0 1-4.4-3.9C3.9 11.2 2 8.9 2 6a1 1 0 0 1 1-1h3V3zM6 7H4.2c.3 1.4 1.1 2.4 2.1 2.9A8.6 8.6 0 0 1 6 8V7zm12 0v1c0 .6 0 1.2-.2 1.8 1-.5 1.7-1.4 2-2.8H18z"/>',
+    cash:'<path fill-rule="evenodd" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h15A1.5 1.5 0 0 1 21 6.5v11A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5v-11zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/>',
+    pin:'<path fill-rule="evenodd" d="M12 2a7 7 0 0 0-7 7c0 4.8 5.6 11.4 6.3 12.2a.9.9 0 0 0 1.4 0C13.4 20.4 19 13.8 19 9a7 7 0 0 0-7-7zm0 4.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z"/>',
+    drive:'<path d="M14 3h6.2a.8.8 0 0 1 .8.8V10a1 1 0 0 1-1.7.7l-1.8-1.8-7.7 7.7a1.4 1.4 0 0 1-2-2l7.7-7.7-1.8-1.8A1 1 0 0 1 14 3z"/><circle cx="5.5" cy="18.5" r="3"/>',
+    crown:'<path d="M3 8.5a1.3 1.3 0 0 1 2.1-1l3.2 2.2 2.6-4.8a1.3 1.3 0 0 1 2.2 0l2.6 4.8 3.2-2.2a1.3 1.3 0 0 1 2.1 1L19.6 17a1 1 0 0 1-1 .8H5.4a1 1 0 0 1-1-.8L3 8.5zM5 19.5h14V21H5z"/>',
+    bird:'<path fill-rule="evenodd" d="M3 13a7 7 0 0 1 7-7c2.6 0 4.9 1.4 6.1 3.5l3.5-.5a.8.8 0 0 1 .7 1.3l-2.1 2.5C18 16.1 14.9 19 11 19c-1 0-1.9-.2-2.8-.5L5 21l1.3-4.4A7 7 0 0 1 3 13zm10.5-3.2a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>',
+    swap:'<path d="M3 8.5a1 1 0 0 1 1-1h12.1l-1.8-1.8a1 1 0 1 1 1.4-1.4l3.5 3.5a1 1 0 0 1 0 1.4l-3.5 3.5a1 1 0 0 1-1.4-1.4l1.8-1.8H4a1 1 0 0 1-1-1zM21 15.5a1 1 0 0 1-1 1H7.9l1.8 1.8a1 1 0 1 1-1.4 1.4l-3.5-3.5a1 1 0 0 1 0-1.4l3.5-3.5a1 1 0 0 1 1.4 1.4l-1.8 1.8H20a1 1 0 0 1 1 1z"/>'
+  };
+  ico(name, color, size){ size=size||22; return React.createElement('svg',{width:size,height:size,viewBox:'0 0 24 24',fill:color||'currentColor',style:{display:'block',flex:'0 0 auto'},dangerouslySetInnerHTML:{__html:this.ICONS[name]||''}}); }
+  COURSE = [
+    {par:4,si:5,yards:412},{par:5,si:11,yards:534},{par:3,si:17,yards:168},
+    {par:4,si:1,yards:451},{par:4,si:7,yards:398},{par:4,si:13,yards:372},
+    {par:3,si:15,yards:182},{par:5,si:3,yards:548},{par:4,si:9,yards:421},
+    {par:4,si:6,yards:405},{par:4,si:2,yards:438},{par:3,si:16,yards:175},
+    {par:5,si:10,yards:521},{par:4,si:8,yards:389},{par:4,si:14,yards:367},
+    {par:4,si:4,yards:430},{par:3,si:18,yards:159},{par:5,si:12,yards:512},
+  ];
+  BETMETA = {
+    skins:  {ic:'target', col:'#d4f23a', title:'Skins',         unit:'/ hole'},
+    nassau: {ic:'trophy', col:'#facc15', title:'Nassau',        unit:'/ segment'},
+    purse:  {ic:'cash',   col:'#bef264', title:'Stroke Purse',  unit:'buy-in'},
+    ctp:    {ic:'pin',    col:'#60a5fa', title:'Closest to Pin',unit:'pot'},
+    long:   {ic:'drive',  col:'#fb923c', title:'Longest Drive', unit:'pot'},
+  };
+  ORDER = ['skins','nassau','purse','ctp','long'];
+  SAMPLE = {
+    course:{name:'Pinehurst No.2', bg:'assets/course.png'},
+    tee:{name:'Blue', par:72},
+    format:'stroke', scoring:'net',
+    players:[
+      {id:'mike', name:'Mike',  color:'#2dd4bf', hdcp:8},
+      {id:'sarah',name:'Sarah', color:'#60a5fa', hdcp:14},
+      {id:'tom',  name:'Tom',   color:'#fb923c', hdcp:5},
+      {id:'dave', name:'Dave',  color:'#c084fc', hdcp:20},
+    ],
+    bets:{skins:{on:true,stake:5},nassau:{on:true,stake:10},purse:{on:true,stake:20},ctp:{on:true,stake:5},long:{on:true,stake:5}},
+  };
+
+  constructor(props){
+    super(props);
+    let saved=null;
+    try{const raw=localStorage.getItem('golo:round'); if(raw)saved=JSON.parse(raw);}catch(e){}
+    const R = (saved && saved.players && saved.players.length>=2) ? saved : this.SAMPLE;
+
+    this.players = R.players.map((p,i)=>({
+      id:p.id||('p'+i), name:(p.name&&p.name.trim())||'Player '+(i+1),
+      color:p.color||'#2dd4bf', hdcp:(p.hdcp==null?12:p.hdcp),
+    }));
+    this.meta = {
+      courseName:(R.course&&R.course.name)||'Your Course',
+      backdrop:(R.course&&R.course.bg)||'assets/course.png',
+      teeName:(R.tee&&R.tee.name)||'',
+      par:(R.tee&&R.tee.par)||72,
+      format:R.format||'stroke',
+      scoring:R.scoring||'net',
+    };
+    const bets=R.bets||{};
+    this.activeBets = this.ORDER
+      .filter(k=>bets[k]&&bets[k].on)
+      .map(k=>({id:k, stake:(bets[k].stake==null?5:bets[k].stake)}));
+    if(this.activeBets.length===0){
+      // keep screen meaningful if a round was saved with no games
+      this.activeBets=[{id:'skins',stake:5},{id:'nassau',stake:10}];
+    }
+
+    this.SCORES = this.simulate();
+
+    this.state = {
+      me:this.players[0].id,
+      paid:{},
+      expanded:{[this.activeBets[0].id]:true},
+      toast:null,
+      celebrate:false,
+    };
+  }
+
+  // ---- helpers ----
+  rng(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; let t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  sr(hdcp,si){ const b=Math.floor(hdcp/18); return b+(si<=(hdcp%18)?1:0); }
+  net(id,h){ const c=this.COURSE[h]; const p=this.byId(id); return Math.max(0, this.SCORES[id][h]-this.sr(p.hdcp,c.si)); }
+  byId(id){ return this.players.find(p=>p.id===id); }
+  initial(n){ const t=(n||'').trim(); return t?t.charAt(0).toUpperCase():'?'; }
+  cur(){ return this.props.currency ?? '$'; }
+  money(n){ return this.cur()+Math.abs(n); }
+  signed(n){ const c=this.cur(); if(n>0)return '+'+c+n; if(n<0)return '−'+c+(-n); return c+'0'; }
+  ncol(n){ return n>0?'#bef264':(n<0?'#fb7185':'rgba(255,255,255,.7)'); }
+  accentColor(){ return this.props.accent ?? '#d4f23a'; }
+  hexA(hex,a){ let h=(hex||'#d4f23a').replace('#',''); if(h.length===3)h=h.split('').map(c=>c+c).join(''); const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16); return 'rgba('+r+','+g+','+b+','+a+')'; }
+  ord(n){ const s=['th','st','nd','rd'],v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+
+  simulate(){
+    const scores={};
+    this.players.forEach((p,idx)=>{
+      const rand=this.rng(99173+idx*1013+(p.hdcp+1)*97);
+      const arr=[];
+      for(let h=0;h<18;h++){
+        const c=this.COURSE[h];
+        const strokes=this.sr(p.hdcp,c.si);
+        const r=rand();
+        let d; // net delta vs par for this hole
+        if(r<0.08)d=-1; else if(r<0.47)d=0; else if(r<0.77)d=1; else if(r<0.93)d=2; else d=3;
+        arr.push(Math.max(1, c.par+strokes+d));
+      }
+      scores[p.id]=arr;
+    });
+    return scores;
+  }
+
+  // ---- payout engine ----
+  zero(){ const o={}; this.players.forEach(p=>o[p.id]=0); return o; }
+  N(){ return this.players.length; }
+
+  computeGame(bet){
+    const stake=bet.stake, N=this.N(), ids=this.players.map(p=>p.id);
+    const net=this.zero(); const rows=[]; let sub='';
+
+    if(bet.id==='skins'){
+      let carries=0, won=0, pushed=0, biggest=0, biggestHole=0;
+      for(let h=0;h<18;h++){
+        const nets=ids.map(id=>({id, v:this.net(id,h)}));
+        const mn=Math.min.apply(null,nets.map(x=>x.v));
+        const low=nets.filter(x=>x.v===mn);
+        if(low.length===1){
+          const val=(carries+1)*stake;
+          const w=low[0].id;
+          net[w]+=val*(N-1); ids.forEach(id=>{ if(id!==w)net[id]-=val; });
+          rows.push({tag:'H'+(h+1), label:this.byId(w).name, value:'+'+this.cur()+val, valueColor:'#bef264'});
+          if(val>biggest){biggest=val;biggestHole=h+1;}
+          won++; carries=0;
+        }else{ pushed++; carries++; }
+      }
+      this._bigSkin={val:biggest,hole:biggestHole};
+      sub = won+' skins won · '+pushed+' pushed';
+      return {net, rows, sub, potLabel:this.cur()+stake+' / hole'};
+    }
+
+    if(bet.id==='nassau'){
+      const segs=[{name:'Front 9',a:0,b:9},{name:'Back 9',a:9,b:18},{name:'Overall',a:0,b:18}];
+      segs.forEach(seg=>{
+        const perf=ids.map(id=>{ let t=0; for(let h=seg.a;h<seg.b;h++)t+=this.net(id,h)-this.COURSE[h].par; return {id,t}; })
+                      .sort((x,y)=>x.t-y.t);
+        const best=perf[0], tie=perf[1].t===best.t;
+        if(!tie){
+          const w=best.id; net[w]+=stake*(N-1); ids.forEach(id=>{ if(id!==w)net[id]-=stake; });
+          const m=perf[1].t-best.t;
+          rows.push({tag:seg.name==='Overall'?'ALL':seg.name.replace(' 9',''), label:this.byId(w).name+' wins', value:(m===0?'tie':m+' clear'), valueColor:this.accentColor()});
+        }else{
+          rows.push({tag:seg.name==='Overall'?'ALL':seg.name.replace(' 9',''), label:'Halved', value:'push', valueColor:'rgba(255,255,255,.6)'});
+        }
+      });
+      sub = '3 segments · '+this.cur()+stake+' each';
+      return {net, rows, sub, potLabel:this.cur()+stake+' / seg'};
+    }
+
+    if(bet.id==='purse'){
+      const tot=ids.map(id=>{ let t=0; for(let h=0;h<18;h++)t+=this.net(id,h); return {id,t}; }).sort((x,y)=>x.t-y.t);
+      const mn=tot[0].t, winners=tot.filter(x=>x.t===mn).map(x=>x.id);
+      const pot=N*stake, share=Math.round(pot/winners.length);
+      ids.forEach(id=> net[id] = winners.includes(id) ? share-stake : -stake );
+      tot.forEach((x,i)=> rows.push({tag:this.ord(i+1), label:this.byId(x.id).name, value:x.t+' net', valueColor:i===0?'#bef264':'rgba(255,255,255,.7)'}) );
+      sub = winners.map(w=>this.byId(w).name).join(' & ')+' takes the purse';
+      return {net, rows, sub, potLabel:this.cur()+pot+' pot'};
+    }
+
+    if(bet.id==='ctp'||bet.id==='long'){
+      // deterministic single winner
+      let wid;
+      if(bet.id==='ctp'){
+        // best net across the par 3s
+        const par3=[];this.COURSE.forEach((c,i)=>{if(c.par===3)par3.push(i);});
+        wid=ids.map(id=>({id,v:par3.reduce((a,h)=>a+this.net(id,h),0)})).sort((x,y)=>x.v-y.v)[0].id;
+      }else{
+        const rand=this.rng(424242+stake*7);
+        // weight toward lower handicaps (longer hitters)
+        const weighted=this.players.map(p=>({id:p.id,w:Math.max(1,30-p.hdcp)+rand()*12}));
+        wid=weighted.sort((a,b)=>b.w-a.w)[0].id;
+      }
+      const pot=N*stake;
+      ids.forEach(id=> net[id] = id===wid ? pot-stake : -stake );
+      rows.push({tag:'WIN', label:this.byId(wid).name, value:'+'+this.cur()+(pot-stake), valueColor:'#bef264'});
+      sub = this.byId(wid).name+(bet.id==='ctp'?' stuck it closest':' bombed it longest');
+      return {net, rows, sub, potLabel:this.cur()+pot+' pot'};
+    }
+    return {net:this.zero(), rows:[], sub:'', potLabel:''};
+  }
+
+  // min-cash-flow transfers from net totals
+  settle(total){
+    const cred=[], debt=[];
+    this.players.forEach(p=>{ const v=total[p.id]; if(v>0)cred.push({id:p.id,v}); else if(v<0)debt.push({id:p.id,v:-v}); });
+    cred.sort((a,b)=>b.v-a.v); debt.sort((a,b)=>b.v-a.v);
+    const out=[]; let i=0,j=0;
+    while(i<debt.length&&j<cred.length){
+      const t=Math.min(debt[i].v,cred[j].v);
+      if(t>0) out.push({from:debt[i].id, to:cred[j].id, amt:t});
+      debt[i].v-=t; cred[j].v-=t;
+      if(debt[i].v<=0.0001)i++;
+      if(cred[j].v<=0.0001)j++;
+    }
+    return out;
+  }
+
+  // ---- mutations ----
+  setMe(id){ this.setState({me:id}); }
+  togglePaid(key){ this.setState(s=>({paid:{...s.paid,[key]:!s.paid[key]}})); }
+  toggleGame(id){ this.setState(s=>({expanded:{...s.expanded,[id]:!s.expanded[id]}})); }
+  doShare(){
+    this.setState({toast:true});
+    clearTimeout(this._tt); this._tt=setTimeout(()=>{ try{this.setState({toast:null});}catch(e){} },1800);
+  }
+  settleAll(transfers){
+    const allPaid=transfers.length>0 && transfers.every(t=>this.state.paid[t.from+'>'+t.to]);
+    if(allPaid || transfers.length===0){ this.setState({celebrate:true}); return; }
+    const paid={...this.state.paid}; transfers.forEach(t=>{ paid[t.from+'>'+t.to]=true; });
+    this.setState({paid});
+  }
+  closeCelebrate(){ this.setState({celebrate:false}); }
+
+  build(){
+    const s=this.state, accent=this.accentColor(), ids=this.players.map(p=>p.id);
+
+    // games + aggregate net
+    const total=this.zero();
+    const games=this.activeBets.map(bet=>{
+      const g=this.computeGame(bet);
+      ids.forEach(id=>total[id]+=g.net[id]);
+      const meta=this.BETMETA[bet.id];
+      const playerNets=this.players
+        .map(p=>({id:p.id, name:p.name, color:p.color, initial:this.initial(p.name), v:Math.round(g.net[p.id])}))
+        .sort((a,b)=>b.v-a.v)
+        .map(p=>({color:p.color, initial:p.initial, amount:this.signed(p.v), amountColor:this.ncol(p.v)}));
+      return {
+        id:bet.id, icon:this.ico(meta.ic, meta.col, 21), title:meta.title, sub:g.sub, potLabel:g.potLabel,
+        expanded:!!s.expanded[bet.id], chevron:s.expanded[bet.id]?'▾':'▸',
+        toggle:()=>this.toggleGame(bet.id),
+        playerNets, detailRows:g.rows,
+      };
+    });
+    Object.keys(total).forEach(k=>total[k]=Math.round(total[k]));
+
+    // standings by winnings
+    const standings=this.players.map(p=>{
+      let gross=0,nt=0,bird=0;
+      for(let h=0;h<18;h++){ const gg=this.SCORES[p.id][h]; gross+=gg; nt+=this.net(p.id,h); if(gg<this.COURSE[h].par)bird++; }
+      return {id:p.id,name:p.name,color:p.color,gross,nt,bird,win:total[p.id]};
+    }).sort((a,b)=>b.win-a.win||a.nt-b.nt);
+    const meRank = standings.findIndex(r=>r.id===s.me)+1;
+
+    const standRows=standings.map((r,i)=>{
+      const isMe=r.id===s.me;
+      return {
+        rank:i+1, name:r.name, color:r.color, initial:this.initial(r.name),
+        netLabel:this.signed(r.win), netColor:this.ncol(r.win),
+        scoreSub:r.gross+' gross · '+r.nt+' net',
+        border: isMe?this.hexA(accent,.6):'rgba(255,255,255,.12)',
+        avatarRing: isMe?accent:'rgba(255,255,255,.25)',
+        youBadgeShow: isMe?'inline-block':'none',
+        onMe:()=>this.setMe(r.id),
+      };
+    });
+
+    // settlement transfers
+    const transfers=this.settle(total);
+    const transferRows=transfers.map(t=>{
+      const key=t.from+'>'+t.to, paid=!!s.paid[key];
+      const from=this.byId(t.from), to=this.byId(t.to);
+      const involvesMe = t.from===s.me || t.to===s.me;
+      let meTag=''; if(t.from===s.me)meTag='YOU PAY'; else if(t.to===s.me)meTag='YOU COLLECT';
+      return {
+        fromColor:from.color, fromInitial:this.initial(from.name),
+        toColor:to.color, toInitial:this.initial(to.name),
+        label:from.name+' pays '+to.name, amount:this.money(t.amt),
+        meTag, meTagShow: meTag?'block':'none',
+        cardBorder: paid?'rgba(190,242,100,.4)':(involvesMe?this.hexA(accent,.4):'rgba(255,255,255,.12)'),
+        opacity: paid?'0.55':'1',
+        btnLabel: paid?'✓ Paid':'Mark paid',
+        btnBg: paid?'rgba(190,242,100,.18)':'rgba(255,255,255,.08)',
+        btnBorder: paid?'rgba(190,242,100,.5)':'rgba(255,255,255,.18)',
+        btnColor: paid?'#bef264':'#fff',
+        toggle:()=>this.togglePaid(key),
+      };
+    });
+    const paidCount=transfers.filter(t=>s.paid[t.from+'>'+t.to]).length;
+    const allPaid = transfers.length>0 && paidCount===transfers.length;
+    const moneyMoved=Math.max(0, this.players.reduce((a,p)=>a+Math.max(0,total[p.id]),0));
+
+    // me hero
+    const meRec=standings.find(r=>r.id===s.me);
+    const meWin=total[s.me];
+    const meHeadline = meWin>0?'collected from the group' : (meWin<0?'owed to the group' : 'dead even — keep your cash');
+    const me=this.byId(s.me);
+
+    // recap tiles
+    const champ=standings.slice().sort((a,b)=>a.nt-b.nt||a.gross-b.gross)[0];
+    const lowG=standings.slice().sort((a,b)=>a.gross-b.gross)[0];
+    const totalBird=standings.reduce((a,r)=>a+r.bird,0);
+    const bigSkin=this._bigSkin||{val:0,hole:0};
+    const recap=[
+      {icon:this.ico('crown','#d4f23a',15), label:'CHAMPION', value:champ.name, sub:champ.nt+' net · '+this.signed(champ.win)},
+      {icon:this.ico('target','#facc15',15), label:'LOW GROSS', value:lowG.gross, sub:lowG.name},
+      {icon:this.ico('bird','#bef264',15), label:'BIRDIES', value:String(totalBird), sub:'across the group'},
+      {icon:this.ico('swap','#60a5fa',15), label:'CHANGED HANDS', value:this.cur()+moneyMoved, sub:transfers.length+' transfers'},
+    ];
+
+    const scoringLabel=(this.meta.scoring==='gross'?'GROSS':'NET')+' '+({stroke:'STROKE',match:'MATCH',stableford:'STABLEFORD'}[this.meta.format]||'STROKE');
+    const headerDetail='18 holes · Par '+this.meta.par+(this.meta.teeName?(' · '+this.meta.teeName+' tees'):'');
+
+    return {
+      accent,
+      backdrop:this.meta.backdrop, courseName:this.meta.courseName, scoringLabel, headerDetail,
+      // hero
+      meName:me.name, meColor:me.color, meInitial:this.initial(me.name),
+      mePlaceLine:this.ord(meRank)+' of '+this.N(),
+      meHeadline:'You '+(meWin>=0?'collected':'owe')+' · '+meHeadline,
+      meAmount:this.signed(meWin), meAmountColor:this.ncol(meWin),
+      meScoreLine:meRec.gross+' gross · '+meRec.nt+' net',
+      heroBorder:this.hexA(accent,.5), heroGlow:this.hexA(me.color,.5),
+      changedHands:this.cur()+moneyMoved+' changed hands across '+this.activeBets.length+' games',
+      // standings
+      standings:standRows,
+      // transfers
+      transfers:transferRows, hasTransfers:transfers.length>0, noTransfers:transfers.length===0,
+      settleSummary: transfers.length===0?'all square':(paidCount+'/'+transfers.length+' paid'),
+      settleSummaryColor: allPaid?'#bef264':'rgba(255,255,255,.5)',
+      // games & recap
+      games, recap,
+      // footer
+      share:()=>this.doShare(),
+      settleAll:()=>this.settleAll(transfers),
+      settleLabel: transfers.length===0?'Done':(allPaid?'All settled ✓':'Mark all paid'),
+      settleBg: accent, settleColor:'#13250a', settleShadow:this.hexA(accent,.4),
+      // overlays
+      toast:!!s.toast, toastText:'Summary copied — paste it in the group chat',
+      celebrate:s.celebrate, closeCelebrate:()=>this.closeCelebrate(),
+      celebrateMeta:this.meta.courseName+' settled — '+this.cur()+moneyMoved+' moved across '+transfers.length+' transfers.',
+    };
+  }
+
+  renderVals(){
+    const accent=this.accentColor();
+    return {
+      M:this.build(),
+      accent,
+      accentGlow:this.hexA(accent,.45),
+    };
+  }
+}
+</script>
+</body>
+</html>

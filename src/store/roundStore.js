@@ -250,16 +250,17 @@ const useRoundStore = create(
           },
         })),
 
-      // Manual skins: toggle a player's greenie/sandie on a hole. These stack
-      // (multiple players per type, and a player can earn more than one type),
-      // so each type holds an array of playerIds. type is 'greenie' | 'sandie'.
+      // Manual skins: Greenie is a single CTP-style winner, Sandie can stack for
+      // multiple players. Shape stays arrays for persistence compatibility.
       toggleSkinFlag: (hole, type, playerId) =>
         set((state) => {
           const holeFlags = state.skinFlags[hole] ?? {}
           const current = holeFlags[type] ?? []
-          const next = current.includes(playerId)
-            ? current.filter((id) => id !== playerId)
-            : [...current, playerId]
+          const next = type === 'greenie'
+            ? (current.includes(playerId) ? [] : [playerId])
+            : current.includes(playerId)
+              ? current.filter((id) => id !== playerId)
+              : [...current, playerId]
           return {
             skinFlags: {
               ...state.skinFlags,

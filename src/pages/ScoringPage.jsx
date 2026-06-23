@@ -15,9 +15,8 @@ import { skinsLongestDriveHole } from '../engines/skins'
 import useProfileStore from '../store/profileStore'
 import { playerKey } from '../lib/identity'
 import { getCourseImage } from '../lib/courseImages'
-import { GoloWordmark } from '../components/shared/Logo'
+import AppHeader from '../components/shared/AppHeader'
 import { Icon } from '../components/shared/GoloIcons'
-import BackButton from '../components/shared/BackButton'
 
 /**
  * ScoringPage — the live round, "Scoring (Immersive)".
@@ -282,8 +281,8 @@ export default function ScoringPage() {
   // only; both stack and only show when the Skins bet enabled them in setup.
   const baseSkinValue = skinsBet?.config?.skinsConfig?.baseSkinValue ?? skinsBet?.config?.valuePerSkin ?? 0
   const manualSkinTypes = []
-  if (skinsBet && skinSel.greenie && par === 3) manualSkinTypes.push({ type: 'greenie', label: 'Greenie', hint: 'Par 3 — on in regulation, par or better' })
-  if (skinsBet && skinSel.sandie) manualSkinTypes.push({ type: 'sandie', label: 'Sandie', hint: 'Up and down from a bunker' })
+  if (skinsBet && skinSel.greenie && par === 3) manualSkinTypes.push({ type: 'greenie', label: 'Greenie', hint: 'Closest on a par 3, par or better' })
+  if (skinsBet && skinSel.sandie) manualSkinTypes.push({ type: 'sandie', label: 'Sandie', hint: 'In bunker, par or better' })
   const skinsActive = !isScramble && manualSkinTypes.length > 0 && skinPlayers.length >= 2
 
   // Active-bet pills: the five "standard" bets via the engine, plus Wolf / BBB
@@ -529,12 +528,7 @@ export default function ScoringPage() {
         <div style={{ ...S.backdrop, background: COURSE_FALLBACK_BG, backgroundImage: `url(${backdrop}), ${COURSE_FALLBACK_BG}` }} />
         <div style={S.scrim} />
         <div style={S.column}>
-          <div style={S.header}>
-            <div style={S.headerTop}>
-              <BackButton />
-              <GoloWordmark variant="white" fontPx={15} />
-            </div>
-          </div>
+          <AppHeader accent={ACCENT} backTo="/" logo="wordmark" rightAction="pin" kicker="LIVE ROUND" title="Scoring" contextPill={round.course} />
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
             <div style={S.panel}>
               <div style={{ fontSize: 21, fontWeight: 800, color: '#fff' }}>Teams not set up for this round.</div>
@@ -639,25 +633,13 @@ export default function ScoringPage() {
       <div style={S.scrim} />
 
       <div style={S.column}>
+        <AppHeader accent={ACCENT} backTo="/" logo="wordmark" rightAction="pin" kicker="LIVE ROUND" title="Scoring" contextPill={round.course} />
+        <div style={{ flex: '0 0 auto', padding: '0 16px 4px', display: 'flex', justifyContent: 'flex-start', boxSizing: 'border-box' }}>
+          <button onClick={() => navigate('/setup')} aria-label="Round settings" style={S.iconBtn}>⛳</button>
+        </div>
+
         {/* header ------------------------------------------------------------ */}
         <div style={S.header}>
-          <div style={S.headerTop}>
-            <BackButton />
-            <GoloWordmark variant="white" fontPx={15} />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-            <button onClick={() => navigate('/setup')} aria-label="Round settings" style={S.iconBtn}>⛳</button>
-            <div style={S.coursePill}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', flex: '0 0 auto', background: ACCENT }} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {round.course}
-              </span>
-            </div>
-            <span style={{ ...S.avatar, width: 46, height: 46, boxShadow: '0 0 0 1px rgba(255,255,255,.28)', background: entities[0]?.color ?? '#2dd4bf' }}>
-              {initial(entities[0]?.name)}
-            </span>
-          </div>
-
           {/* hole block */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
             <button onClick={goPrev} disabled={atFirstHole} aria-label="Previous hole" style={{ ...S.navCircle, opacity: atFirstHole ? 0.4 : 1, cursor: atFirstHole ? 'not-allowed' : 'pointer' }}>‹</button>
@@ -681,7 +663,7 @@ export default function ScoringPage() {
         </div>
 
         {/* scrollable list --------------------------------------------------- */}
-        <div style={S.scroll}>
+        <div className="golo-scroll" style={S.scroll}>
           {isMatchplay && matchInfo && (
             <MatchPanel
               info={matchInfo}
@@ -1204,7 +1186,7 @@ const S = {
   coursePill: { display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,.13)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.16)', padding: '9px 16px', borderRadius: 9999, maxWidth: 220, minWidth: 0 },
   navCircle: { width: 54, height: 54, borderRadius: '50%', flex: '0 0 auto', background: 'rgba(255,255,255,.14)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', fontSize: 24, fontWeight: 800, cursor: 'pointer' },
   detailLine: { display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 6, background: 'rgba(255,255,255,.13)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.16)', padding: '6px 14px', borderRadius: 9999, fontSize: 13, fontWeight: 700, color: '#fff' },
-  scroll: { flex: 1, overflowY: 'auto', padding: '6px 14px 10px' },
+  scroll: { flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 14px 10px' },
 
   cardWrap: { position: 'relative', overflow: 'hidden', background: 'rgba(20,28,24,.46)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 22, boxShadow: '0 10px 30px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.12)', padding: '15px 16px 16px', marginBottom: 13 },
   cardGlow: { position: 'absolute', left: -30, top: -10, width: 90, height: 90, borderRadius: '50%', filter: 'blur(26px)', pointerEvents: 'none' },

@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @keyframes goloPulse { 0%{transform:scale(1);opacity:1;} 70%{transform:scale(2.6);opacity:0;} 100%{opacity:0;} }
+    @keyframes goloRise { 0%{transform:translateY(8px);opacity:0;} 100%{transform:translateY(0);opacity:1;} }
+    .golo-scroll::-webkit-scrollbar{ display:none; }
+    .golo-scroll{ -ms-overflow-style:none; scrollbar-width:none; }
+  </style>
+</helmet>
+<div style="min-height:100vh;background:radial-gradient(130% 90% at 50% -10%, #1c2a22 0%, #12161a 55%, #0c0f12 100%);font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:44px 32px 90px;box-sizing:border-box;color:#fff;">
+  <div style="max-width:1180px;margin:0 auto;">
+
+    <header style="text-align:center;margin-bottom:30px;">
+      <div style="display:flex;justify-content:center;margin-bottom:16px;"><span style="width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:#0c0f12;border:1px solid rgba(255,255,255,.1);box-shadow:0 10px 26px rgba(212,242,58,.22);"><svg width="30" height="30" viewBox="0 0 120 124" fill="none" style="display:block"><path d="M56 20 A40 40 0 1 0 95.8 64" stroke="#d4f23a" stroke-width="12" stroke-linecap="round"></path><line x1="95.8" y1="64" x2="64" y2="64" stroke="#d4f23a" stroke-width="12" stroke-linecap="round"></line><circle cx="56" cy="58" r="15" fill="#fff"></circle><circle cx="56" cy="58" r="9" fill="none" stroke="rgba(10,36,24,0.28)" stroke-width="2.4"></circle><line x1="56" y1="44" x2="56" y2="14" stroke="#d4f23a" stroke-width="3.4"></line><path d="M56 14 L86 22 L56 34 Z" fill="#fff"></path></svg></span></div>
+      <div style="font-size:12px;font-weight:800;letter-spacing:3px;color: {{ accent }};">GOLO GOLF · LIVE LEADERBOARD</div>
+      <h1 style="font-size:36px;font-weight:800;margin:10px 0 12px;letter-spacing:-0.6px;">Where everyone stands, while the round is still alive</h1>
+      <p style="font-size:16px;line-height:1.6;color:rgba(255,255,255,.62);max-width:710px;margin:0 auto;">The mid-round standings in the same glass-over-turf language as scoring and payout. A live hole-progress header, one spotlight on whoever's out front, then every player ranked — flip the board between <strong style="color:#fff;">Net</strong>, <strong style="color:#fff;">Gross</strong> and the <strong style="color:#fff;">Money</strong> on the line. Movement arrows show who's charging and who's sliding since the last hole.</p>
+
+      <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:20px;">
+        <span style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;"><span style="width:14px;height:14px;border-radius:4px;background: {{ accent }};"></span>live progress</span>
+        <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;">net · gross · money</span>
+        <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;">leader spotlight</span>
+        <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;">movement arrows</span>
+        <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;">money on the line</span>
+      </div>
+    </header>
+
+    <!-- phone -->
+    <div style="display:flex;justify-content:center;position:relative;">
+      <div style="position:absolute;width:520px;height:520px;border-radius:50%;background: {{ accentGlow }};filter:blur(90px);top:120px;z-index:0;"></div>
+
+      <div style="position:relative;z-index:1;width:390px;height:844px;border-radius:48px;border:1px solid rgba(255,255,255,.16);box-shadow:0 50px 90px -30px rgba(0,0,0,.8);overflow:hidden;background:#0b2c1a;">
+        <div style="position:absolute;inset:0;overflow:hidden;background:radial-gradient(120% 70% at 50% 0%, #2a7d4a 0%, #14532d 45%, #0a2418 85%);">
+
+          <!-- course photo backdrop -->
+          <div style="position:absolute;inset:0;background-image:url('{{ M.backdrop }}');background-size:cover;background-position:50% 58%;"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(6,14,9,.66) 0%, rgba(6,14,9,.5) 24%, rgba(6,16,10,.62) 58%, rgba(4,12,8,.92) 100%);pointer-events:none;"></div>
+
+          <!-- content -->
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;">
+
+            <!-- app header -->
+            <dc-import name="Golo Golf - App Header" accent="{{ accent }}" back-href="Golo%20Golf%20-%20Scoring%20(Immersive).dc.html" logo="wordmark" right-action="pin" kicker="LIVE" title="Leaderboard" context-pill="{{ M.courseName }}" hint-size="100%,190px" style="flex:0 0 auto;display:block;"></dc-import>
+
+            <!-- header -->
+            <div style="flex:0 0 auto;padding:4px 16px 12px;text-shadow:0 2px 12px rgba(0,0,0,.4);">
+              <!-- progress block -->
+              <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-top:16px;">
+                <div style="min-width:0;">
+                  <div style="font-size:11px;letter-spacing:2.6px;color:rgba(255,255,255,.7);font-weight:800;">THROUGH</div>
+                  <div style="display:flex;align-items:baseline;gap:8px;">
+                    <span style="font-size:58px;font-weight:800;line-height:0.96;color:#fff;">{{ M.thru }}</span>
+                    <span style="font-size:18px;font-weight:700;color:rgba(255,255,255,.55);">/ 18</span>
+                  </div>
+                </div>
+                <div style="text-align:right;flex:0 0 auto;padding-bottom:6px;">
+                  <div style="font-size:13px;font-weight:800;color: {{ accent }};">{{ M.toPlayLabel }}</div>
+                  <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,.55);margin-top:2px;">{{ M.onHoleLabel }}</div>
+                  <a href="Golo%20Golf%20-%20Payout.dc.html" style="display:inline-flex;align-items:center;gap:5px;margin-top:9px;text-decoration:none;background:rgba(255,255,255,.13);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.18);color:#fff;font-size:12px;font-weight:800;padding:6px 11px;border-radius:9999px;">Settle up ↗</a>
+                </div>
+              </div>
+              <!-- progress segments -->
+              <div style="display:flex;gap:3px;align-items:center;margin-top:12px;">
+                <sc-for list="{{ M.dots }}" as="d" hint-placeholder-count="18">
+                  <span style="height:6px;border-radius:9999px;flex:1;background: {{ d.bg }};"></span>
+                </sc-for>
+              </div>
+            </div>
+
+            <!-- segmented control -->
+            <div style="flex:0 0 auto;padding:4px 16px 10px;">
+              <div style="display:flex;gap:4px;background:rgba(16,22,18,.55);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:4px;">
+                <sc-for list="{{ M.tabs }}" as="t" hint-placeholder-count="3">
+                  <button onClick="{{ t.select }}" style="flex:1;min-height:42px;border-radius:12px;border:none;cursor:pointer;font-size:14px;font-weight:800;letter-spacing:.3px;background: {{ t.bg }};color: {{ t.color }};box-shadow: {{ t.shadow }};">{{ t.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+
+            <!-- scrollable body -->
+            <div class="golo-scroll" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:2px 16px 14px;">
+
+              <!-- spotlight -->
+              <div style="position:relative;overflow:hidden;background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid {{ M.spotBorder }};border-radius:24px;padding:18px;margin-bottom:16px;box-shadow:0 14px 34px rgba(0,0,0,.34);">
+                <span style="position:absolute;right:-30px;top:-34px;width:150px;height:150px;border-radius:50%;background: {{ M.spotGlow }};filter:blur(34px);pointer-events:none;"></span>
+                <div style="position:relative;display:flex;align-items:center;justify-content:space-between;">
+                  <span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;letter-spacing:1.6px;color: {{ accent }};">{{ M.leadIcon }}LEADING · {{ M.scopeLabel }}</span>
+                  <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);">{{ M.spotLeadBy }}</span>
+                </div>
+                <div style="position:relative;display:flex;align-items:center;gap:14px;margin-top:13px;">
+                  <span style="width:60px;height:60px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#fff;background: {{ M.spotColor }};box-shadow:0 0 0 3px {{ M.spotRing }},0 8px 20px rgba(0,0,0,.35);">{{ M.spotInitial }}</span>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:24px;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px;">{{ M.spotName }}<span style="font-size:10px;font-weight:800;letter-spacing:.5px;color:#13250a;background: {{ accent }};padding:2px 7px;border-radius:9999px;display: {{ M.spotYouShow }};">YOU</span></div>
+                    <div style="font-size:13px;font-weight:600;color:rgba(255,255,255,.58);margin-top:2px;">{{ M.spotSub }}</div>
+                  </div>
+                  <div style="text-align:right;flex:0 0 auto;">
+                    <div style="font-size:40px;font-weight:800;line-height:0.95;letter-spacing:-1px;color: {{ M.spotBigColor }};">{{ M.spotBig }}</div>
+                    <div style="font-size:11px;font-weight:700;letter-spacing:.6px;color:rgba(255,255,255,.5);margin-top:2px;">{{ M.spotBigUnit }}</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- column header -->
+              <div style="display:flex;align-items:center;padding:0 6px 8px;font-size:10px;font-weight:800;letter-spacing:.8px;color:rgba(255,255,255,.45);">
+                <span style="width:26px;">#</span>
+                <span style="flex:1;">PLAYER</span>
+                <span style="width:46px;text-align:center;">THRU</span>
+                <span style="width:62px;text-align:right;">{{ M.colLabel }}</span>
+              </div>
+
+              <!-- rows -->
+              <sc-for list="{{ M.rows }}" as="r" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:11px;background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid {{ r.border }};border-radius:16px;padding:11px 13px;margin-bottom:9px;box-shadow:0 6px 18px rgba(0,0,0,.22);">
+                  <div style="width:26px;display:flex;flex-direction:column;align-items:center;flex:0 0 auto;">
+                    <span style="font-size:16px;font-weight:800;color: {{ r.posColor }};line-height:1;">{{ r.pos }}</span>
+                    <span style="font-size:10px;font-weight:800;line-height:1;margin-top:2px;color: {{ r.moveColor }};">{{ r.move }}</span>
+                  </div>
+                  <span style="width:40px;height:40px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff;background: {{ r.color }};box-shadow:0 0 0 2px {{ r.ring }};">{{ r.initial }}</span>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:16px;font-weight:800;color:#fff;display:flex;align-items:center;gap:7px;">{{ r.name }}<span style="font-size:9px;font-weight:800;letter-spacing:.5px;color:#13250a;background: {{ accent }};padding:2px 6px;border-radius:9999px;display: {{ r.youShow }};">YOU</span></div>
+                    <div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:1px;">{{ r.sub }}</div>
+                  </div>
+                  <span style="width:46px;text-align:center;font-size:13px;font-weight:600;color:rgba(255,255,255,.55);flex:0 0 auto;">{{ r.thru }}</span>
+                  <span style="width:62px;text-align:right;font-size:24px;font-weight:800;letter-spacing:-0.5px;color: {{ r.bigColor }};flex:0 0 auto;">{{ r.big }}</span>
+                </div>
+              </sc-for>
+
+              <!-- money on the line -->
+              <div style="display:flex;align-items:center;justify-content:space-between;margin:18px 4px 9px;">
+                <span style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);">{{ M.betsTitle }}</span>
+                <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.42);">{{ M.betsSub }}</span>
+              </div>
+              <sc-for list="{{ M.bets }}" as="b" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:12px;background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:11px 13px;margin-bottom:9px;">
+                  <span style="width:38px;height:38px;border-radius:12px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:18px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);">{{ b.icon }}</span>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:15px;font-weight:800;color:#fff;">{{ b.title }}</div>
+                    <div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:1px;">{{ b.who }}</div>
+                  </div>
+                  <div style="text-align:right;flex:0 0 auto;">
+                    <div style="font-size:17px;font-weight:800;color: {{ b.valueColor }};">{{ b.value }}</div>
+                    <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.42);">{{ b.tag }}</div>
+                  </div>
+                </div>
+              </sc-for>
+
+            </div>
+
+            <!-- bottom action bar -->
+            <div style="flex:0 0 auto;padding:8px 14px 16px;">
+              <div style="display:flex;align-items:center;gap:8px;background:rgba(16,22,18,.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.14);border-radius:22px;padding:8px;box-shadow:0 10px 30px rgba(0,0,0,.35);">
+                <a href="Golo%20Golf%20-%20Scoring%20(Immersive).dc.html" style="flex:1;min-height:52px;border-radius:15px;background: {{ accent }};color:#13250a;font-size:15px;font-weight:800;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 6px 18px {{ accentGlow }};">Back to scoring</a>
+                <a href="Golo%20Golf%20-%20Payout.dc.html" style="min-height:52px;padding:0 18px;border-radius:15px;background:transparent;border:1px solid rgba(255,255,255,.18);font-size:14px;font-weight:800;color:rgba(255,255,255,.85);display:flex;align-items:center;justify-content:center;text-decoration:none;">Payouts</a>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1180,&quot;height&quot;:1000},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#d4f23a&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;thru&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:12,&quot;min&quot;:1,&quot;max&quot;:18,&quot;step&quot;:1,&quot;tsType&quot;:&quot;number&quot;}}">
+class Component extends DCLogic {
+  ICONS = {
+    target:'<path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm0 4a2 2 0 1 1 0 4 2 2 0 0 1 0-4z"/>',
+    trophy:'<path d="M6 3h12v2h3a1 1 0 0 1 1 1c0 2.9-1.9 5.2-4.6 5.8A6.5 6.5 0 0 1 13 15.8V18h3a1 1 0 0 1 1 1v2H7v-2a1 1 0 0 1 1-1h3v-2.2a6.5 6.5 0 0 1-4.4-3.9C3.9 11.2 2 8.9 2 6a1 1 0 0 1 1-1h3V3zM6 7H4.2c.3 1.4 1.1 2.4 2.1 2.9A8.6 8.6 0 0 1 6 8V7zm12 0v1c0 .6 0 1.2-.2 1.8 1-.5 1.7-1.4 2-2.8H18z"/>',
+    cash:'<path fill-rule="evenodd" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h15A1.5 1.5 0 0 1 21 6.5v11A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5v-11zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/>'
+  };
+  ico(name, color, size){ size=size||22; return React.createElement('svg',{width:size,height:size,viewBox:'0 0 24 24',fill:color||'currentColor',style:{display:'block',flex:'0 0 auto'},dangerouslySetInnerHTML:{__html:this.ICONS[name]||''}}); }
+  COURSE = [
+    {par:4,si:5},{par:5,si:11},{par:3,si:17},{par:4,si:1},{par:4,si:7},{par:4,si:13},
+    {par:3,si:15},{par:5,si:3},{par:4,si:9},{par:4,si:6},{par:4,si:2},{par:3,si:16},
+    {par:5,si:10},{par:4,si:8},{par:4,si:14},{par:4,si:4},{par:3,si:18},{par:5,si:12},
+  ];
+  PLAYERS = [
+    {id:'mike', name:'Mike',  color:'#2dd4bf', hdcp:8,  me:true},
+    {id:'sarah',name:'Sarah', color:'#60a5fa', hdcp:14},
+    {id:'tom',  name:'Tom',   color:'#fb923c', hdcp:5},
+    {id:'dave', name:'Dave',  color:'#c084fc', hdcp:20},
+  ];
+  SCORES = {
+    mike:  [4,5,4,5,4,4,3,6,4, 4,5,3,5,4,4,5,3,5],
+    sarah: [5,6,4,6,5,5,4,6,5, 5,5,4,6,5,5,5,4,6],
+    tom:   [4,4,3,4,4,3,3,5,4, 4,4,3,5,4,4,4,3,5],
+    dave:  [6,7,5,6,6,5,4,7,6, 5,6,4,6,6,5,6,4,7],
+  };
+  STAKE = 5; // skins, per player per hole
+
+  constructor(props){
+    super(props);
+    // pick up a live saved round if one exists, else use the demo round
+    let saved=null;
+    try{ const raw=localStorage.getItem('golo:round'); if(raw)saved=JSON.parse(raw); }catch(e){}
+    if(saved && saved.players && saved.players.length>=2){
+      this.PLAYERS = saved.players.map((p,i)=>({id:p.id||('p'+i), name:p.name||('P'+(i+1)), color:p.color||this.PLAYERS[i%4].color, hdcp:p.hdcp||0, me:i===0}));
+      // synthesize believable scores around each handicap so the board is alive
+      const base=[4,5,4,5,4,4,3,6,4,4,5,3,5,4,4,5,3,5];
+      this.SCORES={};
+      this.PLAYERS.forEach((p,pi)=>{ this.SCORES[p.id]=base.map((g,i)=>g + Math.round(p.hdcp/18) + ((pi+i)%4===0?1:0)); });
+      this.courseNameVal=(saved.course&&saved.course.name)||'Pinehurst No.2';
+      this.backdropVal=(saved.course&&saved.course.bg)||'assets/course.png';
+    } else {
+      this.courseNameVal='Pinehurst No.2';
+      this.backdropVal='assets/course.png';
+    }
+    this.state={ view:'net' };
+  }
+
+  accentColor(){ return this.props.accent ?? '#d4f23a'; }
+  thruN(){ const t=this.props.thru ?? 12; return Math.max(1,Math.min(18,t|0)); }
+  setView(v){ this.setState({view:v}); }
+
+  hexA(hex,a){ let h=(hex||'#d4f23a').replace('#',''); if(h.length===3)h=h.split('').map(c=>c+c).join(''); const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16); return 'rgba('+r+','+g+','+b+','+a+')'; }
+  sr(hdcp,si){ const b=Math.floor(hdcp/18); return b+(si<=(hdcp%18)?1:0); }
+  vpl(n){ return n===0?'E':(n>0?'+'+n:''+n); }
+  ncd(n){ return n<0?'#bef264':(n>0?'#fb7185':'rgba(255,255,255,.72)'); }
+  money(n){ if(n>0)return '+$'+n; if(n<0)return '−$'+(-n); return '$0'; }
+  mcol(n){ return n>0?'#bef264':(n<0?'#fb7185':'rgba(255,255,255,.72)'); }
+  initial(n){ const t=(n||'').trim(); return t?t.charAt(0).toUpperCase():'?'; }
+
+  // per-player aggregate stats through hole count n
+  stats(n){
+    return this.PLAYERS.map(p=>{
+      let gross=0, ntp=0, frontNtp=0;
+      for(let i=0;i<n;i++){
+        const c=this.COURSE[i], g=this.SCORES[p.id][i];
+        const net=Math.max(0,g-this.sr(p.hdcp,c.si));
+        gross+=g; ntp+=net-c.par; if(i<9)frontNtp+=net-c.par;
+      }
+      return {id:p.id, name:p.name, color:p.color, hdcp:p.hdcp, me:!!p.me, gross, ntp, frontNtp};
+    });
+  }
+
+  // skins money through hole count n -> {byId, carry, pot}
+  skins(n){
+    const won={}; this.PLAYERS.forEach(p=>won[p.id]=0);
+    let potHoles=0;
+    for(let i=0;i<n;i++){
+      potHoles++;
+      const nets=this.PLAYERS.map(p=>({id:p.id, net:Math.max(0,this.SCORES[p.id][i]-this.sr(p.hdcp,this.COURSE[i].si))}));
+      const mn=Math.min.apply(null,nets.map(x=>x.net));
+      const winners=nets.filter(x=>x.net===mn);
+      if(winners.length===1){ won[winners[0].id]+= potHoles*this.STAKE*this.PLAYERS.length; potHoles=0; }
+    }
+    const byId={}; this.PLAYERS.forEach(p=>{ byId[p.id]=won[p.id]-n*this.STAKE; });
+    return {byId, carry:potHoles, pot:potHoles*this.STAKE*this.PLAYERS.length};
+  }
+
+  rankMap(n, view){
+    const st=this.stats(n);
+    let arr;
+    if(view==='gross') arr=st.slice().sort((a,b)=>a.gross-b.gross||a.ntp-b.ntp);
+    else if(view==='money'){ const m=this.skins(n).byId; arr=st.slice().sort((a,b)=>m[b.id]-m[a.id]||a.ntp-b.ntp); }
+    else arr=st.slice().sort((a,b)=>a.ntp-b.ntp||a.gross-b.gross);
+    const map={}; arr.forEach((p,i)=>map[p.id]=i+1); return map;
+  }
+
+  build(){
+    const accent=this.accentColor(), view=this.state.view, n=this.thruN();
+    const scopeLabel = view==='gross'?'GROSS':(view==='money'?'MONEY':'NET');
+    const st=this.stats(n);
+    const sk=this.skins(n);
+
+    // sort for current view
+    let order;
+    if(view==='gross') order=st.slice().sort((a,b)=>a.gross-b.gross||a.ntp-b.ntp);
+    else if(view==='money') order=st.slice().sort((a,b)=>sk.byId[b.id]-sk.byId[a.id]||a.ntp-b.ntp);
+    else order=st.slice().sort((a,b)=>a.ntp-b.ntp||a.gross-b.gross);
+
+    // movement vs previous hole
+    const prevRank = n>1 ? this.rankMap(n-1,view) : null;
+    const curRank={}; order.forEach((p,i)=>curRank[p.id]=i+1);
+
+    const bigOf=(p)=> view==='gross'?String(p.gross) : (view==='money'? this.money(sk.byId[p.id]) : this.vpl(p.ntp));
+    const bigColorOf=(p)=> view==='gross'?'#fff' : (view==='money'? this.mcol(sk.byId[p.id]) : this.ncd(p.ntp));
+    const subOf=(p)=> view==='gross'? ('Net '+this.vpl(p.ntp)+' · Hdcp '+p.hdcp)
+                     : (view==='money'? ('Gross '+p.gross+' · Net '+this.vpl(p.ntp))
+                     : ('Gross '+p.gross+' · Hdcp '+p.hdcp));
+
+    const rows=order.map((p,i)=>{
+      let move='–', moveColor='rgba(255,255,255,.32)';
+      if(prevRank){ const d=prevRank[p.id]-curRank[p.id]; if(d>0){move='▲'+d;moveColor=accent;} else if(d<0){move='▼'+(-d);moveColor='#fb7185';} }
+      return {
+        pos:i+1, posColor:i===0?accent:'rgba(255,255,255,.7)',
+        move, moveColor,
+        name:p.name, initial:this.initial(p.name), color:p.color,
+        ring:i===0?accent:'rgba(255,255,255,.2)',
+        border:p.me?this.hexA(accent,.5):'rgba(255,255,255,.12)',
+        youShow:p.me?'inline-block':'none',
+        sub:subOf(p), thru:'thru '+n,
+        big:bigOf(p), bigColor:bigColorOf(p),
+      };
+    });
+
+    // spotlight = leader
+    const L=order[0], second=order[1];
+    let leadBy='clear of the field';
+    if(second){
+      if(view==='gross'){ const d=second.gross-L.gross; leadBy=d===0?'tied at the top':'leads by '+d+' gross'; }
+      else if(view==='money'){ const d=sk.byId[L.id]-sk.byId[second.id]; leadBy=d===0?'tied at the top':this.money(d).replace('+','')+' clear'; }
+      else { const d=second.ntp-L.ntp; leadBy=d===0?'tied at the top':'leads by '+d; }
+    }
+
+    // bets / money on the line
+    const front=this.stats(Math.min(n,9)).slice().sort((a,b)=>a.frontNtp-b.frontNtp);
+    const nfDiff=front[1]?front[1].frontNtp-front[0].frontNtp:0;
+    const nfLabel=nfDiff===0?'all square':front[0].name+' '+nfDiff+' up';
+    const purseLeader=st.slice().sort((a,b)=>a.ntp-b.ntp||a.gross-b.gross)[0];
+    const pursePot=this.STAKE*4*this.PLAYERS.length; // flat purse buy-in
+    const skinsLeader=order.slice().sort((a,b)=>sk.byId[b.id]-sk.byId[a.id])[0];
+
+    const bets=[
+      {icon:this.ico('target','#d4f23a',20), title:'Skins', who:sk.carry>0?(sk.carry+' hole carry on the pot'):(skinsLeader.name+' is up the most'),
+        value:'$'+sk.pot, valueColor:accent, tag:sk.carry>0?'in the pot':'live pot'},
+      {icon:this.ico('trophy','#facc15',20), title:'Nassau · Front', who:nfLabel, value:n>=9?'closed':'live', valueColor:'#fff', tag:'match play'},
+      {icon:this.ico('cash','#bef264',20), title:'Stroke Purse', who:purseLeader.name+' leads at '+this.vpl(purseLeader.ntp), value:'$'+pursePot, valueColor:accent, tag:'winner takes'},
+    ];
+
+    const dots=this.COURSE.map((c,i)=>({ bg: i<n?accent:(i===n?'rgba(255,255,255,.85)':'rgba(255,255,255,.22)') }));
+
+    const tabs=[{id:'net',label:'Net'},{id:'gross',label:'Gross'},{id:'money',label:'Money'}].map(t=>({
+      label:t.label, select:()=>this.setView(t.id),
+      bg: view===t.id?accent:'transparent',
+      color: view===t.id?'#13250a':'rgba(255,255,255,.62)',
+      shadow: view===t.id?('0 4px 12px '+this.hexA(accent,.4)):'none',
+    }));
+
+    return {
+      courseName:this.courseNameVal, backdrop:this.backdropVal,
+      thru:n, toPlayLabel:(18-n)+' to play', onHoleLabel:n<18?('on hole '+(n+1)):'finishing up',
+      dots, tabs, scopeLabel, colLabel:scopeLabel,
+      rows,
+      // spotlight
+      spotName:L.name, spotInitial:this.initial(L.name), spotColor:L.color,
+      spotRing:this.hexA(accent,.9), spotBorder:this.hexA(accent,.5), spotGlow:this.hexA(accent,.45),
+      spotYouShow:L.me?'inline-block':'none',
+      spotBig:bigOf(L), spotBigColor:bigColorOf(L),
+      spotBigUnit:view==='gross'?'GROSS':(view==='money'?'NET WON':'TO PAR'),
+      spotSub:subOf(L), spotLeadBy:leadBy,
+      // bets
+      betsTitle:'MONEY ON THE LINE', betsSub:'skins $'+this.STAKE+'/hole', bets,
+      leadIcon:this.ico('trophy', accent, 13),
+    };
+  }
+
+  renderVals(){
+    const accent=this.accentColor();
+    return { M:this.build(), accent, accentGlow:this.hexA(accent,.45) };
+  }
+}
+</script>
+</body>
+</html>

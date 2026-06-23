@@ -7,8 +7,8 @@ import useAuthStore from '../store/authStore'
 import useSyncStore from '../store/syncStore'
 import { retrySyncOnLogin } from '../lib/sync'
 import { getCourseImage } from '../lib/courseImages'
-import { GoloWordmark, GoloBall } from '../components/shared/Logo'
-import BackButton from '../components/shared/BackButton'
+import { GoloBall } from '../components/shared/Logo'
+import AppHeader from '../components/shared/AppHeader'
 import {
   playerKey, displayName, autoKey, namesByKey, netByKey,
   myNetInRoundByKey, playedInByKey, entryMatches,
@@ -222,25 +222,19 @@ export default function HomePage() {
       <div style={S.scrim} />
 
       <div style={S.column}>
-        {/* greeting --------------------------------------------------------- */}
-        <div style={S.header}>
-          <div style={S.headerTop}>
-            {authUserId ? <span aria-hidden="true" style={S.backSpacer} /> : <BackButton />}
-            <GoloWordmark variant="white" fontPx={16} />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: ACCENT }}>{dateKicker}</div>
-              <div style={{ fontSize: 27, fontWeight: 800, color: '#fff', marginTop: 6, letterSpacing: '-0.5px' }}>{greeting}</div>
-            </div>
-            <span style={{ ...S.avatar, width: 48, height: 48, boxShadow: '0 0 0 2px rgba(255,255,255,.1)', background: ACCENT, color: ACCENT_DARK }}>
-              {meName ? initial(meName) : <GoloBall size={26} fill="#ffffff" dimple="rgba(20,40,24,.3)" />}
-            </span>
-          </div>
-        </div>
+        <AppHeader
+          accent={ACCENT}
+          backTo="/"
+          logo="wordmark"
+          rightAction="pin"
+          kicker={dateKicker}
+          title={greeting}
+          currentPage="Home"
+          showBack={false}
+        />
 
         {/* scrollable body -------------------------------------------------- */}
-        <div style={S.scroll}>
+        <div className="golo-scroll" style={S.scroll}>
           {syncError && (
             <div style={S.syncBanner}>
               <div style={{ flex: 1, fontSize: 13, fontWeight: 600, lineHeight: 1.45, color: 'rgba(255,255,255,.9)' }}>{syncError}</div>
@@ -434,20 +428,17 @@ const S = {
     background: 'linear-gradient(180deg, rgba(6,14,9,.7) 0%, rgba(6,14,9,.52) 22%, rgba(6,16,10,.62) 56%, rgba(4,12,8,.92) 100%)',
   },
   column: { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', width: '100%', maxWidth: 480, margin: '0 auto' },
-  header: { flex: '0 0 auto', padding: 'max(10px, env(safe-area-inset-top)) 18px 10px', textShadow: '0 2px 12px rgba(0,0,0,.4)' },
-  headerTop: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
-  backSpacer: { width: 72, height: 36, flex: '0 0 auto' },
   avatar: { borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 800, color: '#fff' },
-  scroll: { flex: 1, overflowY: 'auto', padding: '4px 16px 14px' },
+  scroll: { flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '4px 16px 14px' },
 
   syncBanner: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 12, padding: '12px 14px', borderRadius: 14, background: 'rgba(251,113,133,.12)', border: '1px solid rgba(251,113,133,.35)' },
   syncRetry: { flex: '0 0 auto', padding: '8px 12px', borderRadius: 10, border: 'none', background: ACCENT, color: ACCENT_DARK, fontSize: 12, fontWeight: 800, cursor: 'pointer' },
 
-  primaryCta: { position: 'relative', overflow: 'hidden', display: 'block', width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer', background: ACCENT, borderRadius: 24, padding: '20px 18px', marginBottom: 12, boxShadow: `0 14px 34px ${hexA(ACCENT, 0.45)}` },
+  primaryCta: { position: 'relative', overflow: 'hidden', display: 'block', width: '100%', boxSizing: 'border-box', textAlign: 'left', border: 'none', cursor: 'pointer', background: ACCENT, borderRadius: 24, padding: '20px 18px', marginBottom: 12, boxShadow: `0 14px 34px ${hexA(ACCENT, 0.45)}` },
   ctaBlob: { position: 'absolute', right: -26, top: -26, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,.22)', filter: 'blur(8px)', pointerEvents: 'none' },
   ctaPlus: { width: 46, height: 46, borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 800, color: ACCENT, background: ACCENT_DARK },
 
-  resumeCard: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', border: '1px solid', cursor: 'pointer', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderRadius: 18, padding: '13px 14px', marginBottom: 6, boxShadow: '0 8px 22px rgba(0,0,0,.26)' },
+  resumeCard: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', boxSizing: 'border-box', border: '1px solid', cursor: 'pointer', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderRadius: 18, padding: '13px 14px', marginBottom: 6, boxShadow: '0 8px 22px rgba(0,0,0,.26)' },
   resumeThumb: { width: 44, height: 44, borderRadius: 13, flex: '0 0 auto', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)', position: 'relative' },
   resumeDot: { position: 'absolute', right: -4, bottom: -4, width: 18, height: 18, borderRadius: '50%', background: ACCENT, border: '2px solid #14201a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: ACCENT_DARK },
 
@@ -461,10 +452,10 @@ const S = {
   toggle: { display: 'flex', gap: 4, background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 9999, padding: 3 },
   toggleBtn: { padding: '5px 13px', borderRadius: 9999, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 800 },
 
-  crewRow: { width: '100%', display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid', borderRadius: 16, padding: '11px 13px', marginBottom: 9 },
+  crewRow: { width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid', borderRadius: 16, padding: '11px 13px', marginBottom: 9 },
   youChip: { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, color: ACCENT_DARK, background: ACCENT, padding: '2px 7px', borderRadius: 9999 },
 
-  roundRow: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', border: '1px solid rgba(255,255,255,.12)', cursor: 'pointer', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderRadius: 16, padding: '11px 12px', marginBottom: 9 },
+  roundRow: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', boxSizing: 'border-box', border: '1px solid rgba(255,255,255,.12)', cursor: 'pointer', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderRadius: 16, padding: '11px 12px', marginBottom: 9 },
   roundThumb: { width: 46, height: 46, borderRadius: 12, flex: '0 0 auto', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)' },
 
   tabWrap: { flex: '0 0 auto', padding: '8px 14px max(16px, env(safe-area-inset-bottom))', background: 'linear-gradient(180deg, rgba(4,12,8,0) 0%, rgba(4,12,8,.55) 60%)' },

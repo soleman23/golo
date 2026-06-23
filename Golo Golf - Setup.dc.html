@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    input::placeholder { color: rgba(255,255,255,.78); opacity: 1; }
+    .golo-scroll::-webkit-scrollbar{ display:none; }
+    .golo-scroll{ -ms-overflow-style:none; scrollbar-width:none; }
+  </style>
+</helmet>
+<div style="min-height:100vh;background:radial-gradient(130% 90% at 50% -10%, #1c2a22 0%, #12161a 55%, #0c0f12 100%);font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:44px 32px 90px;box-sizing:border-box;color:#fff;">
+  <div style="max-width:1180px;margin:0 auto;">
+
+    <header style="text-align:center;margin-bottom:30px;">
+      <div style="display:flex;justify-content:center;margin-bottom:16px;"><span style="width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:#0c0f12;border:1px solid rgba(255,255,255,.1);box-shadow:0 10px 26px rgba(212,242,58,.22);"><svg width="30" height="30" viewBox="0 0 120 124" fill="none" style="display:block"><path d="M56 20 A40 40 0 1 0 95.8 64" stroke="#d4f23a" stroke-width="12" stroke-linecap="round"></path><line x1="95.8" y1="64" x2="64" y2="64" stroke="#d4f23a" stroke-width="12" stroke-linecap="round"></line><circle cx="56" cy="58" r="15" fill="#fff"></circle><circle cx="56" cy="58" r="9" fill="none" stroke="rgba(10,36,24,0.28)" stroke-width="2.4"></circle><line x1="56" y1="44" x2="56" y2="14" stroke="#d4f23a" stroke-width="3.4"></line><path d="M56 14 L86 22 L56 34 Z" fill="#fff"></path></svg></span></div>
+      <div style="font-size:12px;font-weight:800;letter-spacing:3px;color: {{ accent }};">GOLO GOLF · ROUND SETUP</div>
+      <h1 style="font-size:36px;font-weight:800;margin:10px 0 12px;letter-spacing:-0.6px;">Set the round up before you tee off</h1>
+      <p style="font-size:16px;line-height:1.6;color:rgba(255,255,255,.62);max-width:680px;margin:0 auto;">A five-step wizard in the same glass-over-turf language as scoring: pick the <strong style="color:#fff;">course &amp; tees</strong>, build the <strong style="color:#fff;">group</strong>, choose a <strong style="color:#fff;">format</strong>, then configure every <strong style="color:#fff;">game</strong> — stake, who's in and the rules. Fully interactive: tap to select, edit names, adjust handicaps and stakes, toggle players in and out. Validation gates each step, then Start Round hands off to live scoring.</p>
+
+      <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:20px;">
+        <span style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;"><span style="width:14px;height:14px;border-radius:4px;background: {{ accent }};"></span>electric accent</span>
+        <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;">5-step wizard</span>
+        <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;">full bet config</span>
+        <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;">live validation</span>
+        <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;">≥48px tap targets</span>
+      </div>
+    </header>
+
+    <!-- phone -->
+    <div style="display:flex;justify-content:center;position:relative;">
+      <div style="position:absolute;width:520px;height:520px;border-radius:50%;background: {{ accentGlow }};filter:blur(90px);top:120px;z-index:0;"></div>
+
+      <div style="position:relative;z-index:1;width:390px;height:844px;border-radius:48px;border:1px solid rgba(255,255,255,.16);box-shadow:0 50px 90px -30px rgba(0,0,0,.8);overflow:hidden;background:#0b2c1a;">
+        <div style="position:absolute;inset:0;overflow:hidden;background:radial-gradient(120% 70% at 50% 0%, #2a7d4a 0%, #14532d 45%, #0a2418 85%);">
+
+          <!-- course photo backdrop -->
+          <div style="position:absolute;inset:0;background-image:url('{{ M.backdrop }}');background-size:cover;background-position:50% 55%;"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(6,14,9,.7) 0%, rgba(6,14,9,.5) 22%, rgba(6,16,10,.6) 55%, rgba(4,12,8,.86) 100%);pointer-events:none;"></div>
+
+          <!-- content -->
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;">
+
+            <!-- app header -->
+            <dc-import name="Golo Golf - App Header" accent="{{ accent }}" back-href="Golo%20Golf%20-%20Home.dc.html" logo="wordmark" right-action="pin" kicker="{{ M.headerKicker }}" title="{{ M.stepTitle }}" context-pill="{{ M.coursePill }}" hint-size="100%,190px" style="flex:0 0 auto;display:block;"></dc-import>
+
+            <!-- step sub + progress -->
+            <div style="flex:0 0 auto;padding:0 18px 12px;text-shadow:0 2px 12px rgba(0,0,0,.4);">
+              <div style="font-size:13.5px;color:rgba(255,255,255,.62);line-height:1.45;">{{ M.stepSub }}</div>
+              <div style="display:flex;gap:6px;margin-top:14px;">
+                <sc-for list="{{ M.segs }}" as="s" hint-placeholder-count="5">
+                  <button onClick="{{ s.onClick }}" style="flex:1;height:6px;border-radius:9999px;border:none;padding:0;cursor:pointer;background: {{ s.fill }};"></button>
+                </sc-for>
+              </div>
+            </div>
+
+            <!-- scrollable body -->
+            <div class="golo-scroll" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 16px 18px;">
+
+              <!-- ===== STEP 0 · COURSE ===== -->
+              <sc-if value="{{ M.isCourse }}" hint-placeholder-val="{{ true }}">
+                <div>
+                  <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);margin-bottom:10px;">COURSE SEARCH</div>
+                  <div style="display:flex;align-items:center;gap:11px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.28);border-radius:14px;padding:0 15px;margin-bottom:20px;">
+                    <span style="flex:0 0 auto;line-height:1;">{{ M.searchIcon }}</span>
+                    <input value="{{ M.courseQuery }}" onChange="{{ M.onCourseQuery }}" onInput="{{ M.onCourseQuery }}" placeholder="Search courses…" style="flex:1;min-height:52px;background:transparent;border:none;outline:none;color:#fff;font-size:16px;font-weight:700;font-family:inherit;padding:0;" />
+                    <sc-if value="{{ M.hasQuery }}" hint-placeholder-val="{{ false }}">
+                      <button onClick="{{ M.clearQuery }}" style="width:26px;height:26px;border-radius:50%;flex:0 0 auto;background:rgba(255,255,255,.12);border:none;color:#fff;font-size:15px;cursor:pointer;line-height:1;">×</button>
+                    </sc-if>
+                  </div>
+
+                  <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);margin-bottom:10px;">COURSE</div>
+                  <sc-for list="{{ M.courses }}" as="c" hint-placeholder-count="3">
+                    <button onClick="{{ c.select }}" style="width:100%;display:flex;align-items:center;gap:12px;text-align:left;background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid {{ c.border }};border-radius:16px;padding:12px;margin-bottom:10px;cursor:pointer;">
+                      <span style="width:54px;height:54px;border-radius:12px;flex:0 0 auto;background-image:url('{{ c.bg }}');background-size:cover;background-position:center;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15);"></span>
+                      <div style="flex:1;min-width:0;">
+                        <div style="font-size:16px;font-weight:800;color:#fff;">{{ c.name }}</div>
+                        <div style="font-size:12.5px;color:rgba(255,255,255,.55);margin-top:1px;">{{ c.meta }}</div>
+                      </div>
+                      <span style="width:24px;height:24px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;border:2px solid {{ c.checkBorder }};background: {{ c.checkBg }};color:#13250a;font-size:14px;font-weight:800;">{{ c.check }}</span>
+                    </button>
+                  </sc-for>
+                  <sc-if value="{{ M.noCourses }}" hint-placeholder-val="{{ false }}">
+                    <div style="font-size:13.5px;color:rgba(255,255,255,.55);background:rgba(20,28,24,.5);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:14px;line-height:1.5;">No courses match “{{ M.courseQuery }}”. More courses coming soon — for now pick from the list above.</div>
+                  </sc-if>
+
+                  <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);margin:18px 0 10px;">TEES</div>
+                  <sc-for list="{{ M.tees }}" as="t" hint-placeholder-count="5">
+                    <button onClick="{{ t.select }}" style="width:100%;display:flex;align-items:center;gap:12px;text-align:left;background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid {{ t.border }};border-radius:14px;padding:11px 13px;margin-bottom:9px;cursor:pointer;">
+                      <span style="width:16px;height:16px;border-radius:50%;flex:0 0 auto;background: {{ t.dot }};box-shadow:0 0 0 2px rgba(255,255,255,.28);"></span>
+                      <div style="flex:1;min-width:0;">
+                        <div style="font-size:15px;font-weight:800;color:#fff;">{{ t.name }}</div>
+                        <div style="font-size:11.5px;color:rgba(255,255,255,.5);margin-top:1px;">{{ t.meta }}</div>
+                      </div>
+                      <div style="text-align:right;flex:0 0 auto;">
+                        <div style="font-size:16px;font-weight:800;color: {{ t.yardColor }};">{{ t.yardsLabel }}</div>
+                        <div style="font-size:10px;letter-spacing:1px;color:rgba(255,255,255,.45);">YARDS</div>
+                      </div>
+                    </button>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <!-- ===== STEP 1 · PLAYERS ===== -->
+              <sc-if value="{{ M.isPlayers }}" hint-placeholder-val="{{ false }}">
+                <div>
+                  <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);margin-bottom:10px;">{{ M.playersLabel }}</div>
+                  <sc-for list="{{ M.players }}" as="p" hint-placeholder-count="4">
+                    <div style="display:flex;align-items:center;gap:12px;background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid {{ p.cardBorder }};border-radius:18px;padding:12px;margin-bottom:11px;">
+                      <span style="width:44px;height:44px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:#fff;background: {{ p.color }};box-shadow:0 0 0 2px rgba(255,255,255,.2);">{{ p.initial }}</span>
+                      <div style="flex:1;min-width:0;">
+                        <input value="{{ p.name }}" onChange="{{ p.onName }}" placeholder="Player name" style="width:100%;background:transparent;border:none;outline:none;color:#fff;font-size:17px;font-weight:700;font-family:inherit;padding:0;" />
+                        <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,.5);margin-top:2px;">Handicap index</div>
+                      </div>
+                      <div style="display:flex;align-items:center;gap:7px;flex:0 0 auto;">
+                        <button onClick="{{ p.decH }}" style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);color:#fff;font-size:20px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">−</button>
+                        <span style="min-width:26px;text-align:center;font-size:17px;font-weight:800;color:#fff;">{{ p.hdcp }}</span>
+                        <button onClick="{{ p.incH }}" style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);color:#fff;font-size:20px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
+                      </div>
+                      <sc-if value="{{ p.canRemove }}" hint-placeholder-val="{{ true }}">
+                        <button onClick="{{ p.remove }}" style="width:30px;height:30px;border-radius:50%;flex:0 0 auto;background:transparent;border:none;color:rgba(255,255,255,.42);font-size:20px;cursor:pointer;line-height:1;">×</button>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ M.canAdd }}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{ M.addPlayer }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;min-height:54px;border-radius:16px;background:rgba(255,255,255,.05);border:1.5px dashed rgba(255,255,255,.25);color: {{ accent }};font-size:15px;font-weight:800;cursor:pointer;">+ Add player</button>
+                  </sc-if>
+                </div>
+              </sc-if>
+
+              <!-- ===== STEP 2 · FORMAT ===== -->
+              <sc-if value="{{ M.isFormat }}" hint-placeholder-val="{{ false }}">
+                <div>
+                  <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);margin-bottom:10px;">SCORING FORMAT</div>
+                  <sc-for list="{{ M.formats }}" as="f" hint-placeholder-count="3">
+                    <button onClick="{{ f.select }}" style="width:100%;display:flex;align-items:center;gap:13px;text-align:left;background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid {{ f.border }};border-radius:16px;padding:15px;margin-bottom:10px;cursor:pointer;">
+                      <span style="width:22px;height:22px;border-radius:50%;flex:0 0 auto;border:2px solid {{ f.radioBorder }};display:flex;align-items:center;justify-content:center;"><span style="width:11px;height:11px;border-radius:50%;background: {{ f.dotBg }};"></span></span>
+                      <div style="flex:1;min-width:0;">
+                        <div style="font-size:16px;font-weight:800;color:#fff;">{{ f.label }}</div>
+                        <div style="font-size:12.5px;color:rgba(255,255,255,.55);margin-top:2px;line-height:1.4;">{{ f.desc }}</div>
+                      </div>
+                    </button>
+                  </sc-for>
+
+                  <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);margin:20px 0 10px;">HANDICAPPING</div>
+                  <div style="display:flex;gap:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:5px;">
+                    <sc-for list="{{ M.scoringOpts }}" as="o" hint-placeholder-count="2">
+                      <button onClick="{{ o.select }}" style="flex:1;padding:13px;border-radius:10px;border:none;cursor:pointer;font-size:14px;font-weight:800;background: {{ o.bg }};color: {{ o.color }};">{{ o.label }}</button>
+                    </sc-for>
+                  </div>
+                  <div style="font-size:12.5px;color:rgba(255,255,255,.5);margin-top:10px;line-height:1.5;">{{ M.scoringNote }}</div>
+                </div>
+              </sc-if>
+
+              <!-- ===== STEP 3 · GAMES ===== -->
+              <sc-if value="{{ M.isGames }}" hint-placeholder-val="{{ false }}">
+                <div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;background:rgba(212,242,58,.1);border:1px solid {{ accentSoftBorder }};border-radius:14px;padding:11px 14px;">
+                    <span style="font-size:13px;font-weight:700;color:#fff;">{{ M.gamesCount }}</span>
+                    <span style="font-size:14px;font-weight:800;color: {{ accent }};">{{ M.gamesStake }}</span>
+                  </div>
+                  <sc-for list="{{ M.bets }}" as="b" hint-placeholder-count="5">
+                    <div style="background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid {{ b.cardBorder }};border-radius:20px;padding:14px;margin-bottom:12px;box-shadow:0 8px 24px rgba(0,0,0,.28);">
+                      <div style="display:flex;align-items:center;gap:12px;">
+                        <span style="width:42px;height:42px;border-radius:13px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:20px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);">{{ b.icon }}</span>
+                        <div style="flex:1;min-width:0;">
+                          <div style="font-size:16px;font-weight:800;color:#fff;">{{ b.title }}</div>
+                          <div style="font-size:12.5px;color:rgba(255,255,255,.55);margin-top:2px;">{{ b.desc }}</div>
+                        </div>
+                        <button onClick="{{ b.toggle }}" style="width:50px;height:30px;border-radius:9999px;border:none;cursor:pointer;flex:0 0 auto;position:relative;background: {{ b.trackBg }};">
+                          <span style="position:absolute;top:3px;left: {{ b.knobLeft }};width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:left .15s;"></span>
+                        </button>
+                      </div>
+                      <sc-if value="{{ b.on }}" hint-placeholder-val="{{ false }}">
+                        <div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column;gap:15px;">
+                          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                            <span style="font-size:11px;font-weight:800;letter-spacing:1.2px;color:rgba(255,255,255,.5);">STAKE</span>
+                            <div style="display:flex;align-items:center;gap:12px;">
+                              <button onClick="{{ b.decStake }}" style="width:40px;height:40px;border-radius:11px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);color:#fff;font-size:22px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">−</button>
+                              <span style="min-width:96px;text-align:center;font-size:18px;font-weight:800;color:#fff;">{{ b.stakeLabel }} <span style="font-size:11px;font-weight:600;color:rgba(255,255,255,.5);">{{ b.unit }}</span></span>
+                              <button onClick="{{ b.incStake }}" style="width:40px;height:40px;border-radius:11px;background: {{ accent }};border:none;color:#13250a;font-size:22px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
+                            </div>
+                          </div>
+                          <div>
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
+                              <span style="font-size:11px;font-weight:800;letter-spacing:1.2px;color:rgba(255,255,255,.5);">WHO'S IN</span>
+                              <sc-if value="{{ b.whoWarn }}" hint-placeholder-val="{{ false }}">
+                                <span style="font-size:11px;font-weight:800;color:#fb7185;">Pick at least 2</span>
+                              </sc-if>
+                            </div>
+                            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                              <sc-for list="{{ b.who }}" as="w" hint-placeholder-count="4">
+                                <button onClick="{{ w.toggle }}" style="display:flex;align-items:center;gap:7px;padding:6px 13px 6px 6px;border-radius:9999px;cursor:pointer;background: {{ w.chipBg }};border:1px solid {{ w.chipBorder }};">
+                                  <span style="width:24px;height:24px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;background: {{ w.color }};">{{ w.initial }}</span>
+                                  <span style="font-size:13px;font-weight:700;color: {{ w.chipColor }};">{{ w.name }}</span>
+                                </button>
+                              </sc-for>
+                            </div>
+                          </div>
+                          <sc-for list="{{ b.toggles }}" as="t" hint-placeholder-count="0">
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                              <span style="font-size:13.5px;font-weight:600;color:rgba(255,255,255,.82);">{{ t.label }}</span>
+                              <button onClick="{{ t.toggle }}" style="width:46px;height:27px;border-radius:9999px;border:none;cursor:pointer;flex:0 0 auto;position:relative;background: {{ t.trackBg }};">
+                                <span style="position:absolute;top:3px;left: {{ t.knobLeft }};width:21px;height:21px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:left .15s;"></span>
+                              </button>
+                            </div>
+                          </sc-for>
+                          <sc-for list="{{ b.selects }}" as="sel" hint-placeholder-count="0">
+                            <div>
+                              <div style="font-size:11px;font-weight:800;letter-spacing:1.2px;color:rgba(255,255,255,.5);margin-bottom:9px;">{{ sel.upperLabel }}</div>
+                              <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                                <sc-for list="{{ sel.options }}" as="o" hint-placeholder-count="2">
+                                  <button onClick="{{ o.select }}" style="padding:9px 14px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;background: {{ o.bg }};border:1px solid {{ o.border }};color: {{ o.color }};">{{ o.label }}</button>
+                                </sc-for>
+                              </div>
+                            </div>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <!-- ===== STEP 4 · REVIEW ===== -->
+              <sc-if value="{{ M.isReview }}" hint-placeholder-val="{{ false }}">
+                <div>
+                  <div style="background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:2px 16px;margin-bottom:18px;">
+                    <sc-for list="{{ M.reviewLines }}" as="r" hint-placeholder-count="4">
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 0;border-top:1px solid {{ r.divider }};">
+                        <span style="font-size:11px;font-weight:800;letter-spacing:1.2px;color:rgba(255,255,255,.5);">{{ r.label }}</span>
+                        <div style="text-align:right;min-width:0;">
+                          <div style="font-size:15px;font-weight:800;color:#fff;">{{ r.value }}</div>
+                          <div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:1px;">{{ r.sub }}</div>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+
+                  <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);margin-bottom:10px;">PLAYERS</div>
+                  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;">
+                    <sc-for list="{{ M.reviewPlayers }}" as="p" hint-placeholder-count="4">
+                      <div style="display:flex;align-items:center;gap:8px;background:rgba(20,28,24,.5);border:1px solid rgba(255,255,255,.14);border-radius:9999px;padding:6px 13px 6px 6px;">
+                        <span style="width:26px;height:26px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;background: {{ p.color }};">{{ p.initial }}</span>
+                        <span style="font-size:13.5px;font-weight:700;color:#fff;">{{ p.name }}</span>
+                        <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,.5);">{{ p.hdcpLabel }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+
+                  <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);margin-bottom:10px;">GAMES</div>
+                  <sc-if value="{{ M.hasBets }}" hint-placeholder-val="{{ true }}">
+                    <div>
+                      <sc-for list="{{ M.reviewBets }}" as="b" hint-placeholder-count="2">
+                        <div style="display:flex;align-items:center;gap:12px;background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:13px 14px;margin-bottom:10px;">
+                          <span style="font-size:20px;flex:0 0 auto;">{{ b.icon }}</span>
+                          <div style="flex:1;min-width:0;">
+                            <div style="font-size:15px;font-weight:800;color:#fff;">{{ b.title }}</div>
+                            <div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:1px;">{{ b.whoText }}</div>
+                          </div>
+                          <span style="font-size:14px;font-weight:800;color: {{ accent }};flex:0 0 auto;">{{ b.stakeText }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ M.noBets }}" hint-placeholder-val="{{ false }}">
+                    <div style="font-size:13.5px;color:rgba(255,255,255,.5);background:rgba(20,28,24,.5);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:14px;">No games on — just keeping score.</div>
+                  </sc-if>
+                </div>
+              </sc-if>
+
+            </div>
+
+            <!-- footer -->
+            <div style="flex:0 0 auto;padding:10px 16px 18px;">
+              <div style="display:flex;gap:10px;align-items:center;">
+                <sc-if value="{{ M.showBack }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ M.back }}" style="min-height:54px;padding:0 20px;border-radius:16px;background:rgba(255,255,255,.1);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.18);color:#fff;font-size:15px;font-weight:700;cursor:pointer;">Back</button>
+                </sc-if>
+                <button onClick="{{ M.next }}" style="flex:1;min-height:54px;border-radius:16px;border:none;font-size:16px;font-weight:800;cursor:pointer;background: {{ M.continueBg }};color: {{ M.continueColor }};box-shadow:0 8px 22px {{ M.continueShadow }};">{{ M.continueLabel }}</button>
+              </div>
+              <sc-if value="{{ M.continueHint }}" hint-placeholder-val="{{ false }}">
+                <div style="text-align:center;font-size:12px;font-weight:600;color:#fb7185;margin-top:8px;">{{ M.continueHintText }}</div>
+              </sc-if>
+            </div>
+          </div>
+
+          <!-- ===== START OVERLAY ===== -->
+          <sc-if value="{{ M.started }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:24px;">
+              <div onClick="{{ M.editSetup }}" style="position:absolute;inset:0;background:rgba(0,0,0,.6);"></div>
+              <div style="position:relative;background:rgba(16,22,18,.94);backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);border:1px solid rgba(255,255,255,.14);border-radius:24px;padding:26px 24px;width:100%;box-shadow:0 30px 60px rgba(0,0,0,.5);text-align:center;">
+                <div style="width:66px;height:66px;border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:800;color:#13250a;background: {{ accent }};box-shadow:0 8px 24px {{ accentGlow }};">✓</div>
+                <div style="font-size:23px;font-weight:800;color:#fff;letter-spacing:-0.3px;">You're all set</div>
+                <div style="font-size:14px;color:rgba(255,255,255,.62);margin-top:8px;line-height:1.5;">{{ M.startedMeta }}</div>
+                <a href="Golo%20Golf%20-%20Scoring%20(Immersive).dc.html" style="margin-top:20px;display:flex;align-items:center;justify-content:center;width:100%;min-height:54px;border-radius:16px;background: {{ accent }};color:#13250a;font-size:16px;font-weight:800;text-decoration:none;box-shadow:0 8px 22px {{ accentGlow }};">Start scoring →</a>
+                <button onClick="{{ M.editSetup }}" style="margin-top:9px;width:100%;min-height:48px;border-radius:14px;background:transparent;border:none;font-size:14px;font-weight:700;color:rgba(255,255,255,.6);cursor:pointer;">Back to setup</button>
+              </div>
+            </div>
+          </sc-if>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#d4f23a&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;roundName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Saturday Game&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  ICONS = {
+    target:'<path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm0 4a2 2 0 1 1 0 4 2 2 0 0 1 0-4z"/>',
+    trophy:'<path d="M6 3h12v2h3a1 1 0 0 1 1 1c0 2.9-1.9 5.2-4.6 5.8A6.5 6.5 0 0 1 13 15.8V18h3a1 1 0 0 1 1 1v2H7v-2a1 1 0 0 1 1-1h3v-2.2a6.5 6.5 0 0 1-4.4-3.9C3.9 11.2 2 8.9 2 6a1 1 0 0 1 1-1h3V3zM6 7H4.2c.3 1.4 1.1 2.4 2.1 2.9A8.6 8.6 0 0 1 6 8V7zm12 0v1c0 .6 0 1.2-.2 1.8 1-.5 1.7-1.4 2-2.8H18z"/>',
+    cash:'<path fill-rule="evenodd" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h15A1.5 1.5 0 0 1 21 6.5v11A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5v-11zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/>',
+    pin:'<path fill-rule="evenodd" d="M12 2a7 7 0 0 0-7 7c0 4.8 5.6 11.4 6.3 12.2a.9.9 0 0 0 1.4 0C13.4 20.4 19 13.8 19 9a7 7 0 0 0-7-7zm0 4.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z"/>',
+    drive:'<path d="M14 3h6.2a.8.8 0 0 1 .8.8V10a1 1 0 0 1-1.7.7l-1.8-1.8-7.7 7.7a1.4 1.4 0 0 1-2-2l7.7-7.7-1.8-1.8A1 1 0 0 1 14 3z"/><circle cx="5.5" cy="18.5" r="3"/>',
+    search:'<path fill-rule="evenodd" d="M10.5 3a7.5 7.5 0 1 0 4.55 13.46l4.74 4.75a1.2 1.2 0 0 0 1.7-1.7l-4.75-4.74A7.5 7.5 0 0 0 10.5 3zm0 2.4a5.1 5.1 0 1 1 0 10.2 5.1 5.1 0 0 1 0-10.2z"/>'
+  };
+  ico(name, color, size){ size=size||22; return React.createElement('svg',{width:size,height:size,viewBox:'0 0 24 24',fill:color||'currentColor',style:{display:'block',flex:'0 0 auto'},dangerouslySetInnerHTML:{__html:this.ICONS[name]||''}}); }
+  COURSES = [
+    {id:'pinehurst', name:'Pinehurst No.2', loc:'Pinehurst, NC', holes:18, bg:'assets/course.png'},
+    {id:'harbor',    name:'Harbor Dunes',   loc:'Pawleys Island, SC', holes:18, bg:'assets/sunset.png'},
+    {id:'lincoln',   name:'Lincoln Park',   loc:'San Francisco, CA', holes:18, bg:'assets/turf.png'},
+  ];
+  TEES = [
+    {name:'Championship', color:'#1f2937', yards:7012, rating:74.3, slope:138, par:72},
+    {name:'Blue',  color:'#3b82f6', yards:6601, rating:72.1, slope:132, par:72},
+    {name:'White', color:'#e5e7eb', yards:6189, rating:70.0, slope:126, par:72},
+    {name:'Gold',  color:'#f59e0b', yards:5742, rating:68.2, slope:121, par:72},
+    {name:'Red',   color:'#ef4444', yards:5210, rating:69.8, slope:119, par:73},
+  ];
+  FORMATS = [
+    {id:'stroke',     label:'Stroke Play', desc:'Count every stroke; lowest total wins the round.'},
+    {id:'match',      label:'Match Play',  desc:'Win holes head-to-head, not on total strokes.'},
+    {id:'stableford', label:'Stableford',  desc:'Earn points per hole; highest points win.'},
+  ];
+  PALETTE = ['#2dd4bf','#60a5fa','#fb923c','#c084fc','#f472b6','#facc15'];
+  BET_DEFS = [
+    {id:'skins', ic:'target', col:'#d4f23a', title:'Skins', desc:'Low net wins each hole; ties carry over.', unit:'/ hole', stakeStep:1,
+      toggles:[{key:'carryover', label:'Carryovers'}],
+      selects:[{key:'validation', label:'Scoring', options:['Net','Gross']}]},
+    {id:'nassau', ic:'trophy', col:'#facc15', title:'Nassau', desc:'Front 9, back 9 and overall match.', unit:'/ segment', stakeStep:5,
+      toggles:[{key:'press', label:'Auto-press when 2 down'}],
+      selects:[]},
+    {id:'purse', ic:'cash', col:'#bef264', title:'Stroke Purse', desc:'Lowest net total takes the pot.', unit:'buy-in', stakeStep:5,
+      toggles:[],
+      selects:[{key:'payout', label:'Payout', options:['Winner takes all','Top 2 split','Top 3 split']}]},
+    {id:'ctp', ic:'pin', col:'#60a5fa', title:'Closest to Pin', desc:'Nearest the flag on the par 3s.', unit:'pot', stakeStep:5,
+      toggles:[],
+      selects:[{key:'holes', label:'Holes', options:['All par 3s','Back 9 only']}]},
+    {id:'long', ic:'drive', col:'#fb923c', title:'Longest Drive', desc:'Longest drive in the fairway.', unit:'pot', stakeStep:5,
+      toggles:[],
+      selects:[{key:'hole', label:'Hole', options:['Hole 8','Hole 13','Hole 18']}]},
+  ];
+  STEPS = ['Course','Players','Format','Games','Review'];
+
+  constructor(props){
+    super(props);
+    this._seq = 5;
+    const allIds = ['p1','p2','p3','p4'];
+    this.state = {
+      step:0,
+      courseQuery:'',
+      courseId:'pinehurst',
+      teeIdx:1,
+      format:'stroke',
+      scoring:'net',
+      players:[
+        {id:'p1', name:'Mike',  color:'#2dd4bf', hdcp:8},
+        {id:'p2', name:'Sarah', color:'#60a5fa', hdcp:14},
+        {id:'p3', name:'Tom',   color:'#fb923c', hdcp:5},
+        {id:'p4', name:'Dave',  color:'#c084fc', hdcp:20},
+      ],
+      bets:{
+        skins:  {on:true,  stake:5,  who:allIds.slice(), carryover:true,  validation:0},
+        nassau: {on:true,  stake:10, who:allIds.slice(), press:false},
+        purse:  {on:false, stake:20, who:allIds.slice(), payout:0},
+        ctp:    {on:false, stake:5,  who:allIds.slice(), holes:0},
+        long:   {on:false, stake:5,  who:allIds.slice(), hole:2},
+      },
+      started:false,
+    };
+  }
+
+  accentColor(){ return this.props.accent ?? '#d4f23a'; }
+  hexA(hex,a){
+    let h=(hex||'#d4f23a').replace('#','');
+    if(h.length===3)h=h.split('').map(c=>c+c).join('');
+    const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
+    return 'rgba('+r+','+g+','+b+','+a+')';
+  }
+  comma(n){ return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,','); }
+  initial(name){ const t=(name||'').trim(); return t?t.charAt(0).toUpperCase():'?'; }
+  course(){ return this.COURSES.find(c=>c.id===this.state.courseId) || this.COURSES[0]; }
+  formatDef(){ return this.FORMATS.find(f=>f.id===this.state.format) || this.FORMATS[0]; }
+
+  // ---- mutations ----
+  setCourseQuery(v){ this.setState({courseQuery:v}); }
+  clearCourseQuery(){ this.setState({courseQuery:''}); }
+  selectCourse(id){ this.setState({courseId:id}); }
+  selectTee(i){ this.setState({teeIdx:i}); }
+  selectFormat(id){ this.setState({format:id}); }
+  setScoring(v){ this.setState({scoring:v}); }
+
+  updateName(id,v){ this.setState(s=>({players:s.players.map(p=>p.id===id?{...p,name:v}:p)})); }
+  incHdcp(id,d){ this.setState(s=>({players:s.players.map(p=>p.id===id?{...p,hdcp:Math.max(0,Math.min(54,p.hdcp+d))}:p)})); }
+  addPlayer(){
+    this.setState(s=>{
+      if(s.players.length>=6) return {};
+      const used=s.players.map(p=>p.color);
+      const color=this.PALETTE.find(c=>!used.includes(c)) || this.PALETTE[s.players.length%this.PALETTE.length];
+      const id='p'+(++this._seq);
+      const players=[...s.players,{id,name:'',color,hdcp:12}];
+      const bets={...s.bets};
+      Object.keys(bets).forEach(k=>{ bets[k]={...bets[k],who:[...bets[k].who,id]}; });
+      return {players,bets};
+    });
+  }
+  removePlayer(id){
+    this.setState(s=>{
+      if(s.players.length<=2) return {};
+      const players=s.players.filter(p=>p.id!==id);
+      const bets={...s.bets};
+      Object.keys(bets).forEach(k=>{ bets[k]={...bets[k],who:bets[k].who.filter(x=>x!==id)}; });
+      return {players,bets};
+    });
+  }
+
+  setBet(id,patch){ this.setState(s=>({bets:{...s.bets,[id]:{...s.bets[id],...patch}}})); }
+  toggleBet(id){ this.setState(s=>({bets:{...s.bets,[id]:{...s.bets[id],on:!s.bets[id].on}}})); }
+  incStake(id,d){ this.setState(s=>({bets:{...s.bets,[id]:{...s.bets[id],stake:Math.max(0,Math.min(500,s.bets[id].stake+d))}}})); }
+  toggleWho(id,pid){
+    this.setState(s=>{
+      const cur=s.bets[id].who;
+      const who=cur.includes(pid)?cur.filter(x=>x!==pid):[...cur,pid];
+      return {bets:{...s.bets,[id]:{...s.bets[id],who}}};
+    });
+  }
+  toggleRule(id,key){ this.setState(s=>({bets:{...s.bets,[id]:{...s.bets[id],[key]:!s.bets[id][key]}}})); }
+  setSelect(id,key,idx){ this.setState(s=>({bets:{...s.bets,[id]:{...s.bets[id],[key]:idx}}})); }
+
+  goStep(i){ this.setState({step:Math.max(0,Math.min(4,i))}); }
+  back(){ this.setState(s=>({step:Math.max(0,s.step-1)})); }
+  next(){
+    if(!this.validStep(this.state.step)) return;
+    if(this.state.step<4) this.setState(s=>({step:s.step+1}));
+    else { this.persistRound(); this.setState({started:true}); }
+  }
+  persistRound(){
+    try{
+      const s=this.state, c=this.course(), tee=this.TEES[s.teeIdx];
+      const data={
+        course:{id:c.id, name:c.name, loc:c.loc, bg:c.bg},
+        tee:{name:tee.name, yards:tee.yards, par:tee.par},
+        format:s.format, scoring:s.scoring,
+        players:s.players.map(p=>({id:p.id, name:p.name.trim()||'Player', color:p.color, hdcp:p.hdcp})),
+        bets:Object.keys(s.bets).reduce((o,k)=>{ o[k]={on:s.bets[k].on, stake:s.bets[k].stake}; return o; }, {}),
+      };
+      localStorage.setItem('golo:round', JSON.stringify(data));
+    }catch(e){}
+  }
+  editSetup(){ this.setState({started:false}); }
+
+  validStep(step){
+    const s=this.state;
+    if(step===1) return s.players.length>=2 && s.players.every(p=>p.name.trim().length>0);
+    if(step===3){
+      const ids=s.players.map(p=>p.id);
+      return Object.keys(s.bets).every(k=>{
+        const b=s.bets[k];
+        if(!b.on) return true;
+        return b.who.filter(x=>ids.includes(x)).length>=2;
+      });
+    }
+    return true;
+  }
+
+  build(){
+    const s=this.state, accent=this.accentColor(), c=this.course(), tee=this.TEES[s.teeIdx];
+    const ids=s.players.map(p=>p.id);
+
+    const segs=this.STEPS.map((label,i)=>({
+      label,
+      fill: i<=s.step ? accent : 'rgba(255,255,255,.2)',
+      onClick:()=>this.goStep(i),
+    }));
+
+    const titles=[
+      {t:'Pick your course', s:'Choose the track and the tees you’re playing.'},
+      {t:'Who’s playing?',   s:'Build the group and set each handicap.'},
+      {t:'How are we scoring?', s:'Pick a format and net or gross.'},
+      {t:'Games & bets', s:'Switch on games, set stakes and who’s in.'},
+      {t:'Review & start', s:'Lock it in and head to the first tee.'},
+    ];
+
+    // course
+    const q=s.courseQuery.trim().toLowerCase();
+    const matches=this.COURSES.filter(cc=> !q || (cc.name+' '+cc.loc).toLowerCase().includes(q));
+    const courses=matches.map(cc=>{
+      const sel=cc.id===s.courseId;
+      return {
+        name:cc.name, bg:cc.bg, meta:cc.loc+' · '+cc.holes+' holes',
+        border: sel?this.hexA(accent,.55):'rgba(255,255,255,.12)',
+        check: sel?'✓':'',
+        checkBg: sel?accent:'transparent',
+        checkBorder: sel?accent:'rgba(255,255,255,.3)',
+        select:()=>this.selectCourse(cc.id),
+      };
+    });
+    const tees=this.TEES.map((t,i)=>{
+      const sel=i===s.teeIdx;
+      return {
+        name:t.name+' Tees', dot:t.color,
+        meta:'CR '+t.rating+' · Slope '+t.slope+' · Par '+t.par,
+        yardsLabel:this.comma(t.yards),
+        yardColor: sel?accent:'#fff',
+        border: sel?this.hexA(accent,.55):'rgba(255,255,255,.12)',
+        select:()=>this.selectTee(i),
+      };
+    });
+
+    // players
+    const players=s.players.map(p=>({
+      color:p.color, initial:this.initial(p.name), name:p.name, hdcp:p.hdcp,
+      cardBorder: p.name.trim().length===0 ? 'rgba(251,113,133,.6)' : 'rgba(255,255,255,.12)',
+      onName:(e)=>this.updateName(p.id, e.target.value),
+      incH:()=>this.incHdcp(p.id,1), decH:()=>this.incHdcp(p.id,-1),
+      canRemove: s.players.length>2, remove:()=>this.removePlayer(p.id),
+    }));
+
+    // format
+    const formats=this.FORMATS.map(f=>{
+      const sel=f.id===s.format;
+      return {label:f.label, desc:f.desc,
+        border: sel?this.hexA(accent,.55):'rgba(255,255,255,.12)',
+        radioBorder: sel?accent:'rgba(255,255,255,.3)',
+        dotBg: sel?accent:'transparent',
+        select:()=>this.selectFormat(f.id)};
+    });
+    const scoringOpts=[{id:'net',label:'Net'},{id:'gross',label:'Gross'}].map(o=>{
+      const sel=o.id===s.scoring;
+      return {label:o.label, bg:sel?accent:'transparent', color:sel?'#13250a':'rgba(255,255,255,.6)', select:()=>this.setScoring(o.id)};
+    });
+    const scoringNote = s.scoring==='net'
+      ? 'Strokes are adjusted by each player’s handicap before they count.'
+      : 'Raw strokes only — no handicap strokes are applied.';
+
+    // games / bets
+    const optStyle=(sel)=>({
+      bg: sel?accent:'rgba(255,255,255,.06)',
+      border: sel?accent:'rgba(255,255,255,.14)',
+      color: sel?'#13250a':'rgba(255,255,255,.7)',
+    });
+    const bets=this.BET_DEFS.map(def=>{
+      const b=s.bets[def.id];
+      const who=s.players.map(p=>{
+        const inSel=b.who.includes(p.id);
+        return {
+          initial:this.initial(p.name), name:p.name||'New', color:p.color,
+          chipBg: inSel?this.hexA(p.color,.22):'rgba(255,255,255,.05)',
+          chipBorder: inSel?this.hexA(p.color,.7):'rgba(255,255,255,.14)',
+          chipColor: inSel?'#fff':'rgba(255,255,255,.5)',
+          toggle:()=>this.toggleWho(def.id,p.id),
+        };
+      });
+      const selCount=b.who.filter(x=>ids.includes(x)).length;
+      return {
+        icon:this.ico(def.ic, def.col, 22), title:def.title, desc:def.desc, unit:def.unit,
+        on:b.on, toggle:()=>this.toggleBet(def.id),
+        trackBg: b.on?accent:'rgba(255,255,255,.18)', knobLeft: b.on?'23px':'3px',
+        cardBorder: b.on?this.hexA(accent,.4):'rgba(255,255,255,.12)',
+        stakeLabel:'$'+b.stake,
+        incStake:()=>this.incStake(def.id,def.stakeStep), decStake:()=>this.incStake(def.id,-def.stakeStep),
+        who, whoWarn: b.on && selCount<2,
+        toggles: def.toggles.map(t=>({label:t.label, on:!!b[t.key],
+          trackBg: b[t.key]?accent:'rgba(255,255,255,.18)', knobLeft: b[t.key]?'22px':'3px',
+          toggle:()=>this.toggleRule(def.id,t.key)})),
+        selects: def.selects.map(se=>({upperLabel:se.label.toUpperCase(),
+          options: se.options.map((o,i)=>{ const st=optStyle(b[se.key]===i); return {label:o, bg:st.bg, border:st.border, color:st.color, select:()=>this.setSelect(def.id,se.key,i)}; })})),
+      };
+    });
+    const activeBets=this.BET_DEFS.filter(d=>s.bets[d.id].on);
+    const totalStake=activeBets.reduce((sum,d)=>sum+s.bets[d.id].stake,0);
+    const gamesCount=activeBets.length+(activeBets.length===1?' game on':' games on');
+    const gamesStake='$'+totalStake+' in play';
+
+    // review
+    const reviewLines=[
+      {label:'COURSE', value:c.name, sub:c.loc},
+      {label:'TEES',   value:tee.name+' tees', sub:this.comma(tee.yards)+' yds · Par '+tee.par},
+      {label:'FORMAT', value:this.formatDef().label, sub:(s.scoring==='net'?'Net':'Gross')+' scoring'},
+    ].map((r,i)=>({...r, divider:i===0?'transparent':'rgba(255,255,255,.09)'}));
+    const reviewPlayers=s.players.map(p=>({color:p.color, initial:this.initial(p.name), name:p.name||'New', hdcpLabel:'H'+p.hdcp}));
+    const reviewBets=activeBets.map(d=>{
+      const b=s.bets[d.id];
+      const n=b.who.filter(x=>ids.includes(x)).length;
+      return {icon:this.ico(d.ic, d.col, 20), title:d.title, stakeText:'$'+b.stake+' '+d.unit, whoText:n+' players in'};
+    });
+
+    // footer / validation
+    const valid=this.validStep(s.step);
+    const isReview=s.step===4;
+    let hintText='';
+    if(!valid && s.step===1) hintText='Every player needs a name.';
+    if(!valid && s.step===3) hintText='Each active game needs at least 2 players.';
+
+    return {
+      backdrop:c.bg,
+      headerKicker:'STEP '+(s.step+1)+' OF 5 · '+this.STEPS[s.step].toUpperCase(),
+      coursePill:c.name,
+      stepTitle:titles[s.step].t,
+      stepSub:titles[s.step].s,
+      segs,
+      isCourse:s.step===0, isPlayers:s.step===1, isFormat:s.step===2, isGames:s.step===3, isReview,
+      courses, tees,
+      courseQuery:s.courseQuery, hasQuery:q.length>0, noCourses:matches.length===0, searchIcon:this.ico('search','rgba(255,255,255,.6)',19),
+      onCourseQuery:(e)=>this.setCourseQuery(e.target.value), clearQuery:()=>this.clearCourseQuery(),
+      players, playersLabel:'PLAYERS · '+s.players.length, canAdd:s.players.length<6, addPlayer:()=>this.addPlayer(),
+      formats, scoringOpts, scoringNote,
+      bets, gamesCount, gamesStake,
+      reviewLines, reviewPlayers, reviewBets, hasBets:activeBets.length>0, noBets:activeBets.length===0,
+      showBack:s.step>0, back:()=>this.back(), next:()=>this.next(),
+      continueLabel: isReview?'Start Round →':'Continue',
+      continueBg: valid?accent:'rgba(255,255,255,.12)',
+      continueColor: valid?'#13250a':'rgba(255,255,255,.4)',
+      continueShadow: valid?this.hexA(accent,.4):'transparent',
+      continueHint: !valid, continueHintText:hintText,
+      started:s.started,
+      startedMeta:c.name+' · '+tee.name+' tees · '+s.players.length+' players',
+      editSetup:()=>this.editSetup(),
+    };
+  }
+
+  renderVals(){
+    const accent=this.accentColor();
+    return {
+      M:this.build(),
+      accent,
+      accentGlow:this.hexA(accent,.45),
+      accentSoftBorder:this.hexA(accent,.3),
+    };
+  }
+}
+</script>
+</body>
+</html>

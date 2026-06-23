@@ -15,6 +15,7 @@ const ScoringPage = lazy(() => import('./pages/ScoringPage'))
 const PayoutsPage = lazy(() => import('./pages/PayoutsPage'))
 const HistoryPage = lazy(() => import('./pages/HistoryPage'))
 const HistoryDetailPage = lazy(() => import('./pages/HistoryDetailPage'))
+const ContactPage = lazy(() => import('./pages/ContactPage'))
 
 /** The signed-in app's full route tree. */
 function MainRoutes() {
@@ -32,6 +33,7 @@ function MainRoutes() {
         <Route path="/payouts" element={<PayoutsPage />} />
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/history/:roundId" element={<HistoryDetailPage />} />
+        <Route path="/contact" element={<ContactPage />} />
       </Routes>
     </Suspense>
   )

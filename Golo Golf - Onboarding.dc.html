@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    .golo-scroll::-webkit-scrollbar{ display:none; }
+  </style>
+</helmet>
+<div style="min-height:100vh;background:radial-gradient(130% 90% at 50% -10%, #1c2a22 0%, #12161a 55%, #0c0f12 100%);font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:44px 32px 90px;box-sizing:border-box;color:#fff;">
+  <div style="max-width:1320px;margin:0 auto;">
+
+    <header style="text-align:center;margin-bottom:34px;">
+      <div style="display:flex;justify-content:center;margin-bottom:16px;"><span style="width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:#0c0f12;border:1px solid rgba(255,255,255,.1);box-shadow:0 10px 26px rgba(212,242,58,.22);"><svg width="30" height="30" viewBox="0 0 120 124" fill="none" style="display:block"><path d="M56 20 A40 40 0 1 0 95.8 64" stroke="#d4f23a" stroke-width="12" stroke-linecap="round"></path><line x1="95.8" y1="64" x2="64" y2="64" stroke="#d4f23a" stroke-width="12" stroke-linecap="round"></line><circle cx="56" cy="58" r="15" fill="#fff"></circle><circle cx="56" cy="58" r="9" fill="none" stroke="rgba(10,36,24,0.28)" stroke-width="2.4"></circle><line x1="56" y1="44" x2="56" y2="14" stroke="#d4f23a" stroke-width="3.4"></line><path d="M56 14 L86 22 L56 34 Z" fill="#fff"></path></svg></span></div>
+      <div style="font-size:12px;font-weight:800;letter-spacing:3px;color: {{ accent }};">GOLO GOLF · ONBOARDING</div>
+      <h1 style="font-size:36px;font-weight:800;margin:10px 0 12px;letter-spacing:-0.6px;">First open, and the trust is already set</h1>
+      <p style="font-size:16px;line-height:1.6;color:rgba(255,255,255,.62);max-width:760px;margin:0 auto;">Three screens in the same glass-over-turf language as the rest of Golo. A <strong style="color:#fff;">welcome</strong> that sells the one promise, a <strong style="color:#fff;">sign-in</strong> that's two taps from playing, and a <strong style="color:#fff;">60-second setup</strong> that links your handicap and your payout — so the very first round can settle up clean.</p>
+
+      <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:20px;">
+        <span style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;"><span style="width:14px;height:14px;border-radius:4px;background: {{ accent }};"></span>brand welcome</span>
+        <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;">two-tap sign-in</span>
+        <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;">link payout</span>
+        <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;">GHIN handicap</span>
+        <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;">ready to play</span>
+      </div>
+    </header>
+
+    <!-- storyboard -->
+    <div style="display:flex;justify-content:center;align-items:flex-start;flex-wrap:wrap;gap:30px;position:relative;">
+      <div style="position:absolute;width:720px;height:560px;border-radius:50%;background: {{ accentGlow }};filter:blur(110px);top:130px;left:50%;transform:translateX(-50%);z-index:0;"></div>
+
+      <!-- ============ SCREEN 1 · WELCOME ============ -->
+      <div style="position:relative;z-index:1;">
+        <div style="display:flex;align-items:center;gap:9px;margin:0 4px 13px;">
+          <span style="font-size:11px;font-weight:800;letter-spacing:1px;color:#13250a;background: {{ accent }};width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;">01</span>
+          <span style="font-size:12px;font-weight:800;letter-spacing:1.6px;color:rgba(255,255,255,.62);">WELCOME</span>
+        </div>
+
+        <div style="width:390px;height:844px;border-radius:48px;border:1px solid rgba(255,255,255,.16);box-shadow:0 50px 90px -30px rgba(0,0,0,.8);overflow:hidden;background:#0b2c1a;">
+          <div style="position:absolute;inset:0;overflow:hidden;background:radial-gradient(120% 70% at 50% 0%, #2a7d4a 0%, #14532d 45%, #0a2418 85%);position:relative;height:100%;">
+            <div style="position:absolute;inset:0;background-image:url('assets/sunset.png');background-size:cover;background-position:50% 46%;"></div>
+            <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(6,14,9,.42) 0%, rgba(6,14,9,.34) 30%, rgba(6,16,10,.72) 66%, rgba(3,10,7,.97) 100%);pointer-events:none;"></div>
+
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;">
+              <!-- status bar -->
+              <div style="height:34px;flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:0 24px;color:#fff;font-size:13px;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.4);">
+                <span>9:41</span>
+                <span style="display:flex;align-items:center;gap:6px;"><span>5G</span><span style="display:inline-block;width:23px;height:11px;border:1.5px solid #fff;border-radius:3px;position:relative;"><span style="position:absolute;left:1.5px;top:1.5px;bottom:1.5px;right:6px;background:#fff;border-radius:1px;"></span></span></span>
+              </div>
+
+              <!-- wordmark -->
+              <div style="flex:0 0 auto;padding:18px 26px 0;display:flex;align-items:center;gap:10px;text-shadow:0 2px 12px rgba(0,0,0,.5);">
+                <span style="width:38px;height:38px;border-radius:50%;background:rgba(12,15,18,.82);box-shadow:0 0 0 3px {{ accentRing }},0 6px 16px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><svg width="26" height="26" viewBox="0 0 120 124" fill="none" style="display:block"><path d="M56 20 A40 40 0 1 0 95.8 64" stroke="#d4f23a" stroke-width="12" stroke-linecap="round"></path><line x1="95.8" y1="64" x2="64" y2="64" stroke="#d4f23a" stroke-width="12" stroke-linecap="round"></line><circle cx="56" cy="58" r="15" fill="#fff"></circle><circle cx="56" cy="58" r="9" fill="none" stroke="rgba(10,36,24,0.28)" stroke-width="2.4"></circle><line x1="56" y1="44" x2="56" y2="14" stroke="#d4f23a" stroke-width="3.4"></line><path d="M56 14 L86 22 L56 34 Z" fill="#fff"></path></svg></span>
+                <span style="font-size:21px;font-weight:800;letter-spacing:1px;color:#fff;">GOLO</span>
+              </div>
+
+              <div style="flex:1;"></div>
+
+              <!-- pitch -->
+              <div style="flex:0 0 auto;padding:0 26px 22px;text-shadow:0 2px 16px rgba(0,0,0,.55);">
+                <div style="font-size:12px;font-weight:800;letter-spacing:2px;color: {{ accent }};margin-bottom:12px;">GOLF, BUT SETTLED</div>
+                <h2 style="font-size:40px;font-weight:800;line-height:1.02;letter-spacing:-1.2px;margin:0;color:#fff;text-wrap:balance;">{{ M.welcomeHeadline }}</h2>
+                <p style="font-size:14.5px;line-height:1.55;color:rgba(255,255,255,.82);margin:14px 0 0;max-width:300px;">{{ M.welcomeSub }}</p>
+
+                <div style="display:flex;flex-direction:column;gap:9px;margin-top:20px;">
+                  <sc-for list="{{ M.ticks }}" as="t" hint-placeholder-count="3">
+                    <div style="display:flex;align-items:center;gap:11px;">
+                      <span style="width:22px;height:22px;border-radius:7px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#13250a;background: {{ accent }};box-shadow:0 4px 10px {{ accentGlow }};">✓</span>
+                      <span style="font-size:13.5px;font-weight:600;color:rgba(255,255,255,.9);">{{ t.text }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+
+              <!-- CTAs -->
+              <div style="flex:0 0 auto;padding:0 22px 26px;">
+                <button style="width:100%;background: {{ accent }};border:none;color:#13250a;font-size:16px;font-weight:800;padding:16px;border-radius:16px;cursor:pointer;box-shadow:0 14px 30px {{ accentGlow }};">Get started</button>
+                <div style="text-align:center;margin-top:14px;font-size:13.5px;font-weight:600;color:rgba(255,255,255,.7);">Already play with Golo? <span style="color: {{ accent }};font-weight:800;">Sign in</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ SCREEN 2 · SIGN IN ============ -->
+      <div style="position:relative;z-index:1;">
+        <div style="display:flex;align-items:center;gap:9px;margin:0 4px 13px;">
+          <span style="font-size:11px;font-weight:800;letter-spacing:1px;color:#13250a;background: {{ accent }};width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;">02</span>
+          <span style="font-size:12px;font-weight:800;letter-spacing:1.6px;color:rgba(255,255,255,.62);">SIGN IN</span>
+        </div>
+
+        <div style="width:390px;height:844px;border-radius:48px;border:1px solid rgba(255,255,255,.16);box-shadow:0 50px 90px -30px rgba(0,0,0,.8);overflow:hidden;background:#0b2c1a;">
+          <div style="position:absolute;inset:0;overflow:hidden;background:radial-gradient(120% 70% at 50% 0%, #2a7d4a 0%, #14532d 45%, #0a2418 85%);position:relative;height:100%;">
+            <div style="position:absolute;inset:0;background-image:url('assets/course.png');background-size:cover;background-position:50% 30%;"></div>
+            <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(6,14,9,.7) 0%, rgba(5,12,8,.86) 40%, rgba(3,10,7,.97) 100%);pointer-events:none;"></div>
+
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;">
+              <div style="height:34px;flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:0 24px;color:#fff;font-size:13px;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.4);">
+                <span>9:41</span>
+                <span style="display:flex;align-items:center;gap:6px;"><span>5G</span><span style="display:inline-block;width:23px;height:11px;border:1.5px solid #fff;border-radius:3px;position:relative;"><span style="position:absolute;left:1.5px;top:1.5px;bottom:1.5px;right:6px;background:#fff;border-radius:1px;"></span></span></span>
+              </div>
+
+              <!-- nav -->
+              <div style="flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:6px 18px 0;">
+                <button style="width:38px;height:38px;border-radius:12px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);color:#fff;font-size:18px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;">‹</button>
+                <span style="font-size:11px;font-weight:800;letter-spacing:1.2px;color:rgba(255,255,255,.55);">STEP 1 OF 2</span>
+                <span style="width:38px;"></span>
+              </div>
+
+              <div class="golo-scroll" style="flex:1;overflow-y:auto;padding:14px 22px 18px;display:flex;flex-direction:column;">
+                <div style="flex:0 0 auto;margin-bottom:22px;">
+                  <h2 style="font-size:30px;font-weight:800;letter-spacing:-0.6px;margin:0;color:#fff;">{{ M.authHeading }}</h2>
+                  <p style="font-size:14px;line-height:1.5;color:rgba(255,255,255,.62);margin:9px 0 0;">{{ M.authSub }}</p>
+                </div>
+
+                <!-- sign-in buttons -->
+                <div style="display:flex;flex-direction:column;gap:11px;">
+                  <button style="width:100%;display:flex;align-items:center;justify-content:center;gap:11px;background:#fff;border:none;color:#0a0a0a;font-size:15.5px;font-weight:800;padding:15px;border-radius:15px;cursor:pointer;box-shadow:0 10px 26px rgba(0,0,0,.34);">
+                    <svg width="18" height="18" viewBox="0 0 384 512" fill="#000" style="margin-top:-2px;"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zM262.1 104.5c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
+                    Continue with Apple
+                  </button>
+                  <button style="width:100%;display:flex;align-items:center;justify-content:center;gap:11px;background:#fff;border:none;color:#0a0a0a;font-size:15.5px;font-weight:800;padding:15px;border-radius:15px;cursor:pointer;box-shadow:0 10px 26px rgba(0,0,0,.34);">
+                    <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+                    Continue with Google
+                  </button>
+                  <button style="width:100%;display:flex;align-items:center;justify-content:center;gap:11px;background:rgba(255,255,255,.08);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.18);color:#fff;font-size:15.5px;font-weight:800;padding:15px;border-radius:15px;cursor:pointer;">
+                    <span style="display:flex;flex:0 0 auto;">{{ M.phoneIcon }}</span>
+                    Continue with phone
+                  </button>
+                </div>
+
+                <!-- divider -->
+                <sc-if value="{{ M.showGuest }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;align-items:center;gap:12px;margin:18px 0;">
+                    <span style="flex:1;height:1px;background:rgba(255,255,255,.14);"></span>
+                    <span style="font-size:11px;font-weight:800;letter-spacing:1px;color:rgba(255,255,255,.4);">OR</span>
+                    <span style="flex:1;height:1px;background:rgba(255,255,255,.14);"></span>
+                  </div>
+                  <button style="width:100%;background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.82);font-size:14.5px;font-weight:800;padding:14px;border-radius:15px;cursor:pointer;">Look around as a guest</button>
+                </sc-if>
+
+                <div style="flex:1;"></div>
+
+                <!-- trust + legal -->
+                <div style="margin-top:24px;">
+                  <div style="display:flex;align-items:center;gap:9px;background:rgba(212,242,58,.08);border:1px solid {{ accentBorder }};border-radius:13px;padding:11px 13px;">
+                    <span style="display:flex;flex:0 0 auto;">{{ M.lockIcon }}</span>
+                    <span style="font-size:12.5px;font-weight:600;color:rgba(255,255,255,.8);line-height:1.4;">Golo never posts for you and never charges a card. Settle-up always needs your tap.</span>
+                  </div>
+                  <p style="font-size:11.5px;line-height:1.5;color:rgba(255,255,255,.45);text-align:center;margin:14px 4px 0;">{{ M.legal }}</p>
+                  <div style="text-align:center;margin-top:12px;font-size:13px;font-weight:600;color:rgba(255,255,255,.6);">{{ M.authSwitchPre }}<span style="color: {{ accent }};font-weight:800;">{{ M.authSwitchLink }}</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ SCREEN 3 · QUICK SETUP ============ -->
+      <div style="position:relative;z-index:1;">
+        <div style="display:flex;align-items:center;gap:9px;margin:0 4px 13px;">
+          <span style="font-size:11px;font-weight:800;letter-spacing:1px;color:#13250a;background: {{ accent }};width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;">03</span>
+          <span style="font-size:12px;font-weight:800;letter-spacing:1.6px;color:rgba(255,255,255,.62);">QUICK SETUP</span>
+        </div>
+
+        <div style="width:390px;height:844px;border-radius:48px;border:1px solid rgba(255,255,255,.16);box-shadow:0 50px 90px -30px rgba(0,0,0,.8);overflow:hidden;background:#0b2c1a;">
+          <div style="position:absolute;inset:0;overflow:hidden;background:radial-gradient(120% 70% at 50% 0%, #2a7d4a 0%, #14532d 45%, #0a2418 85%);position:relative;height:100%;">
+            <div style="position:absolute;inset:0;background-image:url('assets/turf.png');background-size:cover;background-position:50% 40%;"></div>
+            <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(6,14,9,.66) 0%, rgba(5,12,8,.84) 38%, rgba(3,10,7,.97) 100%);pointer-events:none;"></div>
+
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;">
+              <div style="height:34px;flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:0 24px;color:#fff;font-size:13px;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.4);">
+                <span>9:41</span>
+                <span style="display:flex;align-items:center;gap:6px;"><span>5G</span><span style="display:inline-block;width:23px;height:11px;border:1.5px solid #fff;border-radius:3px;position:relative;"><span style="position:absolute;left:1.5px;top:1.5px;bottom:1.5px;right:6px;background:#fff;border-radius:1px;"></span></span></span>
+              </div>
+
+              <!-- progress -->
+              <div style="flex:0 0 auto;padding:6px 22px 0;">
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                  <span style="font-size:11px;font-weight:800;letter-spacing:1.2px;color:rgba(255,255,255,.55);">STEP 2 OF 2</span>
+                  <span style="font-size:11px;font-weight:700;color: {{ accent }};">almost there</span>
+                </div>
+                <div style="display:flex;gap:6px;margin-top:8px;">
+                  <span style="flex:1;height:4px;border-radius:9999px;background: {{ accent }};"></span>
+                  <span style="flex:1;height:4px;border-radius:9999px;background: {{ accent }};"></span>
+                </div>
+              </div>
+
+              <div class="golo-scroll" style="flex:1;overflow-y:auto;padding:16px 20px 18px;">
+                <h2 style="font-size:28px;font-weight:800;letter-spacing:-0.5px;margin:0;color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.4);">Set up your locker</h2>
+                <p style="font-size:13.5px;line-height:1.5;color:rgba(255,255,255,.6);margin:8px 0 18px;">A name, a handicap, a way to get paid. Sixty seconds and you're settling bets like a regular.</p>
+
+                <!-- avatar + name -->
+                <div style="display:flex;align-items:center;gap:15px;background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:15px 16px;margin-bottom:11px;box-shadow:0 8px 22px rgba(0,0,0,.26);">
+                  <div style="width:64px;height:64px;border-radius:50%;overflow:hidden;border:1px solid rgba(255,255,255,.3);flex:0 0 auto;box-shadow:0 0 0 3px {{ accentRing }};">
+                    <x-import component-from-global-scope="image-slot" from="./image-slot.js" id="onboard-avatar" shape="circle" placeholder="Add" hint-size="64px,64px" style="width:64px;height:64px;"></x-import>
+                  </div>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:10px;font-weight:800;letter-spacing:.8px;color:rgba(255,255,255,.5);">DISPLAY NAME</div>
+                    <div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-0.3px;margin-top:2px;">{{ M.name }}</div>
+                    <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,.5);margin-top:1px;">{{ M.handle }}</div>
+                  </div>
+                  <span style="font-size:12px;font-weight:800;color: {{ accent }};flex:0 0 auto;">Edit</span>
+                </div>
+
+                <!-- home club field -->
+                <div style="background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:13px 15px;margin-bottom:11px;display:flex;align-items:center;gap:13px;box-shadow:0 8px 22px rgba(0,0,0,.2);">
+                  <span style="width:38px;height:38px;border-radius:12px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:16px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);">{{ M.clubIcon }}</span>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:10px;font-weight:800;letter-spacing:.8px;color:rgba(255,255,255,.5);">HOME CLUB</div>
+                    <div style="font-size:15px;font-weight:800;color:#fff;margin-top:2px;">{{ M.homeClub }}</div>
+                  </div>
+                  <span style="font-size:18px;color:rgba(255,255,255,.4);flex:0 0 auto;">›</span>
+                </div>
+
+                <!-- connect rows -->
+                <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 2px 9px;">
+                  <span style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);">CONNECT TO PLAY</span>
+                </div>
+                <div style="background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:4px 4px;margin-bottom:14px;box-shadow:0 8px 22px rgba(0,0,0,.24);">
+                  <div style="display:flex;align-items:center;gap:13px;padding:13px 12px;border-bottom:1px solid rgba(255,255,255,.07);">
+                    <span style="width:38px;height:38px;border-radius:12px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:16px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);">{{ M.handicapIcon }}</span>
+                    <div style="flex:1;min-width:0;">
+                      <div style="font-size:15px;font-weight:800;color:#fff;">Handicap · GHIN</div>
+                      <div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:1px;">{{ M.ghinSub }}</div>
+                    </div>
+                    <span style="font-size:12px;font-weight:800;color:#13250a;background: {{ accent }};padding:5px 11px;border-radius:9999px;flex:0 0 auto;">{{ M.ghinTag }}</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:13px;padding:13px 12px;">
+                    <span style="width:38px;height:38px;border-radius:12px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:16px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);">{{ M.payoutIcon }}</span>
+                    <div style="flex:1;min-width:0;">
+                      <div style="font-size:15px;font-weight:800;color:#fff;">Payout · Venmo</div>
+                      <div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:1px;">So the crew can settle up instantly</div>
+                    </div>
+                    <span style="font-size:12px;font-weight:800;color: {{ accent }};background:rgba(212,242,58,.12);border:1px solid {{ accentBorder }};padding:5px 11px;border-radius:9999px;flex:0 0 auto;">Link</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- CTA -->
+              <div style="flex:0 0 auto;padding:6px 20px 24px;background:linear-gradient(180deg, rgba(3,10,7,0) 0%, rgba(3,10,7,.6) 50%);">
+                <a href="Golo%20Golf%20-%20Home.dc.html" style="display:block;text-align:center;text-decoration:none;background: {{ accent }};color:#13250a;font-size:16px;font-weight:800;padding:16px;border-radius:16px;box-shadow:0 14px 30px {{ accentGlow }};">Enter Golo</a>
+                <div style="text-align:center;margin-top:12px;font-size:13px;font-weight:700;color:rgba(255,255,255,.55);">I'll finish this later</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1340,&quot;height&quot;:1040},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#d4f23a&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;pitch&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;money&quot;,&quot;options&quot;:[&quot;money&quot;,&quot;social&quot;,&quot;scoring&quot;],&quot;tsType&quot;:&quot;string&quot;},&quot;authMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;create&quot;,&quot;options&quot;:[&quot;create&quot;,&quot;signin&quot;],&quot;tsType&quot;:&quot;string&quot;},&quot;showGuest&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  ICONS = {
+    flag:'<path d="M6 2.2a1.2 1.2 0 0 1 1.2 1.2V21a1 1 0 1 1-2 0V3.4A1.2 1.2 0 0 1 6 2.2z"/><path d="M8 4.2l10.6 2.4a.85.85 0 0 1 .1 1.6L8 11.5V4.2z"/>',
+    pin:'<path fill-rule="evenodd" d="M12 2a7 7 0 0 0-7 7c0 4.8 5.6 11.4 6.3 12.2a.9.9 0 0 0 1.4 0C13.4 20.4 19 13.8 19 9a7 7 0 0 0-7-7zm0 4.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z"/>',
+    swap:'<path d="M3 8.5a1 1 0 0 1 1-1h12.1l-1.8-1.8a1 1 0 1 1 1.4-1.4l3.5 3.5a1 1 0 0 1 0 1.4l-3.5 3.5a1 1 0 0 1-1.4-1.4l1.8-1.8H4a1 1 0 0 1-1-1zM21 15.5a1 1 0 0 1-1 1H7.9l1.8 1.8a1 1 0 1 1-1.4 1.4l-3.5-3.5a1 1 0 0 1 0-1.4l3.5-3.5a1 1 0 0 1 1.4 1.4l-1.8 1.8H20a1 1 0 0 1 1 1z"/>',
+    phone:'<path fill-rule="evenodd" d="M7 2.5h10A1.5 1.5 0 0 1 18.5 4v16A1.5 1.5 0 0 1 17 21.5H7A1.5 1.5 0 0 1 5.5 20V4A1.5 1.5 0 0 1 7 2.5zM7.5 5v11h9V5h-9zM12 17.3a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6z"/>',
+    lock:'<path fill-rule="evenodd" d="M7 9.5V8a5 5 0 0 1 10 0v1.5h.5A1.5 1.5 0 0 1 19 11v8.5A1.5 1.5 0 0 1 17.5 21h-11A1.5 1.5 0 0 1 5 19.5V11a1.5 1.5 0 0 1 1.5-1.5H7zm2 0h6V8a3 3 0 0 0-6 0v1.5zm3 4a1.5 1.5 0 0 0-.8 2.8v1.4a.8.8 0 0 0 1.6 0v-1.4A1.5 1.5 0 0 0 12 13.5z"/>'
+  };
+  ico(name, color, size){ size=size||22; return React.createElement('svg',{width:size,height:size,viewBox:'0 0 24 24',fill:color||'currentColor',style:{display:'block',flex:'0 0 auto'},dangerouslySetInnerHTML:{__html:this.ICONS[name]||''}}); }
+  constructor(props){
+    super(props);
+    let saved=null;
+    try{ const raw=localStorage.getItem('golo:round'); if(raw)saved=JSON.parse(raw); }catch(e){}
+    this.saved = (saved && saved.players && saved.players.length>=2) ? saved : null;
+    this.meName = (this.saved && this.saved.players[0] && (this.saved.players[0].name||'').trim()) || 'Mike';
+    this.homeClubVal = (this.saved && this.saved.course && this.saved.course.name) || 'Pinehurst No.2';
+  }
+
+  accentColor(){ return this.props.accent ?? '#d4f23a'; }
+  pitch(){ return this.props.pitch ?? 'money'; }
+  authMode(){ return this.props.authMode ?? 'create'; }
+  guest(){ return this.props.showGuest ?? true; }
+
+  hexA(hex,a){ let h=(hex||'#d4f23a').replace('#',''); if(h.length===3)h=h.split('').map(c=>c+c).join(''); const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16); return 'rgba('+r+','+g+','+b+','+a+')'; }
+
+  build(){
+    // --- WELCOME pitch ---
+    const pitches = {
+      money: {
+        headline:'Keep the bets honest.',
+        sub:'Skins, Nassau, the whole purse — Golo tracks every dollar so the only thing left to argue about is your swing.',
+        ticks:['Auto settle-up after every round','Live skins, Nassau & the purse','Your crew\u2019s season ledger, always current'],
+      },
+      social: {
+        headline:'Golf with your crew.',
+        sub:'Every round, every dollar, every bit of banter — in one place the whole foursome can see.',
+        ticks:['See where you sit all season','Live standings on every hole','Badges, streaks & bragging rights'],
+      },
+      scoring: {
+        headline:'Your scorecard, smarter.',
+        sub:'Tap in scores hole by hole and Golo does the math — net, gross, handicaps and who owes who.',
+        ticks:['Tap-fast scoring, hole by hole','Net & gross figured for you','Handicaps that update themselves'],
+      },
+    };
+    const p = pitches[this.pitch()] || pitches.money;
+
+    // --- AUTH copy ---
+    const isCreate = this.authMode()==='create';
+    const auth = isCreate ? {
+      heading:'Create your account',
+      sub:'One account keeps your handicap, your crew and your money in sync.',
+      switchPre:'Already play with Golo?  ',
+      switchLink:'Sign in',
+    } : {
+      heading:'Welcome back',
+      sub:'Pick your season up right where you left it — every round and ledger is waiting.',
+      switchPre:'New to Golo?  ',
+      switchLink:'Create an account',
+    };
+
+    return {
+      welcomeHeadline:p.headline,
+      welcomeSub:p.sub,
+      ticks:p.ticks.map(t=>({text:t})),
+
+      authHeading:auth.heading,
+      authSub:auth.sub,
+      authSwitchPre:auth.switchPre,
+      authSwitchLink:auth.switchLink,
+      legal:'By continuing you agree to Golo\u2019s Terms of Service & Privacy Policy.',
+      showGuest:this.guest(),
+      clubIcon:this.ico('pin','rgba(255,255,255,.85)',19),
+      handicapIcon:this.ico('flag','rgba(255,255,255,.85)',19),
+      payoutIcon:this.ico('swap','rgba(255,255,255,.85)',19),
+      phoneIcon:this.ico('phone','#fff',17),
+      lockIcon:this.ico('lock',this.accentColor(),16),
+
+      name:this.meName,
+      handle:'@'+this.meName.toLowerCase(),
+      homeClub:this.homeClubVal,
+      ghinSub:'Pulls your index so net is automatic',
+      ghinTag:'Link',
+    };
+  }
+
+  renderVals(){
+    const accent=this.accentColor();
+    return {
+      M:this.build(),
+      accent,
+      accentGlow:this.hexA(accent,.45),
+      accentRing:this.hexA(accent,.5),
+      accentBorder:this.hexA(accent,.32),
+    };
+  }
+}
+</script>
+</body>
+</html>

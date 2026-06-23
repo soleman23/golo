@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @font-face { font-family:'_noop'; src:local('Arial'); }
+  </style>
+</helmet>
+<div style="min-height:100vh;background:radial-gradient(130% 90% at 50% -10%, #1c2a22 0%, #12161a 55%, #0c0f12 100%);font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:64px 32px 110px;box-sizing:border-box;color:#fff;">
+  <div style="max-width:1080px;margin:0 auto;">
+
+    <!-- masthead -->
+    <header style="margin-bottom:54px;">
+      <span style="font-size:12px;font-weight:800;letter-spacing:3px;color:{{ accent }};">GOLO GOLF · LOGO EXPLORATION</span>
+      <h1 style="font-size:42px;font-weight:800;letter-spacing:-1.2px;line-height:1.04;margin:18px 0 12px;">Three directions</h1>
+      <p style="font-size:16px;line-height:1.6;color:rgba(255,255,255,.6);max-width:640px;margin:0;">Three takes on the GoLo mark, all on-brand: dark turf, frosted glass, one lime accent. From a thin geometric "going low" monogram, to a cleaner version of the golf-ball wordmark, to a bold letterform with the ball &amp; pin built in.</p>
+    </header>
+
+    <!-- ============ CONCEPT A ============ -->
+    <section style="margin-bottom:60px;">
+      <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:16px;flex-wrap:wrap;">
+        <span style="font-size:13px;font-weight:800;letter-spacing:2px;color:{{ accent }};">01</span>
+        <h2 style="font-size:24px;font-weight:800;letter-spacing:-.4px;margin:0;">Going Low</h2>
+        <span style="font-size:14px;color:rgba(255,255,255,.5);">Thin geometric monogram · descending chevrons in the hole</span>
+      </div>
+
+      <!-- hero -->
+      <div style="position:relative;border-radius:26px;overflow:hidden;border:1px solid rgba(255,255,255,.12);background:radial-gradient(120% 90% at 50% 0%, #2a7d4a 0%, #14532d 45%, #0a2418 90%);padding:84px 40px;display:flex;align-items:center;justify-content:center;gap:40px;flex-wrap:wrap;box-shadow:0 30px 80px rgba(0,0,0,.45);margin-bottom:14px;">
+        <div style="position:absolute;width:380px;height:380px;border-radius:50%;background:radial-gradient(circle, {{ accentGlow }} 0%, transparent 68%);filter:blur(18px);"></div>
+        <div style="position:relative;z-index:1;display:flex;align-items:center;gap:32px;">
+          {{ markA }}
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;align-items:flex-end;gap:2px;">
+              <span style="font-size:72px;font-weight:300;letter-spacing:-.02em;color:#fff;line-height:1;">Go</span>
+              <span style="font-size:72px;font-weight:300;letter-spacing:-.02em;color:{{ accent }};line-height:1;">Lo</span>
+            </div>
+            <span style="font-size:14px;font-weight:700;letter-spacing:4px;color:rgba(255,255,255,.55);text-transform:uppercase;">Always be going low</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- variant row -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">
+        <div style="border-radius:18px;border:1px solid rgba(255,255,255,.12);background:#0c0f12;display:flex;align-items:center;justify-content:center;padding:40px 16px;min-height:120px;">{{ markA_lime }}</div>
+        <div style="border-radius:18px;border:1px solid rgba(255,255,255,.12);background:rgba(20,28,24,.5);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:center;padding:40px 16px;min-height:120px;">{{ markA_white }}</div>
+        <div style="border-radius:18px;border:1px solid rgba(255,255,255,.12);background:#f4f5f0;display:flex;align-items:center;justify-content:center;padding:40px 16px;min-height:120px;">{{ markA_dark }}</div>
+        <div style="border-radius:18px;border:1px solid rgba(255,255,255,.12);background:radial-gradient(125% 110% at 30% 15%, #2a7d4a 0%, #0a2418 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:24px 16px;min-height:120px;">
+          <div style="width:72px;height:72px;border-radius:18px;background:#0c0f12;border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;">{{ markA_icon }}</div>
+          <span style="font-size:11px;color:rgba(255,255,255,.45);">App icon</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CONCEPT B ============ -->
+    <section style="margin-bottom:60px;">
+      <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:16px;flex-wrap:wrap;">
+        <span style="font-size:13px;font-weight:800;letter-spacing:2px;color:{{ accent }};">02</span>
+        <h2 style="font-size:24px;font-weight:800;letter-spacing:-.4px;margin:0;">Two Balls</h2>
+        <span style="font-size:14px;color:rgba(255,255,255,.5);">Refined golf-ball wordmark · cleaner, tighter, single-dimple balls</span>
+      </div>
+
+      <div style="position:relative;border-radius:26px;overflow:hidden;border:1px solid rgba(255,255,255,.12);background:radial-gradient(120% 90% at 50% 0%, #2a7d4a 0%, #14532d 45%, #0a2418 90%);padding:96px 40px;display:flex;align-items:center;justify-content:center;box-shadow:0 30px 80px rgba(0,0,0,.45);margin-bottom:14px;">
+        <div style="position:absolute;width:420px;height:360px;border-radius:50%;background:radial-gradient(circle, {{ accentGlow }} 0%, transparent 68%);filter:blur(20px);"></div>
+        <div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:18px;">
+          {{ markB }}
+          <span style="font-size:13px;font-weight:700;letter-spacing:3.5px;color:rgba(255,255,255,.5);text-transform:uppercase;">Track it · Bet it · Settle it</span>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">
+        <div style="border-radius:18px;border:1px solid rgba(255,255,255,.12);background:#0c0f12;display:flex;align-items:center;justify-content:center;padding:40px 16px;min-height:120px;">{{ markB_mono }}</div>
+        <div style="border-radius:18px;border:1px solid rgba(255,255,255,.12);background:rgba(20,28,24,.5);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:center;padding:40px 16px;min-height:120px;">{{ markB_white }}</div>
+        <div style="border-radius:18px;border:1px solid rgba(255,255,255,.12);background:#f4f5f0;display:flex;align-items:center;justify-content:center;padding:40px 16px;min-height:120px;">{{ markB_dark }}</div>
+        <div style="border-radius:18px;border:1px solid rgba(255,255,255,.12);background:radial-gradient(125% 110% at 30% 15%, #2a7d4a 0%, #0a2418 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:24px 16px;min-height:120px;">
+          <div style="width:72px;height:72px;border-radius:18px;background:{{ accent }};display:flex;align-items:center;justify-content:center;">{{ markB_icon }}</div>
+          <span style="font-size:11px;color:rgba(255,255,255,.45);">App icon</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CONCEPT C ============ -->
+    <section style="margin-bottom:30px;">
+      <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:16px;flex-wrap:wrap;">
+        <span style="font-size:13px;font-weight:800;letter-spacing:2px;color:{{ accent }};">03</span>
+        <h2 style="font-size:24px;font-weight:800;letter-spacing:-.4px;margin:0;">The Pin</h2>
+        <span style="font-size:14px;color:rgba(255,255,255,.5);">Bold "G" letter mark · ball &amp; flagstick built into the counter</span>
+      </div>
+
+      <div style="position:relative;border-radius:26px;overflow:hidden;border:1px solid rgba(255,255,255,.12);background:radial-gradient(120% 90% at 50% 0%, #2a7d4a 0%, #14532d 45%, #0a2418 90%);padding:80px 40px;display:flex;align-items:center;justify-content:center;gap:36px;flex-wrap:wrap;box-shadow:0 30px 80px rgba(0,0,0,.45);margin-bottom:14px;">
+        <div style="position:absolute;width:380px;height:380px;border-radius:50%;background:radial-gradient(circle, {{ accentGlow }} 0%, transparent 68%);filter:blur(18px);"></div>
+        <div style="position:relative;z-index:1;display:flex;align-items:center;gap:30px;">
+          {{ markC }}
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;align-items:flex-end;gap:2px;">
+              <span style="font-size:64px;font-weight:800;letter-spacing:-.03em;color:#fff;line-height:1;">Go</span>
+              <span style="font-size:64px;font-weight:800;letter-spacing:-.03em;color:{{ accent }};line-height:1;">Lo</span>
+            </div>
+            <span style="font-size:13px;font-weight:700;letter-spacing:3px;color:rgba(255,255,255,.5);text-transform:uppercase;">Track it. Bet it. Settle it.</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">
+        <div style="border-radius:18px;border:1px solid rgba(255,255,255,.12);background:#0c0f12;display:flex;align-items:center;justify-content:center;padding:34px 16px;min-height:120px;">{{ markC_lime }}</div>
+        <div style="border-radius:18px;border:1px solid rgba(255,255,255,.12);background:#1a1410;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:24px 16px;min-height:120px;">
+          {{ markC_copper }}
+          <span style="font-size:11px;color:rgba(201,123,90,.8);">Copper alt</span>
+        </div>
+        <div style="border-radius:18px;border:1px solid rgba(255,255,255,.12);background:#f4f5f0;display:flex;align-items:center;justify-content:center;padding:34px 16px;min-height:120px;">{{ markC_dark }}</div>
+        <div style="border-radius:18px;border:1px solid rgba(255,255,255,.12);background:radial-gradient(125% 110% at 30% 15%, #2a7d4a 0%, #0a2418 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:22px 16px;min-height:120px;">
+          <div style="width:74px;height:74px;border-radius:18px;background:#0c0f12;border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;">{{ markC_icon }}</div>
+          <span style="font-size:11px;color:rgba(255,255,255,.45);">App icon</span>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1080,&quot;height&quot;:1640},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#d4f23a&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;copper&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#c97b5a&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  hexA(hex, a) {
+    const h = hex.replace('#','');
+    const n = parseInt(h.length === 3 ? h.split('').map(c=>c+c).join('') : h, 16);
+    return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+  }
+
+  // ---------- A: ring + descending chevrons ----------
+  markA(size, color, sw) {
+    sw = sw || 3;
+    return React.createElement('svg', { width:size, height:size, viewBox:'0 0 120 120', fill:'none', style:{ display:'block' } },
+      React.createElement('circle', { cx:60, cy:60, r:51, stroke:color, 'stroke-width':sw }),
+      React.createElement('path', { d:'M38 44 L60 64 L82 44', stroke:color, 'stroke-width':sw, 'stroke-linecap':'round', 'stroke-linejoin':'round' }),
+      React.createElement('path', { d:'M38 62 L60 82 L82 62', stroke:color, 'stroke-width':sw, 'stroke-linecap':'round', 'stroke-linejoin':'round', opacity:0.55 })
+    );
+  }
+
+  // ---------- ball (clean, single dimple ring + soft top light) ----------
+  ball(size, fill, accentRing, hi) {
+    const gid = 'bg'+size+fill.replace(/[^a-z0-9]/gi,'');
+    return React.createElement('svg', { width:size, height:size, viewBox:'0 0 100 100', style:{ display:'block', flex:'0 0 auto' } },
+      React.createElement('defs', null,
+        React.createElement('radialGradient', { id:gid, cx:'36%', cy:'28%', r:'80%' },
+          React.createElement('stop', { offset:'0%', 'stop-color': hi ? '#ffffff' : fill }),
+          React.createElement('stop', { offset:'46%', 'stop-color': fill }),
+          React.createElement('stop', { offset:'100%', 'stop-color': fill })
+        )
+      ),
+      React.createElement('circle', { cx:50, cy:50, r:48, fill: hi ? `url(#${gid})` : fill }),
+      React.createElement('circle', { cx:50, cy:50, r:30, fill:'none', stroke: accentRing, 'stroke-width':3, opacity:0.85 }),
+      React.createElement('circle', { cx:50, cy:50, r:5, fill: accentRing, opacity:0.85 })
+    );
+  }
+
+  // ---------- B: refined GoLo wordmark with ball o's ----------
+  wordB(opts) {
+    const { capColor, ball1, ring1, hi1, ball2, ring2, hi2, fontPx } = opts;
+    const bs = Math.round(fontPx * 0.46);
+    const cap = { fontSize:fontPx+'px', fontWeight:600, letterSpacing:'-0.01em', color:capColor, lineHeight:1, fontFamily:'system-ui,sans-serif' };
+    const drop = Math.round(fontPx*0.06);
+    const seg = (letter, bf, br, bh) => React.createElement('div', { style:{ display:'flex', alignItems:'flex-end', gap:'1px' } },
+      React.createElement('span', { style:cap }, letter),
+      React.createElement('span', { style:{ display:'inline-flex', paddingBottom:drop+'px' } }, this.ball(bs, bf, br, bh))
+    );
+    return React.createElement('div', { style:{ display:'flex', alignItems:'flex-end', gap: Math.round(fontPx*0.06)+'px' } },
+      seg('G', ball1, ring1, hi1), seg('L', ball2, ring2, hi2)
+    );
+  }
+
+  // ---------- C: bold G with ball + flagstick in the counter ----------
+  markC(size, gColor, ballFill, flagColor) {
+    const sw = 12;
+    const r = 40, cx = 56, cy = 60;
+    const circ = 2 * Math.PI * r;
+    const gap = 60;                       // open mouth of the G
+    return React.createElement('svg', { width:size, height:size, viewBox:'0 0 120 124', fill:'none', style:{ display:'block' } },
+      // G arc: opens upper-right, curves the long way around and stops at the bottom-right terminal
+      React.createElement('path', { d:'M56 20 A40 40 0 1 0 95.8 64', stroke:gColor, 'stroke-width':sw, 'stroke-linecap':'round', fill:'none' }),
+      // crossbar connects inline at that bottom-right terminal and runs in toward the hole
+      React.createElement('line', { x1:95.8, y1:64, x2:cx+8, y2:64, stroke:gColor, 'stroke-width':sw, 'stroke-linecap':'round' }),
+      // golf ball in the counter
+      React.createElement('circle', { cx, cy:cy-2, r:15, fill:ballFill }),
+      React.createElement('circle', { cx, cy:cy-2, r:9, fill:'none', stroke: this.hexA('#0a2418',.28), 'stroke-width':2.4 }),
+      // flagstick rising from the ball
+      React.createElement('line', { x1:cx, y1:cy-16, x2:cx, y2:cy-46, stroke:gColor, 'stroke-width':3.4, 'stroke-linecap':'butt' }),
+      React.createElement('path', { d:`M${cx} ${cy-46} L${cx+30} ${cy-38} L${cx} ${cy-26} Z`, fill:flagColor })
+    );
+  }
+
+  renderVals() {
+    const accent = this.props.accent ?? '#d4f23a';
+    const copper = this.props.copper ?? '#c97b5a';
+    const accentGlow = this.hexA(accent, 0.4);
+
+    const navy = '#13250a';
+    return {
+      accent, accentGlow,
+
+      // A
+      markA: this.markA(132, accent, 3.2),
+      markA_lime: this.markA(80, accent, 3),
+      markA_white: this.markA(80, '#fff', 3),
+      markA_dark: this.markA(80, navy, 3),
+      markA_icon: this.markA(48, accent, 3.4),
+
+      // B
+      markB: this.wordB({ capColor:'#fff', ball1:'#fff', ring1:this.hexA(navy,.32), hi1:true, ball2:accent, ring2:this.hexA(navy,.5), hi2:false, fontPx:120 }),
+      markB_mono: this.wordB({ capColor:accent, ball1:accent, ring1:this.hexA('#0c0f12',.55), hi1:false, ball2:accent, ring2:this.hexA('#0c0f12',.55), hi2:false, fontPx:46 }),
+      markB_white: this.wordB({ capColor:'#fff', ball1:'#fff', ring1:this.hexA(navy,.3), hi1:true, ball2:'#fff', ring2:this.hexA(navy,.3), hi2:true, fontPx:46 }),
+      markB_dark: this.wordB({ capColor:navy, ball1:'#fff', ring1:this.hexA(navy,.4), hi1:false, ball2:navy, ring2:this.hexA(accent,.7), hi2:false, fontPx:46 }),
+      markB_icon: React.createElement('div', { style:{ display:'flex', alignItems:'center', gap:'3px' } },
+        this.ball(30, navy, this.hexA(accent,.7), false), this.ball(20, navy, this.hexA(accent,.55), false)),
+
+      // C
+      markC: this.markC(150, accent, '#fff', '#fff'),
+      markC_lime: this.markC(88, accent, '#fff', '#fff'),
+      markC_copper: this.markC(78, copper, '#f3e6dd', '#fff'),
+      markC_dark: this.markC(88, navy, '#fff', navy),
+      markC_icon: this.markC(58, accent, '#fff', '#fff')
+    };
+  }
+}
+</script>
+</body>
+</html>

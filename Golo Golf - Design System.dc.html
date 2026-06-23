@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @font-face { font-family:'_noop'; src:local('Arial'); }
+    .gg-mono { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; }
+  </style>
+</helmet>
+<div style="min-height:100vh;background:radial-gradient(130% 90% at 50% -10%, #1c2a22 0%, #12161a 55%, #0c0f12 100%);font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:56px 32px 110px;box-sizing:border-box;color:#fff;">
+  <div style="max-width:1080px;margin:0 auto;">
+
+    <!-- ===== MASTHEAD ===== -->
+    <header style="margin-bottom:54px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;background:#0c0f12;border:1px solid rgba(255,255,255,.1);box-shadow:0 8px 24px rgba(212,242,58,.28);"><svg width="30" height="30" viewBox="0 0 120 124" fill="none" style="display:block"><path d="M56 20 A40 40 0 1 0 95.8 64" stroke="#d4f23a" stroke-width="12" stroke-linecap="round"></path><line x1="95.8" y1="64" x2="64" y2="64" stroke="#d4f23a" stroke-width="12" stroke-linecap="round"></line><circle cx="56" cy="58" r="15" fill="#fff"></circle><circle cx="56" cy="58" r="9" fill="none" stroke="rgba(10,36,24,0.28)" stroke-width="2.4"></circle><line x1="56" y1="44" x2="56" y2="14" stroke="#d4f23a" stroke-width="3.4"></line><path d="M56 14 L86 22 L56 34 Z" fill="#fff"></path></svg></span>
+        <span style="font-size:12px;font-weight:800;letter-spacing:3px;color:#d4f23a;">GOLO GOLF · DESIGN SYSTEM</span>
+      </div>
+      <h1 style="font-size:46px;font-weight:800;letter-spacing:-1px;line-height:1.05;margin:20px 0 14px;max-width:760px;">Glass over turf — the visual language for every Golo screen</h1>
+      <p style="font-size:17px;line-height:1.6;color:rgba(255,255,255,.62);max-width:680px;margin:0;">A dark, full-bleed golf-photography base, frosted-glass surfaces, oversized numerals and one electric-lime accent. This page is the single source of truth: copy the tokens, type and components here rather than re-deriving them. Every value is pulled live from the shipping screens.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:22px;">
+        <sc-for list="{{ screens }}" as="s" hint-placeholder-count="6">
+          <a href="{{ s.href }}" style="font-size:12.5px;font-weight:700;color:rgba(255,255,255,.72);text-decoration:none;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);padding:8px 14px;border-radius:9999px;">{{ s.label }}</a>
+        </sc-for>
+      </div>
+
+      <!-- brand mark · The Pin -->
+      <div style="margin-top:30px;display:flex;flex-wrap:wrap;gap:14px;">
+        <div style="flex:1;min-width:300px;position:relative;border-radius:20px;overflow:hidden;border:1px solid rgba(255,255,255,.12);background:radial-gradient(120% 90% at 50% 0%, #2a7d4a 0%, #14532d 45%, #0a2418 90%);display:flex;align-items:center;justify-content:center;gap:26px;padding:38px 30px;box-shadow:0 24px 60px rgba(0,0,0,.4);">
+          <svg width="92" height="92" viewBox="0 0 120 124" fill="none" style="display:block"><path d="M56 20 A40 40 0 1 0 95.8 64" stroke="#d4f23a" stroke-width="12" stroke-linecap="round"></path><line x1="95.8" y1="64" x2="64" y2="64" stroke="#d4f23a" stroke-width="12" stroke-linecap="round"></line><circle cx="56" cy="58" r="15" fill="#fff"></circle><circle cx="56" cy="58" r="9" fill="none" stroke="rgba(10,36,24,0.28)" stroke-width="2.4"></circle><line x1="56" y1="44" x2="56" y2="14" stroke="#d4f23a" stroke-width="3.4"></line><path d="M56 14 L86 22 L56 34 Z" fill="#fff"></path></svg>
+          <div>
+            <div style="display:flex;align-items:flex-end;gap:1px;"><span style="font-size:48px;font-weight:800;letter-spacing:-.03em;color:#fff;line-height:1;">Go</span><span style="font-size:48px;font-weight:800;letter-spacing:-.03em;color:#d4f23a;line-height:1;">Lo</span></div>
+            <div style="font-size:11px;font-weight:700;letter-spacing:2.5px;color:rgba(255,255,255,.5);text-transform:uppercase;margin-top:8px;">Bet it. Track it. Settle it.</div>
+          </div>
+        </div>
+        <div style="flex:0 0 auto;width:132px;border-radius:20px;border:1px solid rgba(255,255,255,.12);background:rgba(20,28,24,.5);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:11px;padding:20px;">
+          <span style="width:74px;height:74px;border-radius:18px;background:#0c0f12;border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;"><svg width="50" height="50" viewBox="0 0 120 124" fill="none" style="display:block"><path d="M56 20 A40 40 0 1 0 95.8 64" stroke="#d4f23a" stroke-width="12" stroke-linecap="round"></path><line x1="95.8" y1="64" x2="64" y2="64" stroke="#d4f23a" stroke-width="12" stroke-linecap="round"></line><circle cx="56" cy="58" r="15" fill="#fff"></circle><circle cx="56" cy="58" r="9" fill="none" stroke="rgba(10,36,24,0.28)" stroke-width="2.4"></circle><line x1="56" y1="44" x2="56" y2="14" stroke="#d4f23a" stroke-width="3.4"></line><path d="M56 14 L86 22 L56 34 Z" fill="#fff"></path></svg></span>
+          <span style="font-size:11px;color:rgba(255,255,255,.45);">App icon</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ===== COLOR ===== -->
+    <section style="margin-bottom:46px;">
+      <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:6px;">
+        <span style="font-size:11px;font-weight:800;letter-spacing:2px;color:#d4f23a;">01</span>
+        <h2 style="font-size:25px;font-weight:800;letter-spacing:-0.4px;margin:0;">Color</h2>
+      </div>
+      <p style="font-size:14.5px;line-height:1.6;color:rgba(255,255,255,.55);margin:0 0 22px;max-width:640px;">One accent, a deep turf-green base, and a glass-white tint scale. Color is carried by alpha-over-photo, not flat fills — surfaces are translucent so the course photo reads through.</p>
+
+      <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);margin-bottom:12px;">CORE</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px;">
+        <sc-for list="{{ coreColors }}" as="c" hint-placeholder-count="4">
+          <div style="border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.03);">
+            <div style="height:84px;background: {{ c.swatch }};box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);"></div>
+            <div style="padding:12px 13px 14px;">
+              <div style="font-size:14px;font-weight:800;color:#fff;">{{ c.name }}</div>
+              <div class="gg-mono" style="font-size:11.5px;color:rgba(255,255,255,.55);margin-top:3px;">{{ c.value }}</div>
+              <div style="font-size:11.5px;color:rgba(255,255,255,.5);margin-top:6px;line-height:1.4;">{{ c.use }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);margin-bottom:12px;">SEMANTIC</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:26px;">
+        <sc-for list="{{ semanticColors }}" as="c" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;gap:13px;border-radius:16px;border:1px solid rgba(255,255,255,.12);background:rgba(20,28,24,.5);padding:14px;">
+            <span style="width:42px;height:42px;border-radius:12px;flex:0 0 auto;background: {{ c.swatch }};box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);"></span>
+            <div style="min-width:0;">
+              <div style="font-size:14px;font-weight:800;color:#fff;">{{ c.name }}</div>
+              <div class="gg-mono" style="font-size:11px;color:rgba(255,255,255,.55);margin-top:2px;">{{ c.value }}</div>
+              <div style="font-size:11.5px;color:rgba(255,255,255,.5);margin-top:4px;line-height:1.4;">{{ c.use }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);margin-bottom:12px;">PLAYER PALETTE <span style="font-weight:600;color:rgba(255,255,255,.4);letter-spacing:0;text-transform:none;">— assigned in order as players join</span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:26px;">
+        <sc-for list="{{ playerPalette }}" as="p" hint-placeholder-count="6">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+            <span style="width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:800;color:#fff;background: {{ p.value }};box-shadow:0 0 0 2px rgba(255,255,255,.22);">{{ p.initial }}</span>
+            <span class="gg-mono" style="font-size:10.5px;color:rgba(255,255,255,.5);">{{ p.value }}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);margin-bottom:12px;">TEXT ON DARK</div>
+      <div style="border-radius:18px;border:1px solid rgba(255,255,255,.12);background:rgba(20,28,24,.5);padding:6px 18px;">
+        <sc-for list="{{ textColors }}" as="t" hint-placeholder-count="4">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 0;border-top: {{ t.divider }};">
+            <span style="font-size:16px;font-weight:700;color: {{ t.value }};">{{ t.name }}</span>
+            <span class="gg-mono" style="font-size:12px;color:rgba(255,255,255,.5);">{{ t.value }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <!-- ===== TYPE ===== -->
+    <section style="margin-bottom:46px;">
+      <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:6px;">
+        <span style="font-size:11px;font-weight:800;letter-spacing:2px;color:#d4f23a;">02</span>
+        <h2 style="font-size:25px;font-weight:800;letter-spacing:-0.4px;margin:0;">Typography</h2>
+      </div>
+      <p style="font-size:14.5px;line-height:1.6;color:rgba(255,255,255,.55);margin:0 0 22px;max-width:640px;">System UI throughout — no web fonts. The system runs heavy: <strong style="color:#fff;">800</strong> for anything structural (headings, labels, numerals, buttons), 700 for sub-text, 600 for muted body. Numerals go huge; labels go small, uppercase and letter-spaced.</p>
+
+      <div style="border-radius:20px;border:1px solid rgba(255,255,255,.12);background:rgba(20,28,24,.5);padding:8px 22px;">
+        <sc-for list="{{ typeScale }}" as="t" hint-placeholder-count="6">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:18px 0;border-top: {{ t.divider }};">
+            <div style="min-width:0;flex:1;">
+              <div style="color:#fff;font-size: {{ t.px }};font-weight: {{ t.weight }};letter-spacing: {{ t.tracking }};line-height:1.05;text-transform: {{ t.transform }};">{{ t.sample }}</div>
+            </div>
+            <div style="text-align:right;flex:0 0 auto;">
+              <div style="font-size:13px;font-weight:800;color:#fff;">{{ t.name }}</div>
+              <div class="gg-mono" style="font-size:11px;color:rgba(255,255,255,.5);margin-top:3px;">{{ t.spec }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <!-- ===== SPACING / RADII / EFFECTS ===== -->
+    <section style="margin-bottom:46px;">
+      <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:6px;">
+        <span style="font-size:11px;font-weight:800;letter-spacing:2px;color:#d4f23a;">03</span>
+        <h2 style="font-size:25px;font-weight:800;letter-spacing:-0.4px;margin:0;">Shape, depth &amp; the frame</h2>
+      </div>
+      <p style="font-size:14.5px;line-height:1.6;color:rgba(255,255,255,.55);margin:0 0 22px;max-width:640px;">Generous radii, soft long shadows, and a consistent blur stack that separates chrome (light blur) from sheets (heavy blur). Everything lives inside a 390×844 phone.</p>
+
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;">
+        <!-- radii -->
+        <div style="border-radius:18px;border:1px solid rgba(255,255,255,.12);background:rgba(20,28,24,.5);padding:18px;">
+          <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);margin-bottom:16px;">RADII</div>
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <sc-for list="{{ radii }}" as="r" hint-placeholder-count="5">
+              <div style="display:flex;align-items:center;gap:14px;">
+                <span style="width:46px;height:46px;flex:0 0 auto;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius: {{ r.value }};"></span>
+                <div style="min-width:0;">
+                  <div style="font-size:13.5px;font-weight:800;color:#fff;">{{ r.name }} · {{ r.value }}</div>
+                  <div style="font-size:11.5px;color:rgba(255,255,255,.5);margin-top:1px;">{{ r.use }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- surfaces / blur -->
+        <div style="border-radius:18px;border:1px solid rgba(255,255,255,.12);background:rgba(20,28,24,.5);padding:18px;">
+          <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);margin-bottom:16px;">GLASS SURFACES</div>
+          <div style="display:flex;flex-direction:column;gap:11px;">
+            <sc-for list="{{ surfaces }}" as="s" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;gap:13px;">
+                <span style="width:60px;height:46px;flex:0 0 auto;border-radius:12px;background: {{ s.bg }};backdrop-filter: {{ s.blur }};-webkit-backdrop-filter: {{ s.blur }};border:1px solid {{ s.border }};"></span>
+                <div style="min-width:0;">
+                  <div style="font-size:13.5px;font-weight:800;color:#fff;">{{ s.name }}</div>
+                  <div class="gg-mono" style="font-size:10.5px;color:rgba(255,255,255,.5);margin-top:2px;line-height:1.4;">{{ s.spec }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <!-- frame anatomy -->
+      <div style="margin-top:16px;border-radius:18px;border:1px solid rgba(255,255,255,.12);background:rgba(20,28,24,.5);padding:20px 22px;">
+        <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);margin-bottom:14px;">PHONE FRAME &amp; LAYOUT</div>
+        <div style="display:flex;flex-wrap:wrap;gap:24px;">
+          <sc-for list="{{ frameSpecs }}" as="f" hint-placeholder-count="5">
+            <div style="min-width:150px;">
+              <div style="font-size:22px;font-weight:800;color:#d4f23a;letter-spacing:-0.3px;">{{ f.value }}</div>
+              <div style="font-size:13px;font-weight:800;color:#fff;margin-top:4px;">{{ f.name }}</div>
+              <div style="font-size:11.5px;color:rgba(255,255,255,.5);margin-top:2px;line-height:1.4;">{{ f.note }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== COMPONENTS ===== -->
+    <section style="margin-bottom:46px;">
+      <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:6px;">
+        <span style="font-size:11px;font-weight:800;letter-spacing:2px;color:#d4f23a;">04</span>
+        <h2 style="font-size:25px;font-weight:800;letter-spacing:-0.4px;margin:0;">Components</h2>
+      </div>
+      <p style="font-size:14.5px;line-height:1.6;color:rgba(255,255,255,.55);margin:0 0 22px;max-width:640px;">Live, on-photo. The course image and scrim below sit behind every component so glass and accent read true.</p>
+
+      <!-- photo stage -->
+      <div style="position:relative;border-radius:24px;overflow:hidden;border:1px solid rgba(255,255,255,.14);box-shadow:0 30px 60px -24px rgba(0,0,0,.7);">
+        <div style="position:absolute;inset:0;background-image:url('{{ backdrop }}');background-size:cover;background-position:50% 55%;"></div>
+        <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(6,14,9,.62) 0%, rgba(6,14,9,.5) 40%, rgba(4,12,8,.82) 100%);"></div>
+
+        <div style="position:relative;padding:26px;display:grid;grid-template-columns:repeat(2,1fr);gap:18px;">
+
+          <!-- app header -->
+          <div style="grid-column:span 2;background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:18px;">
+            <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.55);margin-bottom:14px;">APP HEADER <span style="font-weight:600;color:rgba(255,255,255,.4);letter-spacing:0;text-transform:none;">— every screen starts here: back · centered logo · pin menu · title</span></div>
+            <div style="position:relative;height:152px;border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,.14);background:#0a2418;margin-bottom:16px;">
+              <div style="position:absolute;inset:0;background-image:url('assets/course.png');background-size:cover;background-position:50% 38%;"></div>
+              <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(6,14,9,.5) 0%, rgba(6,14,9,.44) 30%, rgba(4,12,8,.82) 100%);"></div>
+              <div style="position:relative;">
+                <dc-import name="Golo Golf - App Header" accent="#d4f23a" logo="wordmark" right-action="pin" kicker="WE'RE HERE" title="Contact support" current-page="Contact support" back-href="#" hint-size="100%,150px" style="display:block;"></dc-import>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
+              <sc-for list="{{ headerAnatomy }}" as="h" hint-placeholder-count="4">
+                <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:12px 13px;">
+                  <div style="font-size:12.5px;font-weight:800;color:#fff;">{{ h.name }}</div>
+                  <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:3px;line-height:1.4;">{{ h.note }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- buttons -->
+          <div style="background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:18px;">
+            <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.55);margin-bottom:14px;">BUTTONS</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <button style="width:100%;min-height:52px;border-radius:16px;border:none;background:#d4f23a;color:#13250a;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 8px 22px rgba(212,242,58,.4);font-family:inherit;">Primary · Start Round →</button>
+              <button style="width:100%;min-height:52px;border-radius:16px;background:rgba(255,255,255,.13);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.18);color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">Glass · Back</button>
+              <button style="width:100%;min-height:54px;border-radius:16px;background:rgba(255,255,255,.05);border:1.5px dashed rgba(255,255,255,.25);color:#d4f23a;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;"><svg width="17" height="17" viewBox="0 0 24 24" fill="#d4f23a" style="display:block;flex:0 0 auto;"><path d="M10.4 4a1.6 1.6 0 0 1 3.2 0v6.4H20a1.6 1.6 0 0 1 0 3.2h-6.4V20a1.6 1.6 0 0 1-3.2 0v-6.4H4a1.6 1.6 0 0 1 0-3.2h6.4V4z"></path></svg>Add player (dashed)</button>
+              <button style="width:100%;min-height:50px;border-radius:16px;background:rgba(251,113,133,.1);border:1px solid rgba(251,113,133,.32);color:#fb7185;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">Destructive · Sign out</button>
+            </div>
+          </div>
+
+          <!-- pills + chrome -->
+          <div style="background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:18px;">
+            <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.55);margin-bottom:14px;">PILLS &amp; CHROME</div>
+            <div style="display:flex;flex-wrap:wrap;gap:9px;align-items:center;">
+              <span style="font-size:11px;font-weight:800;letter-spacing:.4px;color:#13250a;background:#d4f23a;padding:5px 12px;border-radius:9999px;">Hdcp 8.4</span>
+              <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.7);background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.14);padding:5px 12px;border-radius:9999px;">Pinehurst No.2</span>
+              <span style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:#fff;background:rgba(255,255,255,.13);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.16);padding:7px 13px;border-radius:9999px;"><span style="width:7px;height:7px;border-radius:50%;background:#d4f23a;"></span>Live round</span>
+            </div>
+            <div style="display:flex;gap:11px;margin-top:16px;align-items:center;">
+              <button style="width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.14);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.2);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;"><svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" style="display:block;flex:0 0 auto;"><path d="M6 2.2a1.2 1.2 0 0 1 1.2 1.2V21a1 1 0 1 1-2 0V3.4A1.2 1.2 0 0 1 6 2.2z"></path><path d="M8 4.2l10.6 2.4a.85.85 0 0 1 .1 1.6L8 11.5V4.2z"></path></svg></button>
+              <button style="width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.14);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:24px;font-weight:800;display:flex;align-items:center;justify-content:center;cursor:pointer;">‹</button>
+              <button style="width:54px;height:54px;border-radius:50%;background:#d4f23a;border:none;color:#13250a;font-size:30px;font-weight:800;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 18px rgba(212,242,58,.45);">+</button>
+            </div>
+          </div>
+
+          <!-- stat tiles -->
+          <div style="background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:18px;">
+            <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.55);margin-bottom:14px;">STAT TILES &amp; NUMERALS</div>
+            <div style="display:flex;align-items:flex-end;gap:10px;margin-bottom:14px;">
+              <span style="font-size:60px;font-weight:800;line-height:.9;letter-spacing:-1.5px;color:#fff;">8.4</span>
+              <span style="font-size:13px;font-weight:700;color:rgba(255,255,255,.6);padding-bottom:9px;">GHIN index</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+              <sc-for list="{{ demoStats }}" as="s" hint-placeholder-count="3">
+                <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:11px 10px;">
+                  <div style="font-size:10px;font-weight:800;letter-spacing:.8px;color:rgba(255,255,255,.5);">{{ s.label }}</div>
+                  <div style="font-size:21px;font-weight:800;color: {{ s.color }};margin-top:4px;letter-spacing:-0.3px;">{{ s.value }}</div>
+                  <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:1px;">{{ s.sub }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- controls -->
+          <div style="background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:18px;">
+            <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.55);margin-bottom:14px;">CONTROLS</div>
+            <!-- stepper -->
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;">
+              <span style="font-size:13.5px;font-weight:700;color:rgba(255,255,255,.8);">Stepper</span>
+              <div style="display:flex;align-items:center;gap:12px;">
+                <button style="width:40px;height:40px;border-radius:11px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);color:#fff;font-size:22px;font-weight:700;cursor:pointer;">−</button>
+                <span style="min-width:46px;text-align:center;font-size:18px;font-weight:800;color:#fff;">$10</span>
+                <button style="width:40px;height:40px;border-radius:11px;background:#d4f23a;border:none;color:#13250a;font-size:22px;font-weight:800;cursor:pointer;">+</button>
+              </div>
+            </div>
+            <!-- toggle -->
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;">
+              <span style="font-size:13.5px;font-weight:700;color:rgba(255,255,255,.8);">Toggle (on)</span>
+              <span style="width:50px;height:30px;border-radius:9999px;background:#d4f23a;position:relative;display:inline-block;">
+                <span style="position:absolute;top:3px;left:23px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);"></span>
+              </span>
+            </div>
+            <!-- segmented -->
+            <div style="display:flex;gap:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:5px;">
+              <span style="flex:1;text-align:center;padding:12px;border-radius:10px;font-size:14px;font-weight:800;background:#d4f23a;color:#13250a;">Net</span>
+              <span style="flex:1;text-align:center;padding:12px;border-radius:10px;font-size:14px;font-weight:800;color:rgba(255,255,255,.6);">Gross</span>
+            </div>
+          </div>
+
+          <!-- selection card -->
+          <div style="background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(212,242,58,.55);border-radius:16px;padding:13px;display:flex;align-items:center;gap:12px;">
+            <span style="width:54px;height:54px;border-radius:12px;flex:0 0 auto;background-image:url('{{ thumb }}');background-size:cover;background-position:center;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15);"></span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:16px;font-weight:800;color:#fff;">Selection card</div>
+              <div style="font-size:12.5px;color:rgba(255,255,255,.55);margin-top:1px;">Selected · accent border + check</div>
+            </div>
+            <span style="width:24px;height:24px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:#d4f23a;color:#13250a;font-size:14px;font-weight:800;">✓</span>
+          </div>
+
+          <!-- player chips -->
+          <div style="background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:16px;">
+            <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.55);margin-bottom:12px;">PLAYER CHIPS</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+              <sc-for list="{{ chipPlayers }}" as="p" hint-placeholder-count="4">
+                <span style="display:flex;align-items:center;gap:7px;padding:6px 13px 6px 6px;border-radius:9999px;background: {{ p.chipBg }};border:1px solid {{ p.chipBorder }};">
+                  <span style="width:24px;height:24px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;background: {{ p.color }};">{{ p.initial }}</span>
+                  <span style="font-size:13px;font-weight:700;color: {{ p.textColor }};">{{ p.name }}</span>
+                </span>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- progress + dots -->
+          <div style="grid-column:span 2;background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:16px 18px;">
+            <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.55);margin-bottom:14px;">PROGRESS</div>
+            <div style="display:flex;gap:6px;margin-bottom:16px;">
+              <sc-for list="{{ segBars }}" as="s" hint-placeholder-count="5">
+                <span style="flex:1;height:6px;border-radius:9999px;background: {{ s.fill }};"></span>
+              </sc-for>
+            </div>
+            <div style="display:flex;gap:5px;align-items:center;">
+              <sc-for list="{{ holeDots }}" as="d" hint-placeholder-count="18">
+                <span style="height:7px;border-radius:9999px;flex:0 0 auto;background: {{ d.bg }};width: {{ d.w }};"></span>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- tab bar -->
+          <div style="grid-column:span 2;">
+            <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(16,22,18,.7);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:8px;">
+              <sc-for list="{{ tabBar }}" as="t" hint-placeholder-count="4">
+                <span style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;min-height:48px;justify-content:center;border-radius:14px;background: {{ t.bg }};">
+                  <span style="font-size:20px;line-height:1;color: {{ t.color }};">{{ t.icon }}</span>
+                  <span style="font-size:10px;font-weight:800;letter-spacing:.4px;color: {{ t.color }};">{{ t.label }}</span>
+                </span>
+              </sc-for>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== ICONOGRAPHY ===== -->
+    <section style="margin-bottom:46px;">
+      <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:6px;">
+        <span style="font-size:11px;font-weight:800;letter-spacing:2px;color:#d4f23a;">05</span>
+        <h2 style="font-size:25px;font-weight:800;letter-spacing:-0.4px;margin:0;">Iconography</h2>
+      </div>
+      <p style="font-size:14.5px;line-height:1.6;color:rgba(255,255,255,.55);margin:0 0 22px;max-width:640px;">One custom set — solid silhouettes on a 24px grid, weighted to sit beside the heavy type. Each glyph fills with a single color (lime on neutral glass, white in nav, or a per-bet hue), so it recolors with state. No emoji anywhere.</p>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+        <sc-for list="{{ icons }}" as="i" hint-placeholder-count="24">
+          <div style="border-radius:16px;border:1px solid rgba(255,255,255,.12);background:rgba(20,28,24,.5);padding:15px 14px;display:flex;align-items:center;gap:13px;">
+            <span style="width:44px;height:44px;border-radius:13px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:rgba(212,242,58,.14);border:1px solid rgba(212,242,58,.35);">{{ i.el }}</span>
+            <div style="min-width:0;">
+              <div style="font-size:13.5px;font-weight:800;color:#fff;">{{ i.name }}</div>
+              <div style="font-size:11.5px;color:rgba(255,255,255,.5);margin-top:2px;line-height:1.35;">{{ i.use }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <!-- ===== CONVENTIONS ===== -->
+    <section>
+      <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:6px;">
+        <span style="font-size:11px;font-weight:800;letter-spacing:2px;color:#d4f23a;">06</span>
+        <h2 style="font-size:25px;font-weight:800;letter-spacing:-0.4px;margin:0;">Conventions &amp; rules</h2>
+      </div>
+      <p style="font-size:14.5px;line-height:1.6;color:rgba(255,255,255,.55);margin:0 0 22px;max-width:640px;">The non-visual contracts that keep screens consistent and wired together.</p>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;">
+        <sc-for list="{{ rules }}" as="r" hint-placeholder-count="6">
+          <div style="border-radius:16px;border:1px solid rgba(255,255,255,.12);background:rgba(20,28,24,.5);padding:16px 18px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;">
+              <span style="width:30px;height:30px;border-radius:9px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:15px;background:rgba(212,242,58,.14);border:1px solid rgba(212,242,58,.35);">{{ r.icon }}</span>
+              <span style="font-size:14.5px;font-weight:800;color:#fff;">{{ r.title }}</span>
+            </div>
+            <div style="font-size:13px;line-height:1.55;color:rgba(255,255,255,.6);">{{ r.body }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1080,&quot;height&quot;:1400}}">
+class Component extends DCLogic {
+  ICONS = {
+    flag:'<path d="M6 2.2a1.2 1.2 0 0 1 1.2 1.2V21a1 1 0 1 1-2 0V3.4A1.2 1.2 0 0 1 6 2.2z"/><path d="M8 4.2l10.6 2.4a.85.85 0 0 1 .1 1.6L8 11.5V4.2z"/>',
+    card:'<path fill-rule="evenodd" d="M5 3.5h14A1.5 1.5 0 0 1 20.5 5v14A1.5 1.5 0 0 1 19 20.5H5A1.5 1.5 0 0 1 3.5 19V5A1.5 1.5 0 0 1 5 3.5zM7 7.5h10v2H7v-2zm0 4h10v2H7v-2zm0 4h6.5v2H7v-2z"/>',
+    plus:'<path d="M10.4 4a1.6 1.6 0 0 1 3.2 0v6.4H20a1.6 1.6 0 0 1 0 3.2h-6.4V20a1.6 1.6 0 0 1-3.2 0v-6.4H4a1.6 1.6 0 0 1 0-3.2h6.4V4z"/>',
+    user:'<path d="M12 3.2a4.3 4.3 0 1 1 0 8.6 4.3 4.3 0 0 1 0-8.6zM4 20.4C4 16.4 7.6 14 12 14s8 2.4 8 6.4a.9.9 0 0 1-.9.9H4.9a.9.9 0 0 1-.9-.9z"/>',
+    target:'<path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm0 4a2 2 0 1 1 0 4 2 2 0 0 1 0-4z"/>',
+    trophy:'<path d="M6 3h12v2h3a1 1 0 0 1 1 1c0 2.9-1.9 5.2-4.6 5.8A6.5 6.5 0 0 1 13 15.8V18h3a1 1 0 0 1 1 1v2H7v-2a1 1 0 0 1 1-1h3v-2.2a6.5 6.5 0 0 1-4.4-3.9C3.9 11.2 2 8.9 2 6a1 1 0 0 1 1-1h3V3zM6 7H4.2c.3 1.4 1.1 2.4 2.1 2.9A8.6 8.6 0 0 1 6 8V7zm12 0v1c0 .6 0 1.2-.2 1.8 1-.5 1.7-1.4 2-2.8H18z"/>',
+    cash:'<path fill-rule="evenodd" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h15A1.5 1.5 0 0 1 21 6.5v11A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5v-11zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/>',
+    pin:'<path fill-rule="evenodd" d="M12 2a7 7 0 0 0-7 7c0 4.8 5.6 11.4 6.3 12.2a.9.9 0 0 0 1.4 0C13.4 20.4 19 13.8 19 9a7 7 0 0 0-7-7zm0 4.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z"/>',
+    drive:'<path d="M14 3h6.2a.8.8 0 0 1 .8.8V10a1 1 0 0 1-1.7.7l-1.8-1.8-7.7 7.7a1.4 1.4 0 0 1-2-2l7.7-7.7-1.8-1.8A1 1 0 0 1 14 3z"/><circle cx="5.5" cy="18.5" r="3"/>',
+    crown:'<path d="M3 8.5a1.3 1.3 0 0 1 2.1-1l3.2 2.2 2.6-4.8a1.3 1.3 0 0 1 2.2 0l2.6 4.8 3.2-2.2a1.3 1.3 0 0 1 2.1 1L19.6 17a1 1 0 0 1-1 .8H5.4a1 1 0 0 1-1-.8L3 8.5zM5 19.5h14V21H5z"/>',
+    bird:'<path fill-rule="evenodd" d="M3 13a7 7 0 0 1 7-7c2.6 0 4.9 1.4 6.1 3.5l3.5-.5a.8.8 0 0 1 .7 1.3l-2.1 2.5C18 16.1 14.9 19 11 19c-1 0-1.9-.2-2.8-.5L5 21l1.3-4.4A7 7 0 0 1 3 13zm10.5-3.2a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>',
+    swap:'<path d="M3 8.5a1 1 0 0 1 1-1h12.1l-1.8-1.8a1 1 0 1 1 1.4-1.4l3.5 3.5a1 1 0 0 1 0 1.4l-3.5 3.5a1 1 0 0 1-1.4-1.4l1.8-1.8H4a1 1 0 0 1-1-1zM21 15.5a1 1 0 0 1-1 1H7.9l1.8 1.8a1 1 0 1 1-1.4 1.4l-3.5-3.5a1 1 0 0 1 0-1.4l3.5-3.5a1 1 0 0 1 1.4 1.4l-1.8 1.8H20a1 1 0 0 1 1 1z"/>',
+    flame:'<path d="M12 2c3 3 5 6 5 9.5a5 5 0 0 1-10 0c0-1.7.6-3.1 1.7-4.2-.1 1.5.6 2.4 1.4 2.7C11.6 8.4 12.5 5.7 12 2z"/>',
+    eagle:'<path d="M2 9c2.6-.2 4.6.6 6.1 2.3C9.4 9.4 10.6 8.4 12 8.4s2.6 1 3.9 2.9C17.4 9.6 19.4 8.8 22 9c-2.1 1.2-3.3 2.9-4.5 4.7-1 1.5-2.2 2.7-3.7 2.7-1 0-1.6-.5-1.8-1-.2.5-.8 1-1.8 1-1.5 0-2.7-1.2-3.7-2.7C5.3 11.9 4.1 10.2 2 9z"/>',
+    pencil:'<path d="M3 17.2L14.1 6.1l4.8 4.8L7.8 22H3v-4.8zM15.5 4.7l2.3-2.3a1.2 1.2 0 0 1 1.7 0l3.1 3.1a1.2 1.2 0 0 1 0 1.7l-2.3 2.3-4.8-4.8z"/>',
+    bell:'<path d="M12 2a1.2 1.2 0 0 1 1.2 1.2v.7A6 6 0 0 1 18 9.8c0 4 1 5.2 2 6.2.6.6.2 1.7-.7 1.7H4.7c-.9 0-1.3-1.1-.7-1.7 1-1 2-2.2 2-6.2a6 6 0 0 1 4.8-5.9v-.7A1.2 1.2 0 0 1 12 2zM9.5 19h5a2.5 2.5 0 0 1-5 0z"/>',
+    search:'<path fill-rule="evenodd" d="M10.5 3a7.5 7.5 0 1 0 4.55 13.46l4.74 4.75a1.2 1.2 0 0 0 1.7-1.7l-4.75-4.74A7.5 7.5 0 0 0 10.5 3zm0 2.4a5.1 5.1 0 1 1 0 10.2 5.1 5.1 0 0 1 0-10.2z"/>',
+    link:'<path d="M7 17a3.4 3.4 0 0 1 0-4.8l2.1-2.1a1 1 0 0 1 1.4 1.4l-2.1 2.1A1.4 1.4 0 0 0 10.4 17l2.1-2.1a1 1 0 0 1 1.4 1.4l-2.1 2.1A3.4 3.4 0 0 1 7 17zM9.1 14.9a1 1 0 0 1 0-1.4l4.4-4.4a1 1 0 0 1 1.4 1.4l-4.4 4.4a1 1 0 0 1-1.4 0zM12.4 5.6a3.4 3.4 0 0 1 4.8 4.8l-2.1 2.1a1 1 0 0 1-1.4-1.4l2.1-2.1a1.4 1.4 0 0 0-2-2l-2.1 2.1a1 1 0 0 1-1.4-1.4l2.1-2.1z"/>',
+    palette:'<path fill-rule="evenodd" d="M12 3c-5 0-9 3.8-9 8.5 0 3.6 2.9 6.5 6.5 6.5.9 0 1.5.7 1.5 1.5 0 .4-.2.7-.4 1-.3.4-.1 1 .4 1 5 0 9-3.8 9-8.5S17 3 12 3zM6.8 11a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm4.4 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zM17 11a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/>',
+    image:'<path fill-rule="evenodd" d="M4 4.5h16A1.5 1.5 0 0 1 21.5 6v12A1.5 1.5 0 0 1 20 19.5H4A1.5 1.5 0 0 1 2.5 18V6A1.5 1.5 0 0 1 4 4.5zm12 3a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6zM4.5 17.4l4.8-5.3 3 3.5 2.6-2.1 4.6 4V18a.5.5 0 0 1-.5.5H5a.5.5 0 0 1-.5-.5v-.6z"/>',
+    compass:'<path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm3.8 4.7l-2.2 5.4a1.5 1.5 0 0 1-.8.8l-5.4 2.2 2.2-5.4a1.5 1.5 0 0 1 .8-.8l5.4-2.2zM12 10.8a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4z"/>',
+    camera:'<path fill-rule="evenodd" d="M9 4h6l1.2 2H20A1.5 1.5 0 0 1 21.5 7.5v11A1.5 1.5 0 0 1 20 20H4A1.5 1.5 0 0 1 2.5 18.5v-11A1.5 1.5 0 0 1 4 6h3.8L9 4zm3 4.5a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/>',
+    phone:'<path fill-rule="evenodd" d="M7 2.5h10A1.5 1.5 0 0 1 18.5 4v16A1.5 1.5 0 0 1 17 21.5H7A1.5 1.5 0 0 1 5.5 20V4A1.5 1.5 0 0 1 7 2.5zM7.5 5v11h9V5h-9zM12 17.3a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6z"/>',
+    lock:'<path fill-rule="evenodd" d="M7 9.5V8a5 5 0 0 1 10 0v1.5h.5A1.5 1.5 0 0 1 19 11v8.5A1.5 1.5 0 0 1 17.5 21h-11A1.5 1.5 0 0 1 5 19.5V11a1.5 1.5 0 0 1 1.5-1.5H7zm2 0h6V8a3 3 0 0 0-6 0v1.5zm3 4a1.5 1.5 0 0 0-.8 2.8v1.4a.8.8 0 0 0 1.6 0v-1.4A1.5 1.5 0 0 0 12 13.5z"/>'
+  };
+  ico(name, color, size){ size=size||22; return React.createElement('svg',{width:size,height:size,viewBox:'0 0 24 24',fill:color||'currentColor',style:{display:'block',flex:'0 0 auto'},dangerouslySetInnerHTML:{__html:this.ICONS[name]||''}}); }
+  renderVals(){
+    const A='#d4f23a';
+    return {
+      backdrop:'assets/sunset.png',
+      thumb:'assets/course.png',
+
+      screens:[
+        {label:'Home', href:'Golo%20Golf%20-%20Home.dc.html'},
+        {label:'Round Setup', href:'Golo%20Golf%20-%20Setup.dc.html'},
+        {label:'Immersive Scoring', href:'Golo%20Golf%20-%20Scoring%20(Immersive).dc.html'},
+        {label:'Leaderboard', href:'Golo%20Golf%20-%20Leaderboard.dc.html'},
+        {label:'Payout', href:'Golo%20Golf%20-%20Payout.dc.html'},
+        {label:'You', href:'Golo%20Golf%20-%20You.dc.html'},
+        {label:'Onboarding', href:'Golo%20Golf%20-%20Onboarding.dc.html'},
+      ],
+
+      coreColors:[
+        {name:'Electric Lime', value:'#d4f23a', swatch:'#d4f23a', use:'The one accent — primary actions, active states, highlights. Text on it is #13250a.'},
+        {name:'Ink on Accent', value:'#13250a', swatch:'#13250a', use:'Deep green used for text/icons sitting on any lime surface.'},
+        {name:'Turf Base', value:'#2a7d4a → #0a2418', swatch:'radial-gradient(120% 80% at 50% 0%, #2a7d4a 0%, #14532d 45%, #0a2418 85%)', use:'Phone screen base gradient, behind the photo.'},
+        {name:'Page Base', value:'#1c2a22 → #0c0f12', swatch:'radial-gradient(130% 90% at 50% -10%, #1c2a22 0%, #12161a 55%, #0c0f12 100%)', use:'Desktop showcase canvas behind the device.'},
+      ],
+
+      semanticColors:[
+        {name:'Positive', value:'#bef264', swatch:'#bef264', use:'Under par, money won, gains.'},
+        {name:'Negative', value:'#fb7185', swatch:'#fb7185', use:'Over par, losses, destructive, errors.'},
+        {name:'Neutral', value:'rgba(255,255,255,.7)', swatch:'rgba(255,255,255,.7)', use:'Even / no delta.'},
+      ],
+
+      playerPalette:[
+        {value:'#2dd4bf', initial:'M'},
+        {value:'#60a5fa', initial:'S'},
+        {value:'#fb923c', initial:'T'},
+        {value:'#c084fc', initial:'D'},
+        {value:'#f472b6', initial:'J'},
+        {value:'#facc15', initial:'R'},
+      ],
+
+      textColors:[
+        {name:'Primary', value:'#ffffff', divider:'none'},
+        {name:'Secondary', value:'rgba(255,255,255,.62)', divider:'1px solid rgba(255,255,255,.08)'},
+        {name:'Tertiary', value:'rgba(255,255,255,.5)', divider:'1px solid rgba(255,255,255,.08)'},
+        {name:'Muted / disabled', value:'rgba(255,255,255,.4)', divider:'1px solid rgba(255,255,255,.08)'},
+      ],
+
+      typeScale:[
+        {name:'Display numeral', spec:'74px / 800', sample:'18', px:'56px', weight:'800', tracking:'-1px', transform:'none', divider:'none'},
+        {name:'Page title (H1)', spec:'36px / 800 / -0.6px', sample:'Set the round up', px:'34px', weight:'800', tracking:'-0.6px', transform:'none', divider:'1px solid rgba(255,255,255,.08)'},
+        {name:'Screen heading', spec:'25–27px / 800', sample:'Who’s playing?', px:'25px', weight:'800', tracking:'-0.4px', transform:'none', divider:'1px solid rgba(255,255,255,.08)'},
+        {name:'Card title', spec:'16–18px / 800', sample:'Stroke Purse', px:'17px', weight:'800', tracking:'0', transform:'none', divider:'1px solid rgba(255,255,255,.08)'},
+        {name:'Body', spec:'13–15px / 600', sample:'Low net wins each hole; ties carry over.', px:'14px', weight:'600', tracking:'0', transform:'none', divider:'1px solid rgba(255,255,255,.08)'},
+        {name:'Kicker', spec:'12px / 800 / 2–3px · accent', sample:'GOLO GOLF · YOU', px:'12px', weight:'800', tracking:'2.5px', transform:'none', divider:'1px solid rgba(255,255,255,.08)'},
+        {name:'Section label', spec:'11px / 800 / 1.4px · UPPER', sample:'SCORING MIX', px:'11px', weight:'800', tracking:'1.4px', transform:'uppercase', divider:'1px solid rgba(255,255,255,.08)'},
+      ],
+
+      radii:[
+        {name:'Phone', value:'48px', use:'Device shell only'},
+        {name:'Card / sheet', value:'20–24px', use:'Glass cards, bottom sheets, modals'},
+        {name:'Tile / control', value:'14–16px', use:'Stat tiles, segmented, list rows'},
+        {name:'Small button', value:'10–11px', use:'Steppers, square icon buttons'},
+        {name:'Pill', value:'9999px', use:'Tags, chips, toggles, status'},
+      ],
+
+      surfaces:[
+        {name:'Glass card', bg:'rgba(20,28,24,.5)', blur:'blur(20px)', border:'rgba(255,255,255,.13)', spec:'rgba(20,28,24,.5) · blur 20'},
+        {name:'Chrome / pill', bg:'rgba(255,255,255,.13)', blur:'blur(10px)', border:'rgba(255,255,255,.18)', spec:'rgba(255,255,255,.13) · blur 10'},
+        {name:'Nav bar', bg:'rgba(16,22,18,.7)', blur:'blur(18px)', border:'rgba(255,255,255,.12)', spec:'rgba(16,22,18,.55–.7) · blur 18'},
+        {name:'Bottom sheet', bg:'rgba(14,20,16,.9)', blur:'blur(26px)', border:'rgba(255,255,255,.14)', spec:'rgba(14,20,16,.9) · blur 26'},
+      ],
+
+      frameSpecs:[
+        {value:'390×844', name:'Phone canvas', note:'Fixed device size, 48px corners'},
+        {value:'≥48px', name:'Tap targets', note:'Steppers 40, nav 52–54'},
+        {value:'1080px', name:'Showcase width', note:'Centered, 44–56px padding'},
+        {value:'520/90', name:'Accent halo', note:'Blurred lime glow behind device'},
+        {value:'photo+scrim', name:'Every screen', note:'Course image under a top→bottom dark scrim'},
+      ],
+
+      headerAnatomy:[
+        {name:'Back', note:'Bare lime chevron (#d4f23a), ~23px. No chip.'},
+        {name:'Logo', note:'GoLo wordmark, centered. Swappable: pin / lockup / wordmark.'},
+        {name:'Pin menu', note:'G-pin on the right, taps to open the glass nav menu.'},
+        {name:'Title', note:'Accent kicker + 22px/800 page title beneath the bar.'},
+      ],
+
+      demoStats:[
+        {label:'NET', value:'+$340', color:'#bef264', sub:'1st'},
+        {label:'WIN', value:'80%', color:'#fff', sub:'4 of 5'},
+        {label:'AVG', value:'82.4', color:'#fff', sub:'gross'},
+      ],
+
+      chipPlayers:[
+        {name:'Mike', initial:'M', color:'#2dd4bf', chipBg:'rgba(45,212,191,.22)', chipBorder:'rgba(45,212,191,.7)', textColor:'#fff'},
+        {name:'Sarah', initial:'S', color:'#60a5fa', chipBg:'rgba(96,165,250,.22)', chipBorder:'rgba(96,165,250,.7)', textColor:'#fff'},
+        {name:'Tom', initial:'T', color:'#fb923c', chipBg:'rgba(255,255,255,.05)', chipBorder:'rgba(255,255,255,.14)', textColor:'rgba(255,255,255,.5)'},
+      ],
+
+      segBars:[
+        {fill:A},{fill:A},{fill:A},{fill:'rgba(255,255,255,.2)'},{fill:'rgba(255,255,255,.2)'},
+      ],
+
+      holeDots:Array.from({length:18},(_,i)=>{
+        const cur=i===6, played=i<6;
+        return {bg:cur?A:(played?'rgba(255,255,255,.9)':'rgba(255,255,255,.28)'), w:cur?'22px':'7px'};
+      }),
+
+      tabBar:[
+        {label:'Home', icon:this.ico('flag','rgba(255,255,255,.55)',23), bg:'transparent', color:'rgba(255,255,255,.55)'},
+        {label:'Rounds', icon:this.ico('card','rgba(255,255,255,.55)',23), bg:'transparent', color:'rgba(255,255,255,.55)'},
+        {label:'Play', icon:this.ico('plus','rgba(255,255,255,.55)',23), bg:'transparent', color:'rgba(255,255,255,.55)'},
+        {label:'You', icon:this.ico('user',A,23), bg:'rgba(212,242,58,.16)', color:A},
+      ],
+
+      icons:[
+        {ic:'flag', name:'Flag', use:'Home tab · course · handicap'},
+        {ic:'card', name:'Scorecard', use:'Rounds tab · history'},
+        {ic:'plus', name:'Plus', use:'Play tab · new round'},
+        {ic:'user', name:'User', use:'You tab · profile'},
+        {ic:'target', name:'Target', use:'Skins'},
+        {ic:'trophy', name:'Trophy', use:'Nassau · leader · 1st'},
+        {ic:'cash', name:'Cash', use:'Stroke Purse · pot'},
+        {ic:'pin', name:'Pin', use:'Closest to Pin'},
+        {ic:'drive', name:'Drive', use:'Longest Drive'},
+        {ic:'crown', name:'Crown', use:'Champion'},
+        {ic:'bird', name:'Bird', use:'Birdies'},
+        {ic:'swap', name:'Swap', use:'Transfers · payouts'},
+        {ic:'flame', name:'Flame', use:'Win streak'},
+        {ic:'eagle', name:'Eagle', use:'Eagle club badge'},
+        {ic:'pencil', name:'Pencil', use:'Edit profile'},
+        {ic:'bell', name:'Bell', use:'Notifications'},
+        {ic:'search', name:'Search', use:'Course search'},
+        {ic:'link', name:'Link', use:'Shared round state'},
+        {ic:'palette', name:'Palette', use:'Accent is a prop'},
+        {ic:'image', name:'Image', use:'Photo + scrim base'},
+        {ic:'compass', name:'Compass', use:'Bottom tab nav'},
+        {ic:'camera', name:'Camera', use:'User imagery slots'},
+        {ic:'phone', name:'Phone', use:'Phone sign-in'},
+        {ic:'lock', name:'Lock', use:'Privacy · settle-up'},
+      ].map(i=>({ name:i.name, use:i.use, el:this.ico(i.ic, A, 26) })),
+
+      rules:[
+        {icon:this.ico('link',A,17), title:'Shared round state', body:'Setup writes the round to localStorage key “golo:round” (course, tees, players, format, bets). Scoring and You read it back so the whole flow stays in sync.'},
+        {icon:this.ico('palette',A,17), title:'Accent is a prop', body:'Every screen exposes an “accent” color prop (default #d4f23a) and derives tints via a hexA(hex, alpha) helper — never hard-code alpha variants of the accent.'},
+        {icon:this.ico('flag',A,17), title:'Lower is better', body:'Golf semantics: shorter bars, lower numbers and the positive lime color all mean a better score. Over-par and losses use rose #fb7185.'},
+        {icon:this.ico('image',A,17), title:'Photo + scrim base', body:'Each screen layers a full-bleed course photo (assets/) under a 180° dark scrim. Glass surfaces sit on top; never use a flat opaque background.'},
+        {icon:this.ico('compass',A,17), title:'Bottom tab nav', body:'Four tabs — Home, Rounds, Play, You. Active tab gets a lime-tint background and lime icon+label; hrefs are URL-encoded filenames.'},
+        {icon:this.ico('camera',A,17), title:'User imagery via slots', body:'Avatars and droppable photos use the image-slot component (shape="circle"), each with a unique id so the drop persists across reloads.'},
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

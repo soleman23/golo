@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @font-face { font-family:'_noop'; src:local('Arial'); }
+    @keyframes goloSpin { to { transform: rotate(360deg); } }
+  </style>
+</helmet>
+<div style="min-height:100vh;background:radial-gradient(130% 90% at 50% -10%, #1c2a22 0%, #12161a 55%, #0c0f12 100%);font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:64px 32px 96px;box-sizing:border-box;color:#fff;">
+  <div style="max-width:1080px;margin:0 auto;">
+
+    <!-- masthead -->
+    <header style="margin-bottom:48px;">
+      <span style="font-size:12px;font-weight:800;letter-spacing:3px;color:{{ accent }};">GOLO GOLF · LOGO</span>
+      <h1 style="font-size:40px;font-weight:800;letter-spacing:-1px;line-height:1.05;margin:18px 0 12px;">The wordmark</h1>
+      <p style="font-size:16px;line-height:1.6;color:rgba(255,255,255,.6);max-width:600px;margin:0;">Built from your sketch: a light system-ui wordmark where both <strong style="color:#fff;">o</strong>'s become dimpled golf balls — "Go" and "Lo" nest almost touching. One ball sits on the lime accent so the mark always carries a single hit of brand color.</p>
+    </header>
+
+    <!-- PRIMARY -->
+    <div style="position:relative;border-radius:28px;overflow:hidden;border:1px solid rgba(255,255,255,.12);background:radial-gradient(120% 90% at 50% 0%, #2a7d4a 0%, #14532d 45%, #0a2418 90%);padding:96px 40px;display:flex;align-items:center;justify-content:center;margin-bottom:18px;box-shadow:0 30px 80px rgba(0,0,0,.45);">
+      <div style="position:absolute;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle, {{ accentGlow }} 0%, transparent 68%);filter:blur(20px);"></div>
+      {{ markPrimary }}
+    </div>
+
+    <!-- caption row under primary -->
+    <div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:46px;">
+      <div style="flex:1;min-width:240px;background:rgba(20,28,24,.5);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.13);border-radius:18px;padding:18px 20px;">
+        <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);margin-bottom:7px;">CONCEPT</div>
+        <div style="font-size:14px;line-height:1.55;color:rgba(255,255,255,.72);">The o's are golf balls — dimpled, with a soft top-light highlight. The trailing ball anchors the baseline like the dot in your sketch.</div>
+      </div>
+      <div style="flex:1;min-width:240px;background:rgba(20,28,24,.5);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.13);border-radius:18px;padding:18px 20px;">
+        <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);margin-bottom:7px;">TYPE</div>
+        <div style="font-size:14px;line-height:1.55;color:rgba(255,255,255,.72);">system-ui · weight 300 · tracking −0.02em. Thin G and L caps; the balls read as the lowercase o's.</div>
+      </div>
+    </div>
+
+    <!-- LOCKUP VARIANTS -->
+    <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);margin-bottom:14px;">LOCKUPS</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:46px;">
+
+      <!-- mono lime -->
+      <div style="border-radius:20px;border:1px solid rgba(255,255,255,.12);background:#0c0f12;display:flex;align-items:center;justify-content:center;padding:54px 20px;min-height:150px;">
+        {{ markLime }}
+      </div>
+      <!-- mono white -->
+      <div style="border-radius:20px;border:1px solid rgba(255,255,255,.12);background:rgba(20,28,24,.5);display:flex;align-items:center;justify-content:center;padding:54px 20px;min-height:150px;">
+        {{ markWhite }}
+      </div>
+      <!-- on light -->
+      <div style="border-radius:20px;border:1px solid rgba(255,255,255,.12);background:#f4f5f0;display:flex;align-items:center;justify-content:center;padding:54px 20px;min-height:150px;">
+        {{ markDark }}
+      </div>
+    </div>
+
+    <!-- APP ICON + STACKED -->
+    <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);margin-bottom:14px;">APP ICON &amp; AVATAR</div>
+    <div style="display:flex;flex-wrap:wrap;gap:22px;align-items:flex-end;">
+
+      <!-- big icon -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+        <div style="width:132px;height:132px;border-radius:30px;background:radial-gradient(125% 110% at 30% 15%, #2a7d4a 0%, #14532d 55%, #0a2418 100%);box-shadow:0 18px 44px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;">
+          {{ iconBall }}
+        </div>
+        <span style="font-size:12px;color:rgba(255,255,255,.5);">App icon · 132</span>
+      </div>
+
+      <!-- lime icon -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+        <div style="width:96px;height:96px;border-radius:24px;background:{{ accent }};box-shadow:0 14px 36px {{ accentGlow }};display:flex;align-items:center;justify-content:center;overflow:hidden;">
+          {{ iconGo }}
+        </div>
+        <span style="font-size:12px;color:rgba(255,255,255,.5);">Lime · 96</span>
+      </div>
+
+      <!-- small chips -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+        <div style="display:flex;gap:14px;align-items:center;">
+          {{ iconSmall }}
+          {{ iconTiny }}
+        </div>
+        <span style="font-size:12px;color:rgba(255,255,255,.5);">Favicon · 64 / 40</span>
+      </div>
+
+      <!-- nav lockup -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+        <div style="height:96px;display:flex;align-items:center;padding:0 24px;border-radius:18px;background:rgba(16,22,18,.7);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.13);">
+          {{ markNav }}
+        </div>
+        <span style="font-size:12px;color:rgba(255,255,255,.5);">Nav bar · in context</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1080,&quot;height&quot;:1180},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#d4f23a&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  hexA(hex, a) {
+    const h = hex.replace('#','');
+    const n = parseInt(h.length === 3 ? h.split('').map(c=>c+c).join('') : h, 16);
+    return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+  }
+
+  // A golf ball as an inline SVG. fill = base color, dimple = dimple color, hi = highlight on/off
+  ball(size, fill, dimple, hi) {
+    const r = size / 2;
+    const dimples = [
+      [0.50,0.30],[0.34,0.42],[0.66,0.42],[0.28,0.62],[0.50,0.55],[0.72,0.62],[0.40,0.74],[0.60,0.74]
+    ];
+    return React.createElement('svg', { width: size, height: size, viewBox: '0 0 100 100', style:{ display:'block', flex:'0 0 auto' } },
+      React.createElement('defs', null,
+        React.createElement('radialGradient', { id:'gb'+size+fill.replace(/[^a-z0-9]/gi,''), cx:'34%', cy:'26%', r:'78%' },
+          React.createElement('stop', { offset:'0%', 'stop-color': hi ? '#ffffff' : fill }),
+          React.createElement('stop', { offset:'42%', 'stop-color': fill }),
+          React.createElement('stop', { offset:'100%', 'stop-color': fill })
+        )
+      ),
+      React.createElement('circle', { cx:50, cy:50, r:48, fill: hi ? `url(#gb${size}${fill.replace(/[^a-z0-9]/gi,'')})` : fill }),
+      ...dimples.map(([x,y],i) => React.createElement('circle', { key:i, cx:x*100, cy:y*100, r:4.2, fill: dimple }))
+    );
+  }
+
+  // wordmark builder: G o L o   (o's are balls)
+  word(opts) {
+    const { capColor, ballFill, ballDimple, ballHi, fontPx } = opts;
+    const ballSize = Math.round(fontPx * 0.465);
+    const capStyle = { fontSize: fontPx+'px', fontWeight:300, letterSpacing:'-0.02em', color: capColor, lineHeight:1, fontFamily:'system-ui,-apple-system,sans-serif' };
+    const drop = Math.round(fontPx * 0.068); // sit balls slightly above baseline like o
+    const stagger = Math.round(fontPx * 0.15); // how far "Lo" drops below "Go"
+    const shift = Math.round(fontPx * 0.10);   // horizontal nudge so L overlaps the trailing ball
+    const gap = Math.max(1, Math.round(fontPx * 0.014));
+    const go = React.createElement('div', { style:{ display:'flex', alignItems:'flex-end', gap: gap+'px' } },
+      React.createElement('span', { style: capStyle }, 'G'),
+      React.createElement('span', { style:{ display:'inline-flex', paddingBottom: drop+'px' } }, this.ball(ballSize, ballFill, ballDimple, ballHi))
+    );
+    const lo = React.createElement('div', { style:{ position:'relative', zIndex:2, display:'flex', alignItems:'flex-end', gap: gap+'px', marginTop: stagger+'px', marginLeft: shift+'px' } },
+      React.createElement('span', { style: capStyle }, 'L'),
+      React.createElement('span', { style:{ display:'inline-flex', paddingBottom: drop+'px' } }, this.ball(ballSize, ballFill, ballDimple, ballHi))
+    );
+    return React.createElement('div', { style:{ position:'relative', display:'flex', alignItems:'flex-start', gap: '0px' } }, go, lo);
+  }
+
+  renderVals() {
+    const accent = this.props.accent ?? '#d4f23a';
+    const accentGlow = this.hexA(accent, 0.45);
+
+    return {
+      accent, accentGlow,
+      // primary: white caps, one white ball + one lime ball
+      markPrimary: React.createElement('div', { style:{ position:'relative', zIndex:1, display:'flex', alignItems:'flex-start', gap:'0px' } },
+        React.createElement('div', { style:{ display:'flex', alignItems:'flex-end', gap:'2px' } },
+          React.createElement('span', { style:{ fontSize:'148px', fontWeight:300, letterSpacing:'-0.02em', color:'#fff', lineHeight:1, fontFamily:'system-ui,sans-serif' } }, 'G'),
+          React.createElement('span', { style:{ display:'inline-flex', paddingBottom:'10px' } }, this.ball(69, '#ffffff', 'rgba(20,40,24,.32)', true))
+        ),
+        React.createElement('div', { style:{ position:'relative', zIndex:2, display:'flex', alignItems:'flex-end', gap:'2px', marginTop:'22px', marginLeft:'15px' } },
+          React.createElement('span', { style:{ fontSize:'148px', fontWeight:300, letterSpacing:'-0.02em', color:'#fff', lineHeight:1, fontFamily:'system-ui,sans-serif' } }, 'L'),
+          React.createElement('span', { style:{ display:'inline-flex', paddingBottom:'10px' } }, this.ball(69, accent, this.hexA('#13250a',.5), true))
+        )
+      ),
+      markLime: this.word({ capColor: accent, ballFill: accent, ballDimple: this.hexA('#0c0f12',.55), ballHi:false, fontPx:56 }),
+      markWhite: this.word({ capColor:'#fff', ballFill:'#fff', ballDimple:'rgba(20,40,24,.3)', ballHi:true, fontPx:56 }),
+      markDark: this.word({ capColor:'#13250a', ballFill:'#fff', ballDimple:'rgba(19,37,10,.45)', ballHi:false, fontPx:56 }),
+      markNav: this.word({ capColor:'#fff', ballFill:'#fff', ballDimple:'rgba(20,40,24,.3)', ballHi:true, fontPx:30 }),
+
+      iconBall: React.createElement('div', { style:{ position:'relative', zIndex:1, transform:'translateY(2px)' } }, this.ball(80, '#ffffff', 'rgba(20,40,24,.32)', true)),
+      iconGo: React.createElement('span', { style:{ fontSize:'46px', fontWeight:800, letterSpacing:'-0.04em', color:'#13250a', fontFamily:'system-ui,sans-serif', display:'inline-flex', alignItems:'flex-end' } },
+        'G', React.createElement('span', { style:{ display:'inline-flex', paddingBottom:'4px', marginLeft:'1px' } }, this.ball(28, '#13250a', this.hexA('#d4f23a',.7), false))
+      ),
+      iconSmall: React.createElement('div', { style:{ width:'64px', height:'64px', borderRadius:'16px', background:'#0c0f12', border:'1px solid rgba(255,255,255,.12)', display:'flex', alignItems:'center', justifyContent:'center' } }, this.ball(36, accent, this.hexA('#0c0f12',.55), false)),
+      iconTiny: React.createElement('div', { style:{ width:'40px', height:'40px', borderRadius:'11px', background:accent, display:'flex', alignItems:'center', justifyContent:'center' } }, this.ball(22, '#13250a', this.hexA('#d4f23a',.6), false))
+    };
+  }
+}
+</script>
+</body>
+</html>

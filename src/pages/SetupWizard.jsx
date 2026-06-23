@@ -8,9 +8,8 @@ import { hasContact, displayName, playerKey } from '../lib/identity'
 import { fetchCourses } from '../lib/db/courses'
 import { getCourseImage } from '../lib/courseImages'
 import { normalizeSkinsLdHole, resolveLdHoleNumber } from '../engines/skins'
-import { GoloWordmark } from '../components/shared/Logo'
+import AppHeader from '../components/shared/AppHeader'
 import { Icon } from '../components/shared/GoloIcons'
-import BackButton from '../components/shared/BackButton'
 
 /**
  * SetupWizard — the single-screen, five-step round setup.
@@ -131,10 +130,8 @@ const GAME_DEFS = [
     desc: 'Low score wins each hole; ties carry over.', unit: '/ skin',
     // Skins uses its own panel (renderSkinsConfig), not the generic toggles/selects.
     toggles: [], selects: [],
-    // Legacy fields keep the current engine settling standard + carryover skins.
-    // valuePerSkin is 0 unless "Standard" is selected, so types the new engine
-    // doesn't handle yet (greenie/birdie/…) pay nothing in the interim rather
-    // than being mis-scored as standard skins. skinsConfig carries the full setup.
+    // valuePerSkin is for Standard Skins only. Bonus/manual skin types settle from
+    // skinsConfig.baseSkinValue so they can be enabled independently.
     toConfig: (b) => ({
       valuePerSkin: b.selectedSkins.standardSkin ? b.baseSkinValue : 0,
       carryover: !!b.selectedSkins.carryoverSkin,
@@ -226,24 +223,22 @@ const nextTeam = (players) =>
 /* ------------------------------------------------------------------- skins */
 
 // Skins is configured by its own rich panel (not the generic game pattern): a
-// base per-skin value, a Net/Gross choice, the six standard skin types, and two
-// custom slots. Engine/greenie-sandie tracking/results come later — for now this
-// captures the SkinsConfig and the existing engine still settles standard +
-// carryover skins off baseSkinValue.
+// base per-skin value, a Net/Gross choice, automatic bonus skins, and manual
+// Greenie/Sandie/CTP/LD flags.
 
 const SKIN_PRESETS = [1, 2, 5, 10]
 
-// The six standard skin types, in display order. `base: true` means it adds the
+// The standard skin types, in display order. `base: true` means it adds the
 // base value to the per-hole "up to" total (per the agreed rule: Standard +
-// Birdie + Eagle + Customs count; Carryover is a modifier and Greenie/Sandie are
-// separate side pots).
+// Birdie + Eagle count; Carryover is a modifier and Greenie/Sandie are separate
+// side pots).
 const SKIN_TYPES = [
   { key: 'standardSkin', name: 'Standard Skin', tag: 'Low score wins', desc: 'Lowest unique score on a hole wins the skin; ties carry over.', base: true },
   { key: 'carryoverSkin', name: 'Carryover Skin', tag: 'Banked skins', desc: 'A tied hole stacks the skin onto the next, growing the payout until won outright.', base: false },
-  { key: 'birdieBonusSkin', name: 'Birdie Bonus', tag: '+1 skin', desc: 'Winning a hole with a birdie earns an extra skin on top of the win.', base: true },
-  { key: 'eagleBonusSkin', name: 'Eagle Bonus', tag: '×2 value', desc: 'An eagle is worth double; a double eagle more. Eagle beats a birdie — no tie.', base: true },
-  { key: 'greenie', name: 'Greenie', tag: 'Par 3s', desc: 'Par-3 only: on in regulation, par or better. Flagged live during scoring; pays the base value per hit, head-to-head, and stacks.', base: false },
-  { key: 'sandie', name: 'Sandie', tag: 'Sand save', desc: 'Up and down from a bunker for par. Flagged live during scoring; pays the base value per hit, head-to-head, and stacks.', base: false },
+  { key: 'birdieBonusSkin', name: 'Birdie Skin', tag: 'Birdie+', desc: 'Every birdie-or-better wins its own flat skin, separate from the standard low-score skin.', base: true },
+  { key: 'eagleBonusSkin', name: 'Eagle Skin', tag: 'Carries', desc: 'Eagle-or-better carries hole to hole until exactly one player wins it outright.', base: true },
+  { key: 'greenie', name: 'Greenie', tag: 'Par 3s', desc: 'Par-3 CTP plus par or better. One winner; unclaimed Greenies carry to the next par 3.', base: false },
+  { key: 'sandie', name: 'Sandie', tag: 'Sand save', desc: 'Flag players who were in a bunker; each par-or-better sand save wins a flat skin.', base: false },
   { key: 'closestToPin', name: 'Closest to Pin', tag: 'Par 3s', desc: 'Nearest the flag on par 3s. Flag one winner per hole live during scoring; pays the base value head-to-head.', base: false },
   { key: 'longestDrive', name: 'Longest Drive', tag: 'Par 5', desc: 'Longest drive in the fairway on a par 5. Flag the winner live during scoring; pays the base value head-to-head.', base: false },
 ]
@@ -265,28 +260,21 @@ const defaultSkinsSelection = () => ({
     sandie: false,
     closestToPin: false,
     longestDrive: false,
-    custom1: { enabled: false, name: '', value: 1, mode: 'dollar' }, // mode: 'dollar' | 'multiplier'
+    custom1: { enabled: false, name: '', value: 1, mode: 'dollar' }, // legacy persisted defaults only
     custom2: { enabled: false, name: '', value: 1, mode: 'dollar' },
   },
 })
 
-/** A custom skin's resolved dollar value (flat amount, or multiplier × base). */
-const resolveCustomSkin = (c, base) =>
-  c.mode === 'multiplier' ? base * (Number(c.value) || 0) : (Number(c.value) || 0)
-
-/** "Up to" dollars per hole: base for each of Standard/Birdie/Eagle + customs. */
+/** "Up to" dollars per hole: base for each of Standard/Birdie/Eagle. */
 const perHoleSkinValue = (sel, base) =>
   (sel.standardSkin ? base : 0) +
   (sel.birdieBonusSkin ? base : 0) +
-  (sel.eagleBonusSkin ? base : 0) +
-  (sel.custom1.enabled ? resolveCustomSkin(sel.custom1, base) : 0) +
-  (sel.custom2.enabled ? resolveCustomSkin(sel.custom2, base) : 0)
+  (sel.eagleBonusSkin ? base : 0)
 
 /** Any skin type selected at all (used for validation). */
 const anySkinSelected = (sel) =>
   sel.standardSkin || sel.carryoverSkin || sel.birdieBonusSkin || sel.eagleBonusSkin ||
-  sel.greenie || sel.sandie || sel.closestToPin || sel.longestDrive ||
-  sel.custom1.enabled || sel.custom2.enabled
+  sel.greenie || sel.sandie || sel.closestToPin || sel.longestDrive
 
 /** Wizard skins state → the persisted SkinsConfig (data schema #1). */
 const skinsConfigOf = (b) => ({
@@ -585,8 +573,6 @@ export default function SetupWizard() {
     }
     setBet('skins', next)
   }
-  const setCustomSkin = (slot, p) =>
-    setBet('skins', { selectedSkins: { ...skins.selectedSkins, [slot]: { ...skins.selectedSkins[slot], ...p } } })
   const setSkinBasePreset = (preset) =>
     preset === 'custom'
       ? setBet('skins', { basePreset: 'custom' })
@@ -811,24 +797,17 @@ export default function SetupWizard() {
       {/* content column */}
       <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', maxWidth: 480, width: '100%', margin: '0 auto' }}>
 
-        {/* header */}
-        <div style={{ flex: '0 0 auto', padding: 'max(14px, env(safe-area-inset-top)) 18px 14px', textShadow: '0 2px 12px rgba(0,0,0,.4)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
-            <BackButton />
-            <GoloWordmark variant="white" fontPx={15} />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-            <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: ACCENT }}>
-              STEP {st.step + 1} OF 5 · {STEPS[st.step].toUpperCase()}
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'rgba(255,255,255,.13)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.16)', padding: '6px 12px', borderRadius: 9999, fontSize: 12, fontWeight: 700, color: '#fff', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', flex: '0 0 auto', background: ACCENT }} />
-              {course.name}
-            </span>
-          </div>
-          <div style={{ fontSize: 27, fontWeight: 800, color: '#fff', marginTop: 9, letterSpacing: '-0.5px' }}>{titles[st.step].t}</div>
-          <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,.62)', marginTop: 3, lineHeight: 1.45 }}>{titles[st.step].s}</div>
-          <div style={{ display: 'flex', gap: 6, marginTop: 14 }}>
+        <AppHeader
+          accent={ACCENT}
+          backTo="/"
+          logo="wordmark"
+          rightAction="pin"
+          kicker={`STEP ${st.step + 1} OF 5 · ${STEPS[st.step].toUpperCase()}`}
+          title={titles[st.step].t}
+          contextPill={course.name}
+        />
+        <div style={{ flex: '0 0 auto', padding: '0 18px 14px' }}>
+          <div style={{ display: 'flex', gap: 6 }}>
             {STEPS.map((label, i) => (
               <button
                 key={label}
@@ -841,7 +820,7 @@ export default function SetupWizard() {
         </div>
 
         {/* scrollable body */}
-        <div ref={bodyRef} style={{ flex: 1, overflowY: 'auto', padding: '8px 16px 18px' }}>
+        <div ref={bodyRef} className="golo-scroll" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '8px 16px 18px' }}>
           {st.step === 0 && renderCourse()}
           {st.step === 1 && renderPlayers()}
           {st.step === 2 && renderFormat()}
@@ -907,7 +886,7 @@ export default function SetupWizard() {
         {matches.map((c) => {
           const sel = c.id === st.courseId
           return (
-            <button key={c.id} onClick={() => selectCourse(c.id)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${sel ? hexA(ACCENT, 0.55) : 'rgba(255,255,255,.12)'}`, borderRadius: 16, padding: 12, marginBottom: 10, cursor: 'pointer' }}>
+            <button key={c.id} onClick={() => selectCourse(c.id)} style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${sel ? hexA(ACCENT, 0.55) : 'rgba(255,255,255,.12)'}`, borderRadius: 16, padding: 12, marginBottom: 10, cursor: 'pointer' }}>
               <span style={{ width: 54, height: 54, borderRadius: 12, flex: '0 0 auto', background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundImage: `url(${c.bg}), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)' }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{c.name}</div>
@@ -927,7 +906,7 @@ export default function SetupWizard() {
         {tees.map((t, i) => {
           const sel = i === st.teeIdx
           return (
-            <button key={t.name} onClick={() => patch({ teeIdx: i })} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${sel ? hexA(ACCENT, 0.55) : 'rgba(255,255,255,.12)'}`, borderRadius: 14, padding: '11px 13px', marginBottom: 9, cursor: 'pointer' }}>
+            <button key={t.name} onClick={() => patch({ teeIdx: i })} style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${sel ? hexA(ACCENT, 0.55) : 'rgba(255,255,255,.12)'}`, borderRadius: 14, padding: '11px 13px', marginBottom: 9, cursor: 'pointer' }}>
               <span style={{ width: 16, height: 16, borderRadius: '50%', flex: '0 0 auto', background: t.color, boxShadow: '0 0 0 2px rgba(255,255,255,.28)' }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>{t.name} Tees</div>
@@ -955,7 +934,7 @@ export default function SetupWizard() {
         {/* extras: editable course card — admin-only, hidden until roles ship */}
         {SHOW_COURSE_CARD_EDIT && (
           <>
-            <button onClick={() => patch({ showCard: !st.showCard })} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 48, borderRadius: 12, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.14)', color: 'rgba(255,255,255,.82)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', padding: '0 14px' }}>
+            <button onClick={() => patch({ showCard: !st.showCard })} style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 48, borderRadius: 12, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.14)', color: 'rgba(255,255,255,.82)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', padding: '0 14px' }}>
               <span>Course card · par &amp; stroke index</span>
               <span style={{ color: ACCENT }}>{st.showCard ? 'Hide' : 'Edit'}</span>
             </button>
@@ -1116,7 +1095,7 @@ export default function SetupWizard() {
         {FORMATS.map((f) => {
           const sel = f.id === st.format
           return (
-            <button key={f.id} onClick={() => patch({ format: f.id })} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 13, textAlign: 'left', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${sel ? hexA(ACCENT, 0.55) : 'rgba(255,255,255,.12)'}`, borderRadius: 16, padding: 15, marginBottom: 10, cursor: 'pointer' }}>
+            <button key={f.id} onClick={() => patch({ format: f.id })} style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 13, textAlign: 'left', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${sel ? hexA(ACCENT, 0.55) : 'rgba(255,255,255,.12)'}`, borderRadius: 16, padding: 15, marginBottom: 10, cursor: 'pointer' }}>
               <span style={{ width: 22, height: 22, borderRadius: '50%', flex: '0 0 auto', border: `2px solid ${sel ? ACCENT : 'rgba(255,255,255,.3)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <span style={{ width: 11, height: 11, borderRadius: '50%', background: sel ? ACCENT : 'transparent' }} />
               </span>
@@ -1289,40 +1268,11 @@ export default function SetupWizard() {
   function renderSkinsConfig(b, selCount) {
     const sel = skins.selectedSkins
     const perHole = perHoleSkinValue(sel, skins.baseSkinValue)
-    const nContrib = [sel.standardSkin, sel.birdieBonusSkin, sel.eagleBonusSkin, sel.custom1.enabled, sel.custom2.enabled].filter(Boolean).length
+    const nContrib = [sel.standardSkin, sel.birdieBonusSkin, sel.eagleBonusSkin].filter(Boolean).length
     const sidePots = [sel.greenie && 'Greenie', sel.sandie && 'Sandie', sel.closestToPin && 'CTP', sel.longestDrive && 'Long Drive'].filter(Boolean)
     const sidePotStacking = [sel.greenie && 'Greenie', sel.sandie && 'Sandie'].filter(Boolean)
     const sidePotSingle = [sel.closestToPin && 'CTP', sel.longestDrive && 'Long Drive'].filter(Boolean)
     const selectedLdHole = resolveLdHoleNumber(skins.ldHole, st.pars)
-
-    const renderCustomSkin = (slot, label) => {
-      const c = sel[slot]
-      return (
-        <div style={{ background: 'rgba(255,255,255,.04)', border: `1px solid ${c.enabled ? hexA(ACCENT, 0.35) : 'rgba(255,255,255,.12)'}`, borderRadius: 12, padding: 10, marginBottom: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ flex: 1, fontSize: 13.5, fontWeight: 700, color: c.enabled ? '#fff' : 'rgba(255,255,255,.6)' }}>{label}</span>
-            <button onClick={() => setCustomSkin(slot, { enabled: !c.enabled })} aria-pressed={!!c.enabled} style={miniToggle(c.enabled)}>
-              <span style={miniKnob(c.enabled)} />
-            </button>
-          </div>
-          {c.enabled && (
-            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <input value={c.name} onChange={(e) => setCustomSkin(slot, { name: e.target.value })} placeholder="Name this skin… (e.g. Bingo)" style={{ ...playerField, minHeight: 42 }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 10, padding: 4, flex: '0 0 auto' }}>
-                  {[['dollar', '$'], ['multiplier', '×']].map(([m, lbl]) => {
-                    const on = c.mode === m
-                    return <button key={m} onClick={() => setCustomSkin(slot, { mode: m })} style={{ minWidth: 38, padding: '7px 0', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 800, background: on ? ACCENT : 'transparent', color: on ? ACCENT_DARK : 'rgba(255,255,255,.6)' }}>{lbl}</button>
-                  })}
-                </div>
-                <input type="number" inputMode="numeric" min={0} value={c.value} onChange={(e) => setCustomSkin(slot, { value: Number(e.target.value) })} aria-label={`${label} value`} style={{ ...playerField, width: 84, minHeight: 42, textAlign: 'center' }} />
-                <span style={{ fontSize: 12, color: 'rgba(255,255,255,.5)' }}>{c.mode === 'multiplier' ? `= $${resolveCustomSkin(c, skins.baseSkinValue)}` : 'per skin'}</span>
-              </div>
-            </div>
-          )}
-        </div>
-      )
-    }
 
     return (
       <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,.1)', display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -1424,13 +1374,6 @@ export default function SetupWizard() {
               )
             })}
           </div>
-        </div>
-
-        {/* custom skins */}
-        <div>
-          <div style={skinSectionLabel}>CUSTOM SKINS</div>
-          {renderCustomSkin('custom1', 'Custom skin 1')}
-          {renderCustomSkin('custom2', 'Custom skin 2')}
         </div>
 
         {/* who's in */}

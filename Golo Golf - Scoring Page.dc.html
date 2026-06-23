@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="min-height:100vh;background:#eceef0;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:44px 32px 96px;box-sizing:border-box;color:#111827;">
+  <div style="max-width:1500px;margin:0 auto;">
+
+    <!-- Intro / context panel -->
+    <header style="margin-bottom:8px;">
+      <div style="margin-bottom:14px;"><span style="width:42px;height:42px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;background:#dcfce7;border:1px solid rgba(21,128,61,.18);"><svg width="28" height="28" viewBox="0 0 120 124" fill="none" style="display:block"><path d="M56 20 A40 40 0 1 0 95.8 64" stroke="#15803d" stroke-width="12" stroke-linecap="round"></path><line x1="95.8" y1="64" x2="64" y2="64" stroke="#15803d" stroke-width="12" stroke-linecap="round"></line><circle cx="56" cy="58" r="15" fill="#fff"></circle><circle cx="56" cy="58" r="9" fill="none" stroke="rgba(21,128,61,0.4)" stroke-width="2.4"></circle><line x1="56" y1="44" x2="56" y2="14" stroke="#15803d" stroke-width="3.4"></line><path d="M56 14 L86 22 L56 34 Z" fill="#15803d"></path></svg></span></div>
+      <div style="font-size:12px;font-weight:800;letter-spacing:2.5px;color:#15803d;">GOLO GOLF · LIVE SCORING</div>
+      <h1 style="font-size:34px;font-weight:800;color:#111827;margin:8px 0 10px;letter-spacing:-0.5px;">Three directions for the in-round scoring screen</h1>
+      <p style="font-size:16px;line-height:1.6;color:#4b5563;max-width:760px;margin:0;">All three are fully tappable and share one live round (Pinehurst No.2, 4 players, holes 1–7 played). Tap <strong>+ / −</strong> to change a score, tap a number for the keypad, use <strong>‹ ›</strong> to move holes, and open the <strong>Leaderboard</strong> or any <strong>bet</strong> from the bottom. Built on your real tokens so it drops into the app.</p>
+
+      <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin-top:18px;">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span style="width:22px;height:22px;border-radius:6px;background:#15803d;border:1px solid rgba(0,0,0,.08);"></span>
+          <span style="font-size:12px;color:#6b7280;font-weight:600;">green-700 · actions</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span style="width:22px;height:22px;border-radius:6px;background:#111827;"></span>
+          <span style="font-size:12px;color:#6b7280;font-weight:600;">gray-900 · primary nav</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span style="width:22px;height:22px;border-radius:6px;background:#fffbeb;border:1px solid #fde68a;"></span>
+          <span style="font-size:12px;color:#6b7280;font-weight:600;">amber · leader</span>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span style="width:16px;height:16px;border-radius:50%;background:#14b8a6;"></span>
+          <span style="width:16px;height:16px;border-radius:50%;background:#3b82f6;"></span>
+          <span style="width:16px;height:16px;border-radius:50%;background:#f97316;"></span>
+          <span style="width:16px;height:16px;border-radius:50%;background:#a855f7;"></span>
+          <span style="font-size:12px;color:#6b7280;font-weight:600;margin-left:2px;">player palette</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <span style="font-size:11px;font-weight:700;color:#374151;background:#fff;border:1px solid #e5e7eb;padding:5px 10px;border-radius:9999px;">390px · iPhone 14 Pro</span>
+          <span style="font-size:11px;font-weight:700;color:#374151;background:#fff;border:1px solid #e5e7eb;padding:5px 10px;border-radius:9999px;">≥48px tap targets</span>
+          <span style="font-size:11px;font-weight:700;color:#374151;background:#fff;border:1px solid #e5e7eb;padding:5px 10px;border-radius:9999px;">high-contrast for sun</span>
+          <span style="font-size:11px;font-weight:700;color:#374151;background:#fff;border:1px solid #e5e7eb;padding:5px 10px;border-radius:9999px;">system font</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Phones row -->
+    <div style="display:flex;gap:52px;flex-wrap:wrap;justify-content:center;align-items:flex-start;margin-top:44px;">
+
+      <!-- ============ OPTION A — FAITHFUL ============ -->
+      <section style="display:flex;flex-direction:column;gap:16px;width:390px;">
+        <div>
+          <div style="display:inline-block;font-size:11px;font-weight:800;letter-spacing:1.5px;color:#15803d;background:#dcfce7;padding:5px 11px;border-radius:9999px;">OPTION A</div>
+          <div style="font-size:20px;font-weight:800;color:#111827;margin-top:9px;">Faithful</div>
+          <div style="font-size:13px;line-height:1.5;color:#6b7280;margin-top:3px;">Your current structure, cleaned up. White header, stepper rows, a scrollable pill bets bar, gray-900 Leaderboard.</div>
+        </div>
+
+        <div style="position:relative;width:390px;height:844px;background:#fff;border-radius:46px;border:1px solid #d1d5db;box-shadow:0 34px 70px -24px rgba(0,0,0,.4);overflow:hidden;">
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;background:#fff;">
+
+            <!-- status bar -->
+            <div style="height:32px;flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:0 24px;color:#111827;font-size:13px;font-weight:700;">
+              <span>9:41</span>
+              <span style="display:flex;align-items:center;gap:6px;">
+                <span>5G</span>
+                <span style="display:inline-block;width:23px;height:11px;border:1.5px solid #111827;border-radius:3px;position:relative;">
+                  <span style="position:absolute;left:1.5px;top:1.5px;bottom:1.5px;right:6px;background:#111827;border-radius:1px;"></span>
+                </span>
+              </span>
+            </div>
+
+            <!-- hole header (white) -->
+            <div style="flex:0 0 auto;background:#fff;border-bottom:1px solid #e5e7eb;padding:6px 14px 16px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                <button onClick="{{ A.prev }}" style="width:52px;height:52px;border-radius:14px;background:#f3f4f6;color:#111827;font-size:24px;font-weight:800;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;">‹</button>
+                <div style="text-align:center;flex:1;min-width:0;">
+                  <div style="font-size:11px;letter-spacing:2.5px;color:#9ca3af;font-weight:800;">HOLE</div>
+                  <div style="font-size:46px;font-weight:800;color:#111827;line-height:1.05;">{{ A.holeNum }}</div>
+                  <div style="font-size:14px;font-weight:600;color:#6b7280;margin-top:2px;">{{ A.detailLine }}</div>
+                </div>
+                <button onClick="{{ A.next }}" style="width:52px;height:52px;border-radius:14px;background:#f3f4f6;color:#111827;font-size:24px;font-weight:800;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;">›</button>
+              </div>
+              <div style="margin-top:12px;">
+                <div style="display:flex;justify-content:space-between;font-size:11px;color:#9ca3af;font-weight:700;margin-bottom:5px;">
+                  <span>{{ A.progressLabel }}</span><span>{{ A.parLabel }}</span>
+                </div>
+                <div style="height:6px;border-radius:9999px;background:#f3f4f6;overflow:hidden;">
+                  <div style="height:100%;border-radius:9999px;background:#15803d;width: {{ A.progressPct }};"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- score list -->
+            <div style="flex:1;overflow-y:auto;background:#fff;">
+              <sc-for list="{{ A.players }}" as="p" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:12px;padding:15px 14px;border-bottom:1px solid #f3f4f6;">
+                  <span style="width:12px;height:12px;border-radius:50%;flex:0 0 auto;background: {{ p.color }};"></span>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:18px;font-weight:700;color:#111827;">{{ p.name }}</div>
+                    <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;">
+                      <span style="font-size:12px;font-weight:600;color:#6b7280;background:#f3f4f6;padding:3px 8px;border-radius:9999px;">Hdcp {{ p.hdcp }}</span>
+                      <sc-if value="{{ p.hasScore }}" hint-placeholder-val="{{ true }}">
+                        <span style="font-size:12px;font-weight:700;color:#374151;background:#f3f4f6;padding:3px 8px;border-radius:9999px;">Net {{ p.net }}</span>
+                        <span style="font-size:12px;font-weight:800;padding:3px 8px;border-radius:9999px;background:#f3f4f6;color: {{ p.vsColor }};">{{ p.vsLabel }}</span>
+                      </sc-if>
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;flex:0 0 auto;">
+                    <button onClick="{{ p.dec }}" style="width:48px;height:48px;border-radius:12px;background:#f3f4f6;color:#111827;font-size:28px;font-weight:700;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;">−</button>
+                    <button onClick="{{ p.tapNum }}" style="min-width:52px;height:48px;border:none;background:transparent;font-size:32px;font-weight:800;color:#111827;display:flex;align-items:center;justify-content:center;cursor:pointer;">{{ p.gross }}</button>
+                    <button onClick="{{ p.inc }}" style="width:48px;height:48px;border-radius:12px;background:#dcfce7;color:#15803d;font-size:28px;font-weight:700;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;">+</button>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+
+            <!-- active bets bar -->
+            <div style="flex:0 0 auto;background:#f9fafb;border-top:1px solid #eef0f2;padding:10px 0 12px;">
+              <div style="font-size:11px;font-weight:800;letter-spacing:1.2px;color:#9ca3af;padding:0 14px 7px;">ACTIVE BETS</div>
+              <div style="display:flex;gap:8px;overflow-x:auto;padding:0 14px;">
+                <sc-for list="{{ A.bets }}" as="b" hint-placeholder-count="4">
+                  <button onClick="{{ b.open }}" style="flex:0 0 auto;display:flex;flex-direction:column;gap:3px;text-align:left;min-width:152px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:9px 11px;cursor:pointer;">
+                    <span style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#111827;"><span>{{ b.icon }}</span>{{ b.title }}</span>
+                    <span style="font-size:12px;color:#6b7280;">{{ b.status }}</span>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+
+            <!-- bottom nav -->
+            <nav style="flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:10px 12px 14px;border-top:1px solid #e5e7eb;background:#fff;">
+              <button onClick="{{ A.prev }}" style="min-height:48px;padding:0 14px;border-radius:12px;background:transparent;border:none;font-size:14px;font-weight:600;color:#374151;cursor:pointer;">◀ Prev</button>
+              <button onClick="{{ A.openLeaderboard }}" style="flex:1;min-height:48px;border-radius:12px;background:#111827;color:#fff;font-size:15px;font-weight:700;border:none;cursor:pointer;">Leaderboard</button>
+              <sc-if value="{{ A.isLast }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ A.finish }}" style="min-height:48px;padding:0 14px;border-radius:12px;background:transparent;border:none;font-size:14px;font-weight:700;color:#15803d;cursor:pointer;">Finish</button>
+              </sc-if>
+              <sc-if value="{{ A.notLast }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ A.next }}" style="min-height:48px;padding:0 14px;border-radius:12px;background:transparent;border:none;font-size:14px;font-weight:600;color:#374151;cursor:pointer;">Next ▶</button>
+              </sc-if>
+            </nav>
+          </div>
+
+          <!-- SHEETS A -->
+          <sc-if value="{{ A.sheetLeaderboard }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;z-index:30;">
+              <div onClick="{{ A.closeSheet }}" style="position:absolute;inset:0;background:rgba(17,24,39,.45);"></div>
+              <div style="position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:24px 24px 0 0;padding:8px 0 18px;max-height:76%;display:flex;flex-direction:column;box-shadow:0 -12px 34px rgba(0,0,0,.2);">
+                <div style="width:42px;height:5px;border-radius:9999px;background:#e5e7eb;margin:6px auto 12px;"></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:0 18px 10px;">
+                  <span style="font-size:19px;font-weight:800;color:#111827;">Leaderboard · Net</span>
+                  <button onClick="{{ A.closeSheet }}" style="font-size:14px;font-weight:700;color:#15803d;background:none;border:none;min-height:44px;cursor:pointer;">Done</button>
+                </div>
+                <div style="overflow-y:auto;">
+                  <div style="display:flex;font-size:10px;font-weight:800;color:#9ca3af;letter-spacing:.6px;padding:6px 18px;">
+                    <span style="width:24px;">#</span><span style="flex:1;">PLAYER</span><span style="width:48px;text-align:center;">THRU</span><span style="width:54px;text-align:center;">NET</span><span style="width:50px;text-align:right;">GROSS</span>
+                  </div>
+                  <sc-for list="{{ A.lead }}" as="r" hint-placeholder-count="4">
+                    <div style="display:flex;align-items:center;padding:13px 18px;border-top:1px solid #f3f4f6;background: {{ r.rowBg }};">
+                      <span style="width:24px;font-weight:800;color:#374151;">{{ r.pos }}</span>
+                      <span style="flex:1;display:flex;align-items:center;gap:9px;min-width:0;">
+                        <span style="width:11px;height:11px;border-radius:50%;flex:0 0 auto;background: {{ r.color }};"></span>
+                        <span style="font-size:16px;font-weight:600;color:#111827;">{{ r.name }}</span>
+                      </span>
+                      <span style="width:48px;text-align:center;font-size:13px;color:#9ca3af;">{{ r.thru }}</span>
+                      <span style="width:54px;text-align:center;font-size:19px;font-weight:800;color: {{ r.netColor }};">{{ r.netLabel }}</span>
+                      <span style="width:50px;text-align:right;font-size:15px;color:#6b7280;">{{ r.grossTot }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ A.sheetBets }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;z-index:30;">
+              <div onClick="{{ A.closeSheet }}" style="position:absolute;inset:0;background:rgba(17,24,39,.45);"></div>
+              <div style="position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:24px 24px 0 0;padding:8px 0 18px;max-height:76%;display:flex;flex-direction:column;box-shadow:0 -12px 34px rgba(0,0,0,.2);">
+                <div style="width:42px;height:5px;border-radius:9999px;background:#e5e7eb;margin:6px auto 12px;"></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:0 18px 10px;">
+                  <span style="font-size:19px;font-weight:800;color:#111827;">Active Bets</span>
+                  <button onClick="{{ A.closeSheet }}" style="font-size:14px;font-weight:700;color:#15803d;background:none;border:none;min-height:44px;cursor:pointer;">Done</button>
+                </div>
+                <div style="overflow-y:auto;">
+                  <sc-for list="{{ A.bets }}" as="b" hint-placeholder-count="4">
+                    <div style="padding:14px 18px;border-top:1px solid #f3f4f6;">
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                        <span style="display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700;color:#111827;"><span>{{ b.icon }}</span>{{ b.title }}</span>
+                        <span style="font-size:13px;font-weight:700;color:#15803d;text-align:right;">{{ b.status }}</span>
+                      </div>
+                      <div style="font-size:13px;color:#9ca3af;margin-top:4px;">{{ b.desc }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ A.kpOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;z-index:40;">
+              <div onClick="{{ A.kp.close }}" style="position:absolute;inset:0;background:rgba(17,24,39,.5);"></div>
+              <div style="position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:24px 24px 0 0;padding:8px 16px 20px;box-shadow:0 -12px 34px rgba(0,0,0,.2);">
+                <div style="width:42px;height:5px;border-radius:9999px;background:#e5e7eb;margin:6px auto 14px;"></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                  <span style="display:flex;align-items:center;gap:9px;font-size:18px;font-weight:800;color:#111827;"><span style="width:12px;height:12px;border-radius:50%;background: {{ A.kp.color }};"></span>{{ A.kp.name }}</span>
+                  <span style="font-size:13px;font-weight:600;color:#9ca3af;">{{ A.kp.holeLabel }}</span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+                  <sc-for list="{{ A.kp.keys }}" as="k" hint-placeholder-count="9">
+                    <button onClick="{{ k.on }}" style="height:62px;border-radius:14px;background:#f3f4f6;font-size:26px;font-weight:800;color:#111827;border:none;cursor:pointer;">{{ k.n }}</button>
+                  </sc-for>
+                </div>
+                <button onClick="{{ A.kp.close }}" style="margin-top:12px;width:100%;min-height:48px;border-radius:12px;background:transparent;border:none;font-size:15px;font-weight:700;color:#6b7280;cursor:pointer;">Cancel</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ A.sheetFinish }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:24px;">
+              <div onClick="{{ A.closeSheet }}" style="position:absolute;inset:0;background:rgba(17,24,39,.5);"></div>
+              <div style="position:relative;background:#fff;border-radius:22px;padding:24px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.3);">
+                <div style="font-size:20px;font-weight:800;color:#111827;">Finish round?</div>
+                <div style="font-size:14px;color:#6b7280;margin-top:6px;line-height:1.5;">You're on {{ A.progressLabel }}. Finishing locks scores and opens the payout summary.</div>
+                <div style="margin-top:14px;background:#fffbeb;border:1px solid #fde68a;border-radius:14px;padding:13px 14px;font-size:15px;font-weight:700;color:#92400e;"><svg width="15" height="15" viewBox="0 0 24 24" fill="#92400e" style="display:inline-block;vertical-align:-3px;margin-right:6px;"><path d="M6 3h12v2h3a1 1 0 0 1 1 1c0 2.9-1.9 5.2-4.6 5.8A6.5 6.5 0 0 1 13 15.8V18h3a1 1 0 0 1 1 1v2H7v-2a1 1 0 0 1 1-1h3v-2.2a6.5 6.5 0 0 1-4.4-3.9C3.9 11.2 2 8.9 2 6a1 1 0 0 1 1-1h3V3zM6 7H4.2c.3 1.4 1.1 2.4 2.1 2.9A8.6 8.6 0 0 1 6 8V7zm12 0v1c0 .6 0 1.2-.2 1.8 1-.5 1.7-1.4 2-2.8H18z"></path></svg>Leader: {{ A.leaderName }}</div>
+                <button onClick="{{ A.closeSheet }}" style="margin-top:16px;width:100%;min-height:50px;border-radius:12px;background:#15803d;color:#fff;font-size:16px;font-weight:700;border:none;cursor:pointer;">View Payouts →</button>
+                <button onClick="{{ A.closeSheet }}" style="margin-top:8px;width:100%;min-height:48px;border-radius:12px;background:transparent;border:none;font-size:14px;font-weight:700;color:#6b7280;cursor:pointer;">Keep Scoring</button>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </section>
+
+      <!-- ============ OPTION B — HOLE HERO ============ -->
+      <section style="display:flex;flex-direction:column;gap:16px;width:390px;">
+        <div>
+          <div style="display:inline-block;font-size:11px;font-weight:800;letter-spacing:1.5px;color:#15803d;background:#dcfce7;padding:5px 11px;border-radius:9999px;">OPTION B</div>
+          <div style="font-size:20px;font-weight:800;color:#111827;margin-top:9px;">Hole Hero</div>
+          <div style="font-size:13px;line-height:1.5;color:#6b7280;margin-top:3px;">Green header band, big score tiles, a persistent top-2 standings strip, and a compact bets ticker.</div>
+        </div>
+
+        <div style="position:relative;width:390px;height:844px;background:#fff;border-radius:46px;border:1px solid #d1d5db;box-shadow:0 34px 70px -24px rgba(0,0,0,.4);overflow:hidden;">
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;background:#fff;">
+
+            <!-- status bar (green) -->
+            <div style="height:32px;flex:0 0 auto;background:#15803d;display:flex;align-items:center;justify-content:space-between;padding:0 24px;color:#fff;font-size:13px;font-weight:700;">
+              <span>9:41</span>
+              <span style="display:flex;align-items:center;gap:6px;">
+                <span>5G</span>
+                <span style="display:inline-block;width:23px;height:11px;border:1.5px solid #fff;border-radius:3px;position:relative;">
+                  <span style="position:absolute;left:1.5px;top:1.5px;bottom:1.5px;right:6px;background:#fff;border-radius:1px;"></span>
+                </span>
+              </span>
+            </div>
+
+            <!-- hole header (green band) -->
+            <div style="flex:0 0 auto;background:#15803d;padding:6px 14px 16px;color:#fff;">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                <button onClick="{{ B.prev }}" style="width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;font-size:24px;font-weight:800;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;">‹</button>
+                <div style="text-align:center;flex:1;min-width:0;">
+                  <div style="font-size:11px;letter-spacing:2.5px;color:#bbf7d0;font-weight:800;">HOLE</div>
+                  <div style="font-size:58px;font-weight:800;line-height:1;">{{ B.holeNum }}</div>
+                  <div style="display:flex;gap:6px;justify-content:center;margin-top:8px;">
+                    <span style="font-size:12px;font-weight:800;color:#14532d;background:#eab308;padding:4px 11px;border-radius:9999px;">{{ B.parLabel }}</span>
+                    <span style="font-size:12px;font-weight:700;color:#eafaf0;background:rgba(255,255,255,.16);padding:4px 11px;border-radius:9999px;">SI {{ B.hdcp }}</span>
+                    <span style="font-size:12px;font-weight:700;color:#eafaf0;background:rgba(255,255,255,.16);padding:4px 11px;border-radius:9999px;">{{ B.yardsLabel }}</span>
+                  </div>
+                </div>
+                <button onClick="{{ B.next }}" style="width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;font-size:24px;font-weight:800;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;">›</button>
+              </div>
+              <div style="margin-top:13px;">
+                <div style="display:flex;justify-content:space-between;font-size:11px;color:#bbf7d0;font-weight:700;margin-bottom:5px;">
+                  <span>{{ B.progressLabel }}</span><span>Front · Back</span>
+                </div>
+                <div style="height:6px;border-radius:9999px;background:rgba(255,255,255,.22);overflow:hidden;">
+                  <div style="height:100%;border-radius:9999px;background:#eab308;width: {{ B.progressPct }};"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- persistent mini-leaderboard -->
+            <div style="flex:0 0 auto;background:#166534;display:flex;gap:1px;">
+              <sc-for list="{{ B.leadTop2 }}" as="r" hint-placeholder-count="2">
+                <div style="flex:1;display:flex;align-items:center;gap:8px;padding:9px 14px;min-width:0;">
+                  <span style="font-size:11px;font-weight:800;color:#14532d;background:#eab308;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:0 0 auto;">{{ r.pos }}</span>
+                  <span style="width:9px;height:9px;border-radius:50%;flex:0 0 auto;background: {{ r.color }};"></span>
+                  <span style="font-size:13px;font-weight:700;color:#fff;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.name }}</span>
+                  <span style="font-size:14px;font-weight:800;color:#eab308;flex:0 0 auto;">{{ r.netLabel }}</span>
+                </div>
+              </sc-for>
+            </div>
+
+            <!-- score list (big tiles) -->
+            <div style="flex:1;overflow-y:auto;background:#fff;padding:6px 0;">
+              <sc-for list="{{ B.players }}" as="p" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid #f3f4f6;">
+                  <span style="width:12px;height:12px;border-radius:50%;flex:0 0 auto;background: {{ p.color }};"></span>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:17px;font-weight:700;color:#111827;">{{ p.name }}</div>
+                    <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
+                      <sc-if value="{{ p.hasScore }}" hint-placeholder-val="{{ true }}">
+                        <span style="font-size:12px;font-weight:700;color:#374151;background:#f3f4f6;padding:3px 8px;border-radius:9999px;">Net {{ p.net }}</span>
+                        <span style="font-size:12px;font-weight:800;padding:3px 8px;border-radius:9999px;background:#f3f4f6;color: {{ p.vsColor }};">{{ p.vsLabel }}</span>
+                      </sc-if>
+                      <sc-if value="{{ p.noScore }}" hint-placeholder-val="{{ false }}">
+                        <span style="font-size:12px;font-weight:600;color:#9ca3af;background:#f3f4f6;padding:3px 8px;border-radius:9999px;">Hdcp {{ p.hdcp }}</span>
+                      </sc-if>
+                    </div>
+                  </div>
+                  <button onClick="{{ p.dec }}" style="width:48px;height:58px;border-radius:12px;background:#f3f4f6;color:#111827;font-size:28px;font-weight:700;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;">−</button>
+                  <button onClick="{{ p.tapNum }}" style="width:64px;height:58px;border-radius:14px;border:2px solid #e5e7eb;background:#fff;font-size:34px;font-weight:800;color:#111827;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;">{{ p.gross }}</button>
+                  <button onClick="{{ p.inc }}" style="width:48px;height:58px;border-radius:12px;background:#15803d;color:#fff;font-size:28px;font-weight:700;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;">+</button>
+                </div>
+              </sc-for>
+            </div>
+
+            <!-- bets ticker -->
+            <button onClick="{{ B.openBets }}" style="flex:0 0 auto;display:flex;align-items:center;gap:10px;width:100%;background:#15803d;color:#fff;border:none;padding:13px 14px;text-align:left;cursor:pointer;">
+              <span style="font-size:11px;font-weight:800;letter-spacing:1px;background:rgba(255,255,255,.2);padding:3px 8px;border-radius:6px;flex:0 0 auto;">BETS</span>
+              <span style="flex:1;font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ B.betTicker }}</span>
+              <span style="font-size:20px;flex:0 0 auto;">›</span>
+            </button>
+
+            <!-- bottom nav -->
+            <nav style="flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:10px 12px 14px;border-top:1px solid #e5e7eb;background:#fff;">
+              <button onClick="{{ B.prev }}" style="min-height:48px;padding:0 14px;border-radius:12px;background:transparent;border:none;font-size:14px;font-weight:600;color:#374151;cursor:pointer;">◀ Prev</button>
+              <button onClick="{{ B.openLeaderboard }}" style="flex:1;min-height:48px;border-radius:12px;background:#111827;color:#fff;font-size:15px;font-weight:700;border:none;cursor:pointer;">Leaderboard</button>
+              <sc-if value="{{ B.isLast }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ B.finish }}" style="min-height:48px;padding:0 14px;border-radius:12px;background:transparent;border:none;font-size:14px;font-weight:700;color:#15803d;cursor:pointer;">Finish</button>
+              </sc-if>
+              <sc-if value="{{ B.notLast }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ B.next }}" style="min-height:48px;padding:0 14px;border-radius:12px;background:transparent;border:none;font-size:14px;font-weight:600;color:#374151;cursor:pointer;">Next ▶</button>
+              </sc-if>
+            </nav>
+          </div>
+
+          <!-- SHEETS B -->
+          <sc-if value="{{ B.sheetLeaderboard }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;z-index:30;">
+              <div onClick="{{ B.closeSheet }}" style="position:absolute;inset:0;background:rgba(17,24,39,.45);"></div>
+              <div style="position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:24px 24px 0 0;padding:8px 0 18px;max-height:76%;display:flex;flex-direction:column;box-shadow:0 -12px 34px rgba(0,0,0,.2);">
+                <div style="width:42px;height:5px;border-radius:9999px;background:#e5e7eb;margin:6px auto 12px;"></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:0 18px 10px;">
+                  <span style="font-size:19px;font-weight:800;color:#111827;">Leaderboard · Net</span>
+                  <button onClick="{{ B.closeSheet }}" style="font-size:14px;font-weight:700;color:#15803d;background:none;border:none;min-height:44px;cursor:pointer;">Done</button>
+                </div>
+                <div style="overflow-y:auto;">
+                  <div style="display:flex;font-size:10px;font-weight:800;color:#9ca3af;letter-spacing:.6px;padding:6px 18px;">
+                    <span style="width:24px;">#</span><span style="flex:1;">PLAYER</span><span style="width:48px;text-align:center;">THRU</span><span style="width:54px;text-align:center;">NET</span><span style="width:50px;text-align:right;">GROSS</span>
+                  </div>
+                  <sc-for list="{{ B.lead }}" as="r" hint-placeholder-count="4">
+                    <div style="display:flex;align-items:center;padding:13px 18px;border-top:1px solid #f3f4f6;background: {{ r.rowBg }};">
+                      <span style="width:24px;font-weight:800;color:#374151;">{{ r.pos }}</span>
+                      <span style="flex:1;display:flex;align-items:center;gap:9px;min-width:0;">
+                        <span style="width:11px;height:11px;border-radius:50%;flex:0 0 auto;background: {{ r.color }};"></span>
+                        <span style="font-size:16px;font-weight:600;color:#111827;">{{ r.name }}</span>
+                      </span>
+                      <span style="width:48px;text-align:center;font-size:13px;color:#9ca3af;">{{ r.thru }}</span>
+                      <span style="width:54px;text-align:center;font-size:19px;font-weight:800;color: {{ r.netColor }};">{{ r.netLabel }}</span>
+                      <span style="width:50px;text-align:right;font-size:15px;color:#6b7280;">{{ r.grossTot }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ B.sheetBets }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;z-index:30;">
+              <div onClick="{{ B.closeSheet }}" style="position:absolute;inset:0;background:rgba(17,24,39,.45);"></div>
+              <div style="position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:24px 24px 0 0;padding:8px 0 18px;max-height:76%;display:flex;flex-direction:column;box-shadow:0 -12px 34px rgba(0,0,0,.2);">
+                <div style="width:42px;height:5px;border-radius:9999px;background:#e5e7eb;margin:6px auto 12px;"></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:0 18px 10px;">
+                  <span style="font-size:19px;font-weight:800;color:#111827;">Active Bets</span>
+                  <button onClick="{{ B.closeSheet }}" style="font-size:14px;font-weight:700;color:#15803d;background:none;border:none;min-height:44px;cursor:pointer;">Done</button>
+                </div>
+                <div style="overflow-y:auto;">
+                  <sc-for list="{{ B.bets }}" as="b" hint-placeholder-count="4">
+                    <div style="padding:14px 18px;border-top:1px solid #f3f4f6;">
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                        <span style="display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700;color:#111827;"><span>{{ b.icon }}</span>{{ b.title }}</span>
+                        <span style="font-size:13px;font-weight:700;color:#15803d;text-align:right;">{{ b.status }}</span>
+                      </div>
+                      <div style="font-size:13px;color:#9ca3af;margin-top:4px;">{{ b.desc }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ B.kpOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;z-index:40;">
+              <div onClick="{{ B.kp.close }}" style="position:absolute;inset:0;background:rgba(17,24,39,.5);"></div>
+              <div style="position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:24px 24px 0 0;padding:8px 16px 20px;box-shadow:0 -12px 34px rgba(0,0,0,.2);">
+                <div style="width:42px;height:5px;border-radius:9999px;background:#e5e7eb;margin:6px auto 14px;"></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                  <span style="display:flex;align-items:center;gap:9px;font-size:18px;font-weight:800;color:#111827;"><span style="width:12px;height:12px;border-radius:50%;background: {{ B.kp.color }};"></span>{{ B.kp.name }}</span>
+                  <span style="font-size:13px;font-weight:600;color:#9ca3af;">{{ B.kp.holeLabel }}</span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+                  <sc-for list="{{ B.kp.keys }}" as="k" hint-placeholder-count="9">
+                    <button onClick="{{ k.on }}" style="height:62px;border-radius:14px;background:#f3f4f6;font-size:26px;font-weight:800;color:#111827;border:none;cursor:pointer;">{{ k.n }}</button>
+                  </sc-for>
+                </div>
+                <button onClick="{{ B.kp.close }}" style="margin-top:12px;width:100%;min-height:48px;border-radius:12px;background:transparent;border:none;font-size:15px;font-weight:700;color:#6b7280;cursor:pointer;">Cancel</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ B.sheetFinish }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:24px;">
+              <div onClick="{{ B.closeSheet }}" style="position:absolute;inset:0;background:rgba(17,24,39,.5);"></div>
+              <div style="position:relative;background:#fff;border-radius:22px;padding:24px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.3);">
+                <div style="font-size:20px;font-weight:800;color:#111827;">Finish round?</div>
+                <div style="font-size:14px;color:#6b7280;margin-top:6px;line-height:1.5;">You're on {{ B.progressLabel }}. Finishing locks scores and opens the payout summary.</div>
+                <div style="margin-top:14px;background:#fffbeb;border:1px solid #fde68a;border-radius:14px;padding:13px 14px;font-size:15px;font-weight:700;color:#92400e;"><svg width="15" height="15" viewBox="0 0 24 24" fill="#92400e" style="display:inline-block;vertical-align:-3px;margin-right:6px;"><path d="M6 3h12v2h3a1 1 0 0 1 1 1c0 2.9-1.9 5.2-4.6 5.8A6.5 6.5 0 0 1 13 15.8V18h3a1 1 0 0 1 1 1v2H7v-2a1 1 0 0 1 1-1h3v-2.2a6.5 6.5 0 0 1-4.4-3.9C3.9 11.2 2 8.9 2 6a1 1 0 0 1 1-1h3V3zM6 7H4.2c.3 1.4 1.1 2.4 2.1 2.9A8.6 8.6 0 0 1 6 8V7zm12 0v1c0 .6 0 1.2-.2 1.8 1-.5 1.7-1.4 2-2.8H18z"></path></svg>Leader: {{ B.leaderName }}</div>
+                <button onClick="{{ B.closeSheet }}" style="margin-top:16px;width:100%;min-height:50px;border-radius:12px;background:#15803d;color:#fff;font-size:16px;font-weight:700;border:none;cursor:pointer;">View Payouts →</button>
+                <button onClick="{{ B.closeSheet }}" style="margin-top:8px;width:100%;min-height:48px;border-radius:12px;background:transparent;border:none;font-size:14px;font-weight:700;color:#6b7280;cursor:pointer;">Keep Scoring</button>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </section>
+
+      <!-- ============ OPTION C — PLAYER CARDS ============ -->
+      <section style="display:flex;flex-direction:column;gap:16px;width:390px;">
+        <div>
+          <div style="display:inline-block;font-size:11px;font-weight:800;letter-spacing:1.5px;color:#15803d;background:#dcfce7;padding:5px 11px;border-radius:9999px;">OPTION C</div>
+          <div style="font-size:20px;font-weight:800;color:#111827;margin-top:9px;">Player Cards</div>
+          <div style="font-size:13px;line-height:1.5;color:#6b7280;margin-top:3px;">One tappable card per player with circular steppers and a hole-dot strip. Energetic and glanceable at arm's length.</div>
+        </div>
+
+        <div style="position:relative;width:390px;height:844px;background:#fff;border-radius:46px;border:1px solid #d1d5db;box-shadow:0 34px 70px -24px rgba(0,0,0,.4);overflow:hidden;">
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;background:#f9fafb;">
+
+            <!-- status bar (green) -->
+            <div style="height:32px;flex:0 0 auto;background:#15803d;display:flex;align-items:center;justify-content:space-between;padding:0 24px;color:#fff;font-size:13px;font-weight:700;">
+              <span>9:41</span>
+              <span style="display:flex;align-items:center;gap:6px;">
+                <span>5G</span>
+                <span style="display:inline-block;width:23px;height:11px;border:1.5px solid #fff;border-radius:3px;position:relative;">
+                  <span style="position:absolute;left:1.5px;top:1.5px;bottom:1.5px;right:6px;background:#fff;border-radius:1px;"></span>
+                </span>
+              </span>
+            </div>
+
+            <!-- compact header + dots (course photo bg) -->
+            <div style="position:relative;flex:0 0 auto;background:#15803d;color:#fff;overflow:hidden;">
+              <x-import component-from-global-scope="image-slot" from="./image-slot.js" id="golf-course-header" shape="rect" placeholder="Drop a course photo" hint-size="100%,100%" style="position:absolute;inset:0;width:100%;height:100%;"></x-import>
+              <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(20,83,45,.42) 0%, rgba(20,83,45,.86) 100%);pointer-events:none;"></div>
+              <div style="position:relative;pointer-events:none;padding:8px 14px 14px;text-shadow:0 1px 8px rgba(0,0,0,.35);">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <button onClick="{{ C.prev }}" style="pointer-events:auto;width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.22);color:#fff;font-size:24px;font-weight:800;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;">‹</button>
+                  <div style="flex:1;text-align:center;min-width:0;">
+                    <div style="font-size:11px;letter-spacing:2.5px;color:#dcfce7;font-weight:800;">HOLE</div>
+                    <div style="font-size:40px;font-weight:800;line-height:1.05;">{{ C.holeNum }}</div>
+                    <div style="font-size:13px;font-weight:600;color:#eafaf0;">{{ C.detailLine }}</div>
+                  </div>
+                  <button onClick="{{ C.next }}" style="pointer-events:auto;width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.22);color:#fff;font-size:24px;font-weight:800;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;">›</button>
+                </div>
+                <div style="display:flex;gap:5px;align-items:center;justify-content:center;margin-top:12px;">
+                  <sc-for list="{{ C.dots }}" as="d" hint-placeholder-count="18">
+                    <span style="height:8px;border-radius:9999px;flex:0 0 auto;background: {{ d.bg }};width: {{ d.w }};"></span>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+
+            <!-- player cards -->
+            <div style="flex:1;overflow-y:auto;padding:14px;">
+              <sc-for list="{{ C.players }}" as="p" hint-placeholder-count="4">
+                <div style="position:relative;border-radius:18px;overflow:hidden;background: {{ p.tint }};border:1px solid #eef0f2;padding:15px 16px 16px;margin-bottom:12px;">
+                  <span style="position:absolute;left:0;top:0;bottom:0;width:5px;background: {{ p.color }};"></span>
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding-left:6px;margin-bottom:13px;">
+                    <div style="display:flex;align-items:center;gap:9px;min-width:0;">
+                      <span style="width:42px;height:42px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:#fff;background: {{ p.color }};box-shadow:0 0 0 2px #fff,0 0 0 3px rgba(0,0,0,.06);overflow:hidden;">{{ p.initial }}</span>
+                      <span style="font-size:18px;font-weight:800;color:#111827;">{{ p.name }}</span>
+                      <span style="font-size:11px;font-weight:700;color:#6b7280;background:#fff;border:1px solid #e5e7eb;padding:2px 7px;border-radius:9999px;">H{{ p.hdcp }}</span>
+                    </div>
+                    <sc-if value="{{ p.hasScore }}" hint-placeholder-val="{{ true }}">
+                      <div style="display:flex;gap:6px;flex:0 0 auto;">
+                        <span style="font-size:12px;font-weight:700;color:#374151;background:#fff;border:1px solid #e5e7eb;padding:3px 8px;border-radius:9999px;">Net {{ p.net }}</span>
+                        <span style="font-size:12px;font-weight:800;padding:3px 8px;border-radius:9999px;background:#fff;border:1px solid #e5e7eb;color: {{ p.vsColor }};">{{ p.vsLabel }}</span>
+                      </div>
+                    </sc-if>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:center;gap:20px;padding-left:6px;">
+                    <button onClick="{{ p.dec }}" style="width:56px;height:56px;border-radius:50%;background:#fff;border:1px solid #e5e7eb;color:#111827;font-size:30px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;">−</button>
+                    <button onClick="{{ p.tapNum }}" style="min-width:56px;height:56px;border:none;background:transparent;font-size:48px;font-weight:800;color:#111827;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1;">{{ p.gross }}</button>
+                    <button onClick="{{ p.inc }}" style="width:56px;height:56px;border-radius:50%;background:#15803d;border:none;color:#fff;font-size:30px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;">+</button>
+                  </div>
+                </div>
+              </sc-for>
+
+              <!-- bets row -->
+              <div style="margin-top:2px;">
+                <div style="font-size:11px;font-weight:800;letter-spacing:1.2px;color:#9ca3af;padding:2px 2px 8px;">ACTIVE BETS</div>
+                <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;">
+                  <sc-for list="{{ C.bets }}" as="b" hint-placeholder-count="4">
+                    <button onClick="{{ b.open }}" style="flex:0 0 auto;display:flex;flex-direction:column;gap:3px;text-align:left;min-width:150px;background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:11px 12px;cursor:pointer;">
+                      <span style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#111827;"><span>{{ b.icon }}</span>{{ b.title }}</span>
+                      <span style="font-size:12px;color:#6b7280;">{{ b.status }}</span>
+                    </button>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+
+            <!-- bottom nav -->
+            <nav style="flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:10px 12px 14px;border-top:1px solid #e5e7eb;background:#fff;">
+              <button onClick="{{ C.prev }}" style="min-height:48px;padding:0 14px;border-radius:12px;background:transparent;border:none;font-size:14px;font-weight:600;color:#374151;cursor:pointer;">◀ Prev</button>
+              <button onClick="{{ C.openLeaderboard }}" style="flex:1;min-height:48px;border-radius:12px;background:#111827;color:#fff;font-size:15px;font-weight:700;border:none;cursor:pointer;">Leaderboard</button>
+              <sc-if value="{{ C.isLast }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ C.finish }}" style="min-height:48px;padding:0 14px;border-radius:12px;background:transparent;border:none;font-size:14px;font-weight:700;color:#15803d;cursor:pointer;">Finish</button>
+              </sc-if>
+              <sc-if value="{{ C.notLast }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ C.next }}" style="min-height:48px;padding:0 14px;border-radius:12px;background:transparent;border:none;font-size:14px;font-weight:600;color:#374151;cursor:pointer;">Next ▶</button>
+              </sc-if>
+            </nav>
+          </div>
+
+          <!-- SHEETS C -->
+          <sc-if value="{{ C.sheetLeaderboard }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;z-index:30;">
+              <div onClick="{{ C.closeSheet }}" style="position:absolute;inset:0;background:rgba(17,24,39,.45);"></div>
+              <div style="position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:24px 24px 0 0;padding:8px 0 18px;max-height:76%;display:flex;flex-direction:column;box-shadow:0 -12px 34px rgba(0,0,0,.2);">
+                <div style="width:42px;height:5px;border-radius:9999px;background:#e5e7eb;margin:6px auto 12px;"></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:0 18px 10px;">
+                  <span style="font-size:19px;font-weight:800;color:#111827;">Leaderboard · Net</span>
+                  <button onClick="{{ C.closeSheet }}" style="font-size:14px;font-weight:700;color:#15803d;background:none;border:none;min-height:44px;cursor:pointer;">Done</button>
+                </div>
+                <div style="overflow-y:auto;">
+                  <div style="display:flex;font-size:10px;font-weight:800;color:#9ca3af;letter-spacing:.6px;padding:6px 18px;">
+                    <span style="width:24px;">#</span><span style="flex:1;">PLAYER</span><span style="width:48px;text-align:center;">THRU</span><span style="width:54px;text-align:center;">NET</span><span style="width:50px;text-align:right;">GROSS</span>
+                  </div>
+                  <sc-for list="{{ C.lead }}" as="r" hint-placeholder-count="4">
+                    <div style="display:flex;align-items:center;padding:13px 18px;border-top:1px solid #f3f4f6;background: {{ r.rowBg }};">
+                      <span style="width:24px;font-weight:800;color:#374151;">{{ r.pos }}</span>
+                      <span style="flex:1;display:flex;align-items:center;gap:9px;min-width:0;">
+                        <span style="width:11px;height:11px;border-radius:50%;flex:0 0 auto;background: {{ r.color }};"></span>
+                        <span style="font-size:16px;font-weight:600;color:#111827;">{{ r.name }}</span>
+                      </span>
+                      <span style="width:48px;text-align:center;font-size:13px;color:#9ca3af;">{{ r.thru }}</span>
+                      <span style="width:54px;text-align:center;font-size:19px;font-weight:800;color: {{ r.netColor }};">{{ r.netLabel }}</span>
+                      <span style="width:50px;text-align:right;font-size:15px;color:#6b7280;">{{ r.grossTot }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ C.sheetBets }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;z-index:30;">
+              <div onClick="{{ C.closeSheet }}" style="position:absolute;inset:0;background:rgba(17,24,39,.45);"></div>
+              <div style="position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:24px 24px 0 0;padding:8px 0 18px;max-height:76%;display:flex;flex-direction:column;box-shadow:0 -12px 34px rgba(0,0,0,.2);">
+                <div style="width:42px;height:5px;border-radius:9999px;background:#e5e7eb;margin:6px auto 12px;"></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:0 18px 10px;">
+                  <span style="font-size:19px;font-weight:800;color:#111827;">Active Bets</span>
+                  <button onClick="{{ C.closeSheet }}" style="font-size:14px;font-weight:700;color:#15803d;background:none;border:none;min-height:44px;cursor:pointer;">Done</button>
+                </div>
+                <div style="overflow-y:auto;">
+                  <sc-for list="{{ C.bets }}" as="b" hint-placeholder-count="4">
+                    <div style="padding:14px 18px;border-top:1px solid #f3f4f6;">
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                        <span style="display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700;color:#111827;"><span>{{ b.icon }}</span>{{ b.title }}</span>
+                        <span style="font-size:13px;font-weight:700;color:#15803d;text-align:right;">{{ b.status }}</span>
+                      </div>
+                      <div style="font-size:13px;color:#9ca3af;margin-top:4px;">{{ b.desc }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ C.kpOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;z-index:40;">
+              <div onClick="{{ C.kp.close }}" style="position:absolute;inset:0;background:rgba(17,24,39,.5);"></div>
+              <div style="position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:24px 24px 0 0;padding:8px 16px 20px;box-shadow:0 -12px 34px rgba(0,0,0,.2);">
+                <div style="width:42px;height:5px;border-radius:9999px;background:#e5e7eb;margin:6px auto 14px;"></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                  <span style="display:flex;align-items:center;gap:9px;font-size:18px;font-weight:800;color:#111827;"><span style="width:12px;height:12px;border-radius:50%;background: {{ C.kp.color }};"></span>{{ C.kp.name }}</span>
+                  <span style="font-size:13px;font-weight:600;color:#9ca3af;">{{ C.kp.holeLabel }}</span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+                  <sc-for list="{{ C.kp.keys }}" as="k" hint-placeholder-count="9">
+                    <button onClick="{{ k.on }}" style="height:62px;border-radius:14px;background:#f3f4f6;font-size:26px;font-weight:800;color:#111827;border:none;cursor:pointer;">{{ k.n }}</button>
+                  </sc-for>
+                </div>
+                <button onClick="{{ C.kp.close }}" style="margin-top:12px;width:100%;min-height:48px;border-radius:12px;background:transparent;border:none;font-size:15px;font-weight:700;color:#6b7280;cursor:pointer;">Cancel</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ C.sheetFinish }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:24px;">
+              <div onClick="{{ C.closeSheet }}" style="position:absolute;inset:0;background:rgba(17,24,39,.5);"></div>
+              <div style="position:relative;background:#fff;border-radius:22px;padding:24px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.3);">
+                <div style="font-size:20px;font-weight:800;color:#111827;">Finish round?</div>
+                <div style="font-size:14px;color:#6b7280;margin-top:6px;line-height:1.5;">You're on {{ C.progressLabel }}. Finishing locks scores and opens the payout summary.</div>
+                <div style="margin-top:14px;background:#fffbeb;border:1px solid #fde68a;border-radius:14px;padding:13px 14px;font-size:15px;font-weight:700;color:#92400e;"><svg width="15" height="15" viewBox="0 0 24 24" fill="#92400e" style="display:inline-block;vertical-align:-3px;margin-right:6px;"><path d="M6 3h12v2h3a1 1 0 0 1 1 1c0 2.9-1.9 5.2-4.6 5.8A6.5 6.5 0 0 1 13 15.8V18h3a1 1 0 0 1 1 1v2H7v-2a1 1 0 0 1 1-1h3v-2.2a6.5 6.5 0 0 1-4.4-3.9C3.9 11.2 2 8.9 2 6a1 1 0 0 1 1-1h3V3zM6 7H4.2c.3 1.4 1.1 2.4 2.1 2.9A8.6 8.6 0 0 1 6 8V7zm12 0v1c0 .6 0 1.2-.2 1.8 1-.5 1.7-1.4 2-2.8H18z"></path></svg>Leader: {{ C.leaderName }}</div>
+                <button onClick="{{ C.closeSheet }}" style="margin-top:16px;width:100%;min-height:50px;border-radius:12px;background:#15803d;color:#fff;font-size:16px;font-weight:700;border:none;cursor:pointer;">View Payouts →</button>
+                <button onClick="{{ C.closeSheet }}" style="margin-top:8px;width:100%;min-height:48px;border-radius:12px;background:transparent;border:none;font-size:14px;font-weight:700;color:#6b7280;cursor:pointer;">Keep Scoring</button>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  ICONS = {
+    target:'<path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm0 4a2 2 0 1 1 0 4 2 2 0 0 1 0-4z"/>',
+    trophy:'<path d="M6 3h12v2h3a1 1 0 0 1 1 1c0 2.9-1.9 5.2-4.6 5.8A6.5 6.5 0 0 1 13 15.8V18h3a1 1 0 0 1 1 1v2H7v-2a1 1 0 0 1 1-1h3v-2.2a6.5 6.5 0 0 1-4.4-3.9C3.9 11.2 2 8.9 2 6a1 1 0 0 1 1-1h3V3zM6 7H4.2c.3 1.4 1.1 2.4 2.1 2.9A8.6 8.6 0 0 1 6 8V7zm12 0v1c0 .6 0 1.2-.2 1.8 1-.5 1.7-1.4 2-2.8H18z"/>',
+    cash:'<path fill-rule="evenodd" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h15A1.5 1.5 0 0 1 21 6.5v11A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5v-11zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/>',
+    pin:'<path fill-rule="evenodd" d="M12 2a7 7 0 0 0-7 7c0 4.8 5.6 11.4 6.3 12.2a.9.9 0 0 0 1.4 0C13.4 20.4 19 13.8 19 9a7 7 0 0 0-7-7zm0 4.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z"/>',
+    drive:'<path d="M14 3h6.2a.8.8 0 0 1 .8.8V10a1 1 0 0 1-1.7.7l-1.8-1.8-7.7 7.7a1.4 1.4 0 0 1-2-2l7.7-7.7-1.8-1.8A1 1 0 0 1 14 3z"/><circle cx="5.5" cy="18.5" r="3"/>'
+  };
+  ico(name, color, size){ size=size||22; return React.createElement('svg',{width:size,height:size,viewBox:'0 0 24 24',fill:color||'currentColor',style:{display:'block',flex:'0 0 auto'},dangerouslySetInnerHTML:{__html:this.ICONS[name]||''}}); }
+  COURSE = [
+    {par:4,si:5,yards:412},{par:5,si:11,yards:534},{par:3,si:17,yards:168},
+    {par:4,si:1,yards:451},{par:4,si:7,yards:398},{par:4,si:13,yards:372},
+    {par:3,si:15,yards:182},{par:5,si:3,yards:548},{par:4,si:9,yards:421},
+    {par:4,si:6,yards:405},{par:4,si:2,yards:438},{par:3,si:16,yards:175},
+    {par:5,si:10,yards:521},{par:4,si:8,yards:389},{par:4,si:14,yards:367},
+    {par:4,si:4,yards:430},{par:3,si:18,yards:159},{par:5,si:12,yards:512},
+  ];
+  PLAYERS = [
+    {id:'mike',name:'Mike',color:'#14b8a6',hdcp:8},
+    {id:'sarah',name:'Sarah',color:'#3b82f6',hdcp:14},
+    {id:'tom',name:'Tom',color:'#f97316',hdcp:5},
+    {id:'dave',name:'Dave',color:'#a855f7',hdcp:20},
+  ];
+
+  constructor(props){
+    super(props);
+    const pad = (a)=>{const o=a.slice();while(o.length<18)o.push(null);return o;};
+    this.state = {
+      scores: {
+        mike:  pad([4,5,3,4,6,4,4]),
+        sarah: pad([6,5,5,4,7,5,5]),
+        tom:   pad([4,4,4,3,5,4,3]),
+        dave:  pad([7,6,5,5,8,6,6]),
+      },
+      holeA:6, holeB:6, holeC:6,
+      sheetA:null, sheetB:null, sheetC:null,
+    };
+  }
+
+  sr(hdcp,si){const b=Math.floor(hdcp/18);return b+(si<=(hdcp%18)?1:0);}
+  vpl(n){return n===0?'E':(n>0?'+'+n:''+n);}
+  netColorFor(n){return n<0?'#15803d':(n>0?'#b91c1c':'#6b7280');}
+
+  inc(id,h,d){
+    this.setState(s=>{
+      const a=s.scores[id].slice();
+      let v=a[h]; v=(v==null)?this.COURSE[h].par:v;
+      v=Math.max(1,Math.min(15,v+d)); a[h]=v;
+      return {scores:{...s.scores,[id]:a}};
+    });
+  }
+  setScore(key,id,h,v){
+    this.setState(s=>{
+      const a=s.scores[id].slice();
+      a[h]=Math.max(1,Math.min(15,v));
+      return {scores:{...s.scores,[id]:a},['sheet'+key]:null};
+    });
+  }
+  changeHole(key,d){
+    this.setState(s=>{
+      let h=Math.max(0,Math.min(17,s['hole'+key]+d));
+      return {['hole'+key]:h};
+    });
+  }
+  openSheet(key,val){this.setState({['sheet'+key]:val});}
+
+  buildVar(key){
+    const s=this.state, h=s['hole'+key], c=this.COURSE[h], scores=s.scores;
+    const players=this.PLAYERS.map(p=>{
+      const g=scores[p.id][h];
+      const st=this.sr(p.hdcp,c.si);
+      const net=g==null?null:Math.max(0,g-st);
+      const vs=g==null?null:g-c.par;
+      return {
+        id:p.id, name:p.name, color:p.color, hdcp:p.hdcp,
+        initial:p.name.charAt(0).toUpperCase(),
+        gross:g==null?'–':String(g),
+        hasScore:g!=null, noScore:g==null,
+        net:net==null?'–':String(net),
+        vsLabel:g==null?'':this.vpl(vs),
+        vsColor:g==null?'#6b7280':this.netColorFor(vs),
+        tint:'color-mix(in srgb, '+p.color+' 9%, #ffffff)',
+        inc:()=>this.inc(p.id,h,1),
+        dec:()=>this.inc(p.id,h,-1),
+        tapNum:()=>this.openSheet(key,{kp:p.id}),
+      };
+    });
+
+    // standings across all entered holes
+    const stand=this.PLAYERS.map(p=>{
+      let gt=0,ntp=0,thru=0;
+      this.COURSE.forEach((cc,i)=>{
+        const g=scores[p.id][i];
+        if(g!=null){const net=Math.max(0,g-this.sr(p.hdcp,cc.si));gt+=g;ntp+=net-cc.par;thru++;}
+      });
+      return {id:p.id,name:p.name,color:p.color,grossTot:gt,netToPar:ntp,thru};
+    }).sort((a,b)=>a.netToPar-b.netToPar||a.grossTot-b.grossTot);
+    const lead=stand.map((r,i)=>({
+      pos:i+1,name:r.name,color:r.color,thru:r.thru,
+      netLabel:this.vpl(r.netToPar),netColor:this.netColorFor(r.netToPar),
+      grossTot:r.grossTot, isLeader:i===0, rowBg:i===0?'#fffbeb':'#fff',
+    }));
+    const leadTop2=lead.slice(0,2);
+    const leaderName=lead[0].name;
+
+    // skins carry up to (not incl.) current hole
+    let carry=0; const val=2;
+    for(let i=0;i<h;i++){
+      if(this.PLAYERS.every(p=>scores[p.id][i]!=null)){
+        const nets=this.PLAYERS.map(p=>Math.max(0,scores[p.id][i]-this.sr(p.hdcp,this.COURSE[i].si)));
+        const mn=Math.min.apply(null,nets);
+        const w=nets.filter(x=>x===mn).length;
+        if(w===1)carry=0; else carry++;
+      }
+    }
+    const pot=(carry+1)*val;
+
+    // nassau front (holes 1-9)
+    const front=this.PLAYERS.map(p=>{
+      let ntp=0;
+      for(let i=0;i<9;i++){const g=scores[p.id][i];if(g!=null){ntp+=(Math.max(0,g-this.sr(p.hdcp,this.COURSE[i].si)))-this.COURSE[i].par;}}
+      return {name:p.name,ntp};
+    }).sort((a,b)=>a.ntp-b.ntp);
+    const nfDiff=front[1].ntp-front[0].ntp;
+    const nfLabel=nfDiff===0?'All square':front[0].name+' '+nfDiff+' up';
+
+    const isPar3=c.par===3;
+    const bets=[
+      {icon:this.ico('target','#15803d',17),title:'Skins',status:carry+' carried · $'+pot+' on this hole',desc:'Low net wins the hole outright; ties carry the pot to the next hole.'},
+      {icon:this.ico('trophy','#b45309',17),title:'Nassau · Front',status:nfLabel,desc:'Match play over the front 9, back 9, and overall — three separate bets.'},
+      {icon:this.ico('cash','#15803d',17),title:'Stroke Purse',status:leaderName+' leads',desc:'Lowest net total for the round takes the purse.'},
+      isPar3
+        ? {icon:this.ico('pin','#1d4ed8',17),title:'CTP · Hole '+(h+1),status:'Open — tap to set',desc:'Closest to the pin on this par 3 wins the pot.'}
+        : {icon:this.ico('drive','#c2410c',17),title:'Longest Drive',status:'Tom holds',desc:'Longest drive in the fairway on the marked hole.'},
+    ].map(b=>({...b,open:()=>this.openSheet(key,'bets')}));
+    const betTicker='Skins '+carry+' carried ($'+pot+') · '+nfLabel;
+
+    // hole dots (Option C)
+    const dots=this.COURSE.map((cc,i)=>{
+      const cur=i===h, played=scores.mike[i]!=null;
+      return {bg:cur?'#eab308':(played?'rgba(255,255,255,.9)':'rgba(255,255,255,.3)'),w:cur?'22px':'8px'};
+    });
+
+    // keypad
+    const sheet=s['sheet'+key];
+    const kpId=(sheet&&sheet.kp)?sheet.kp:null;
+    let kp=null;
+    if(kpId){
+      const p=this.PLAYERS.find(x=>x.id===kpId);
+      kp={
+        name:p.name, color:p.color,
+        holeLabel:'Hole '+(h+1)+' · Par '+c.par,
+        keys:[1,2,3,4,5,6,7,8,9].map(n=>({n,on:()=>this.setScore(key,kpId,h,n)})),
+        close:()=>this.openSheet(key,null),
+      };
+    }
+
+    return {
+      key, holeNum:h+1, par:c.par, hdcp:c.si, yards:c.yards, isPar3,
+      parLabel:'Par '+c.par, yardsLabel:c.yards+'y',
+      detailLine:'Par '+c.par+' · SI '+c.si+' · '+c.yards+'y',
+      progressLabel:'Hole '+(h+1)+' of 18',
+      progressPct:((h+1)/18*100)+'%',
+      isLast:h===17, notLast:h!==17,
+      players, lead, leadTop2, leaderName, bets, betTicker, dots,
+      prev:()=>this.changeHole(key,-1),
+      next:()=>this.changeHole(key,1),
+      openLeaderboard:()=>this.openSheet(key,'leaderboard'),
+      openBets:()=>this.openSheet(key,'bets'),
+      closeSheet:()=>this.openSheet(key,null),
+      finish:()=>this.openSheet(key,'finish'),
+      sheetLeaderboard:sheet==='leaderboard',
+      sheetBets:sheet==='bets',
+      sheetFinish:sheet==='finish',
+      kp, kpOpen:!!kp,
+    };
+  }
+
+  renderVals(){
+    return { A:this.buildVar('A'), B:this.buildVar('B'), C:this.buildVar('C') };
+  }
+}
+</script>
+</body>
+</html>

@@ -4,7 +4,7 @@ import useHistoryStore from '../store/historyStore'
 import { getCourseImage } from '../lib/courseImages'
 import { betGlyphName } from '../engines/betResults'
 import { Icon } from '../components/shared/GoloIcons'
-import BackButton from '../components/shared/BackButton'
+import AppHeader from '../components/shared/AppHeader'
 
 /**
  * HistoryDetailPage — one saved round, "glass-over-turf".
@@ -154,28 +154,18 @@ export default function HistoryDetailPage() {
       <div style={S.scrim} />
 
       <div style={S.column}>
-        {/* header --------------------------------------------------------- */}
-        <div style={S.header}>
-          <div style={{ marginBottom: 12 }}>
-            <BackButton />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-            <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: ACCENT }}>FINAL</span>
-            <div style={S.coursePill}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', flex: '0 0 auto', background: ACCENT }} />
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {courseLabel}
-              </span>
-            </div>
-          </div>
-          <div style={{ fontSize: 26, fontWeight: 800, marginTop: 8, letterSpacing: -0.5 }}>{courseLabel}</div>
-          <div style={{ fontSize: 13, color: 'rgba(255,255,255,.6)', marginTop: 2 }}>
-            {dateLabel} · {round.holes ?? 18} holes
-          </div>
-        </div>
+        <AppHeader
+          accent={ACCENT}
+          backTo="/history"
+          logo="wordmark"
+          rightAction="pin"
+          kicker="FINAL"
+          title={courseLabel}
+          contextPill={`${dateLabel} · ${round.holes ?? 18} holes`}
+        />
 
         {/* scroll body ---------------------------------------------------- */}
-        <div style={S.scroll}>
+        <div className="golo-scroll" style={S.scroll}>
           {/* LEADERBOARD */}
           <div style={S.sectionLabel}>FINAL LEADERBOARD</div>
           {winnerNames.length > 0 && (
@@ -319,9 +309,7 @@ const S = {
     background: 'linear-gradient(180deg, rgba(6,14,9,.74) 0%, rgba(6,14,9,.6) 26%, rgba(6,16,10,.66) 58%, rgba(4,12,8,.9) 100%)',
   },
   column: { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', width: '100%', maxWidth: 480, margin: '0 auto' },
-  header: { flex: '0 0 auto', padding: 'max(10px, env(safe-area-inset-top)) 18px 12px', textShadow: '0 2px 12px rgba(0,0,0,.4)' },
-  coursePill: { display: 'flex', alignItems: 'center', gap: 7, background: 'rgba(255,255,255,.13)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.16)', padding: '6px 12px', borderRadius: 9999, maxWidth: 210, minWidth: 0 },
-  scroll: { flex: 1, overflowY: 'auto', padding: '4px 16px 14px' },
+  scroll: { flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '4px 16px 14px' },
 
   avatar: { borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#fff', boxShadow: '0 0 0 2px rgba(255,255,255,.25)' },
 

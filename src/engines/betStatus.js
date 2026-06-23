@@ -126,8 +126,8 @@ function skinsPill(bet, players, scores, pars, alloc, skinFlags, sideGameFlags, 
   // Only surface a "carried" pot when nothing else has paid out yet — a manual
   // greenie/sandie hit means the leader/all-even framing is more informative.
   if (last && last.winner == null && !anyManual) {
-    const carried = last.carryCount * (bet.config.valuePerSkin ?? 0)
-    label = `$${carried} carried`
+    const carried = last.carryCount * (bet.config.valuePerSkin ?? 0) * Math.max(0, inBet.length - 1)
+    label = `$${carried} riding`
   } else {
     const leader = [...inBet].sort(
       (a, b) => (res.payouts[b.id] ?? 0) - (res.payouts[a.id] ?? 0)

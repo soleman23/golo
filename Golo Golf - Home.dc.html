@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @keyframes goloPop { 0%{transform:scale(.96);opacity:0;} 100%{transform:scale(1);opacity:1;} }
+    .golo-scroll::-webkit-scrollbar{ display:none; }
+    .golo-scroll{ -ms-overflow-style:none; scrollbar-width:none; }
+  </style>
+</helmet>
+<div style="min-height:100vh;background:radial-gradient(130% 90% at 50% -10%, #1c2a22 0%, #12161a 55%, #0c0f12 100%);font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:44px 32px 90px;box-sizing:border-box;color:#fff;">
+  <div style="max-width:1180px;margin:0 auto;">
+
+    <header style="text-align:center;margin-bottom:30px;">
+      <div style="display:flex;justify-content:center;margin-bottom:16px;"><span style="width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:#0c0f12;border:1px solid rgba(255,255,255,.1);box-shadow:0 10px 26px rgba(212,242,58,.22);"><svg width="30" height="30" viewBox="0 0 120 124" fill="none" style="display:block"><path d="M56 20 A40 40 0 1 0 95.8 64" stroke="#d4f23a" stroke-width="12" stroke-linecap="round"></path><line x1="95.8" y1="64" x2="64" y2="64" stroke="#d4f23a" stroke-width="12" stroke-linecap="round"></line><circle cx="56" cy="58" r="15" fill="#fff"></circle><circle cx="56" cy="58" r="9" fill="none" stroke="rgba(10,36,24,0.28)" stroke-width="2.4"></circle><line x1="56" y1="44" x2="56" y2="14" stroke="#d4f23a" stroke-width="3.4"></line><path d="M56 14 L86 22 L56 34 Z" fill="#fff"></path></svg></span></div>
+      <div style="font-size:12px;font-weight:800;letter-spacing:3px;color: {{ accent }};">GOLO GOLF · HOME</div>
+      <h1 style="font-size:36px;font-weight:800;margin:10px 0 12px;letter-spacing:-0.6px;">Your locker, the moment you open the app</h1>
+      <p style="font-size:16px;line-height:1.6;color:rgba(255,255,255,.62);max-width:700px;margin:0 auto;">The dashboard in the same glass-over-turf language as setup, scoring and payout. It greets you, gives one big way in — <strong style="color:#fff;">start a new round</strong>, or pick up the one you left running — then keeps the money honest: your <strong style="color:#fff;">net for the season</strong>, where you sit in <strong style="color:#fff;">the crew</strong>, and every <strong style="color:#fff;">recent round</strong> a tap away from its settle-up. Flip the ledger between this season and all time.</p>
+
+      <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:20px;">
+        <span style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;"><span style="width:14px;height:14px;border-radius:4px;background: {{ accent }};"></span>one way in</span>
+        <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;">season ledger</span>
+        <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;">crew standings</span>
+        <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;">resume a round</span>
+        <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:6px 12px;border-radius:9999px;">tappable history</span>
+      </div>
+    </header>
+
+    <!-- phone -->
+    <div style="display:flex;justify-content:center;position:relative;">
+      <div style="position:absolute;width:520px;height:520px;border-radius:50%;background: {{ accentGlow }};filter:blur(90px);top:120px;z-index:0;"></div>
+
+      <div style="position:relative;z-index:1;width:390px;height:844px;border-radius:48px;border:1px solid rgba(255,255,255,.16);box-shadow:0 50px 90px -30px rgba(0,0,0,.8);overflow:hidden;background:#0b2c1a;">
+        <div style="position:absolute;inset:0;overflow:hidden;background:radial-gradient(120% 70% at 50% 0%, #2a7d4a 0%, #14532d 45%, #0a2418 85%);">
+
+          <!-- course photo backdrop -->
+          <div style="position:absolute;inset:0;background-image:url('{{ M.backdrop }}');background-size:cover;background-position:50% 55%;"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(6,14,9,.7) 0%, rgba(6,14,9,.52) 22%, rgba(6,16,10,.62) 56%, rgba(4,12,8,.92) 100%);pointer-events:none;"></div>
+
+          <!-- content -->
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;">
+
+            <!-- app header -->
+            <dc-import name="Golo Golf - App Header" accent="{{ accent }}" back-href="Golo%20Golf%20-%20Landing%20Page.dc.html" logo="wordmark" right-action="pin" current-page="Home" kicker="{{ M.dateKicker }}" title="{{ M.greeting }}" hint-size="100%,170px" style="flex:0 0 auto;display:block;"></dc-import>
+
+            <!-- scrollable body -->
+            <div class="golo-scroll" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:4px 16px 14px;">
+
+              <!-- PRIMARY · new round -->
+              <a href="Golo%20Golf%20-%20Setup.dc.html" style="position:relative;overflow:hidden;display:block;text-decoration:none;background: {{ accent }};border-radius:24px;padding:20px 18px;margin-bottom:12px;box-shadow:0 14px 34px {{ accentGlow }};">
+                <span style="position:absolute;right:-26px;top:-26px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.22);filter:blur(8px);pointer-events:none;"></span>
+                <div style="position:relative;font-size:11px;font-weight:800;letter-spacing:1.6px;color:rgba(19,37,10,.7);">START SOMETHING</div>
+                <div style="position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px;">
+                  <span style="font-size:26px;font-weight:800;color:#13250a;letter-spacing:-0.4px;">New round</span>
+                  <span style="width:46px;height:46px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color: {{ accent }};background:#13250a;">+</span>
+                </div>
+                <div style="position:relative;font-size:13px;font-weight:600;color:rgba(19,37,10,.72);margin-top:4px;">Pick a course, build the group, set the games.</div>
+              </a>
+
+              <!-- RESUME · saved round -->
+              <sc-if value="{{ M.hasResume }}" hint-placeholder-val="{{ true }}">
+                <a href="Golo%20Golf%20-%20Scoring%20(Immersive).dc.html" style="display:flex;align-items:center;gap:12px;text-decoration:none;background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid {{ M.resumeBorder }};border-radius:18px;padding:13px 14px;margin-bottom:18px;box-shadow:0 8px 22px rgba(0,0,0,.26);">
+                  <span style="width:44px;height:44px;border-radius:13px;flex:0 0 auto;background-image:url('{{ M.resumeBg }}');background-size:cover;background-position:center;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15);position:relative;">
+                    <span style="position:absolute;right:-4px;bottom:-4px;width:18px;height:18px;border-radius:50%;background: {{ accent }};border:2px solid #14201a;display:flex;align-items:center;justify-content:center;font-size:9px;color:#13250a;">▸</span>
+                  </span>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:11px;font-weight:800;letter-spacing:1.2px;color: {{ accent }};">PICK UP WHERE YOU LEFT OFF</div>
+                    <div style="font-size:16px;font-weight:800;color:#fff;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ M.resumeTitle }}</div>
+                    <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:1px;">{{ M.resumeSub }}</div>
+                  </div>
+                  <span style="font-size:20px;color:rgba(255,255,255,.5);flex:0 0 auto;">›</span>
+                </a>
+              </sc-if>
+
+              <!-- LEDGER -->
+              <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 2px 9px;">
+                <span style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);">YOUR LEDGER</span>
+                <div style="display:flex;gap:4px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:9999px;padding:3px;">
+                  <sc-for list="{{ M.ledgerTabs }}" as="t" hint-placeholder-count="2">
+                    <button onClick="{{ t.select }}" style="padding:5px 13px;border-radius:9999px;border:none;cursor:pointer;font-size:12px;font-weight:800;background: {{ t.bg }};color: {{ t.color }};">{{ t.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+
+              <div style="position:relative;overflow:hidden;background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid {{ M.ledgerBorder }};border-radius:24px;padding:20px 18px;margin-bottom:12px;box-shadow:0 12px 32px rgba(0,0,0,.32);">
+                <span style="position:absolute;right:-30px;top:-30px;width:150px;height:150px;border-radius:50%;background: {{ M.ledgerGlow }};filter:blur(36px);pointer-events:none;"></span>
+                <div style="position:relative;font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.55);">NET · {{ M.ledgerScope }}</div>
+                <div style="position:relative;display:flex;align-items:flex-end;gap:10px;margin-top:6px;">
+                  <span style="font-size:52px;font-weight:800;line-height:0.95;letter-spacing:-1px;color: {{ M.netColor }};">{{ M.netLabel }}</span>
+                  <span style="font-size:13px;font-weight:700;color:rgba(255,255,255,.6);padding-bottom:8px;">{{ M.netTrend }}</span>
+                </div>
+                <div style="position:relative;font-size:12.5px;font-weight:600;color:rgba(255,255,255,.55);margin-top:7px;">{{ M.netSub }}</div>
+
+                <div style="position:relative;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:15px;">
+                  <sc-for list="{{ M.stats }}" as="s" hint-placeholder-count="3">
+                    <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:11px 10px;">
+                      <div style="font-size:10px;font-weight:800;letter-spacing:.8px;color:rgba(255,255,255,.5);">{{ s.label }}</div>
+                      <div style="font-size:20px;font-weight:800;color:#fff;margin-top:4px;letter-spacing:-0.3px;">{{ s.value }}</div>
+                      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:1px;">{{ s.sub }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+
+              <!-- THE CREW -->
+              <div style="display:flex;align-items:center;justify-content:space-between;margin:18px 2px 9px;">
+                <span style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);">THE CREW · {{ M.ledgerScope }}</span>
+                <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.42);">{{ M.crewSub }}</span>
+              </div>
+              <sc-for list="{{ M.crew }}" as="r" hint-placeholder-count="4">
+                <div style="width:100%;box-sizing:border-box;display:flex;align-items:center;gap:12px;background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid {{ r.border }};border-radius:16px;padding:11px 13px;margin-bottom:9px;">
+                  <span style="font-size:13px;font-weight:800;color:rgba(255,255,255,.5);width:16px;flex:0 0 auto;text-align:center;">{{ r.rank }}</span>
+                  <span style="width:38px;height:38px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff;background: {{ r.color }};box-shadow:0 0 0 2px {{ r.ring }};">{{ r.initial }}</span>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:16px;font-weight:800;color:#fff;display:flex;align-items:center;gap:7px;">{{ r.name }}<span style="font-size:10px;font-weight:800;letter-spacing:.5px;color:#13250a;background: {{ accent }};padding:2px 7px;border-radius:9999px;display: {{ r.youShow }};">YOU</span></div>
+                    <div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:1px;">{{ r.sub }}</div>
+                  </div>
+                  <span style="font-size:20px;font-weight:800;color: {{ r.amountColor }};flex:0 0 auto;">{{ r.amount }}</span>
+                </div>
+              </sc-for>
+
+              <!-- RECENT ROUNDS -->
+              <div style="display:flex;align-items:center;justify-content:space-between;margin:18px 2px 9px;">
+                <span style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);">RECENT ROUNDS</span>
+                <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.42);">{{ M.roundsCount }}</span>
+              </div>
+              <sc-for list="{{ M.rounds }}" as="g" hint-placeholder-count="5">
+                <a href="Golo%20Golf%20-%20Payout.dc.html" style="display:flex;align-items:center;gap:12px;text-decoration:none;background:rgba(20,28,24,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:11px 12px;margin-bottom:9px;">
+                  <span style="width:46px;height:46px;border-radius:12px;flex:0 0 auto;background-image:url('{{ g.bg }}');background-size:cover;background-position:center;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15);"></span>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:15px;font-weight:800;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ g.course }}</div>
+                    <div style="display:flex;align-items:center;gap:8px;margin-top:3px;">
+                      <span style="font-size:12px;color:rgba(255,255,255,.5);">{{ g.date }}</span>
+                      <span style="font-size:12px;color:rgba(255,255,255,.3);">·</span>
+                      <span style="font-size:12px;color:rgba(255,255,255,.5);">{{ g.games }}</span>
+                    </div>
+                  </div>
+                  <div style="text-align:right;flex:0 0 auto;">
+                    <div style="font-size:18px;font-weight:800;color: {{ g.netColor }};">{{ g.net }}</div>
+                    <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.45);">{{ g.place }}</div>
+                  </div>
+                </a>
+              </sc-for>
+
+            </div>
+
+            <!-- bottom tab bar -->
+            <div style="flex:0 0 auto;padding:8px 14px 16px;background:linear-gradient(180deg, rgba(4,12,8,0) 0%, rgba(4,12,8,.55) 60%);">
+              <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(16,22,18,.7);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:8px 8px;">
+                <sc-for list="{{ M.tabs }}" as="t" hint-placeholder-count="4">
+                  <a href="{{ t.href }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;text-decoration:none;min-height:48px;justify-content:center;border-radius:14px;background: {{ t.bg }};">
+                    <span style="font-size:20px;line-height:1;color: {{ t.color }};">{{ t.icon }}</span>
+                    <span style="font-size:10px;font-weight:800;letter-spacing:.4px;color: {{ t.color }};">{{ t.label }}</span>
+                  </a>
+                </sc-for>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1180,&quot;height&quot;:1000},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#d4f23a&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;currency&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;$&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  ICONS = {
+    flag:'<path d="M6 2.2a1.2 1.2 0 0 1 1.2 1.2V21a1 1 0 1 1-2 0V3.4A1.2 1.2 0 0 1 6 2.2z"/><path d="M8 4.2l10.6 2.4a.85.85 0 0 1 .1 1.6L8 11.5V4.2z"/>',
+    card:'<path fill-rule="evenodd" d="M5 3.5h14A1.5 1.5 0 0 1 20.5 5v14A1.5 1.5 0 0 1 19 20.5H5A1.5 1.5 0 0 1 3.5 19V5A1.5 1.5 0 0 1 5 3.5zM7 7.5h10v2H7v-2zm0 4h10v2H7v-2zm0 4h6.5v2H7v-2z"/>',
+    plus:'<path d="M10.4 4a1.6 1.6 0 0 1 3.2 0v6.4H20a1.6 1.6 0 0 1 0 3.2h-6.4V20a1.6 1.6 0 0 1-3.2 0v-6.4H4a1.6 1.6 0 0 1 0-3.2h6.4V4z"/>',
+    user:'<path d="M12 3.2a4.3 4.3 0 1 1 0 8.6 4.3 4.3 0 0 1 0-8.6zM4 20.4C4 16.4 7.6 14 12 14s8 2.4 8 6.4a.9.9 0 0 1-.9.9H4.9a.9.9 0 0 1-.9-.9z"/>'
+  };
+  ico(name, color, size){ size=size||22; return React.createElement('svg',{width:size,height:size,viewBox:'0 0 24 24',fill:color||'currentColor',style:{display:'block',flex:'0 0 auto'},dangerouslySetInnerHTML:{__html:this.ICONS[name]||''}}); }
+  PALETTE = ['#2dd4bf','#60a5fa','#fb923c','#c084fc','#f472b6','#facc15'];
+  BG = {pinehurst:'assets/course.png', harbor:'assets/sunset.png', lincoln:'assets/turf.png'};
+
+  // round history — me's net, deterministic. season:true = counts toward "this season"
+  ROUNDS = [
+    {course:'Pinehurst No.2', bg:'assets/course.png', date:'Sat · Jun 7',  net:85,  place:'1st of 4', games:'Skins · Nassau', season:true},
+    {course:'Harbor Dunes',   bg:'assets/sunset.png', date:'Sun · Jun 1',  net:-30, place:'3rd of 4', games:'Skins · Purse',  season:true},
+    {course:'Lincoln Park',   bg:'assets/turf.png',   date:'Sat · May 24', net:120, place:'1st of 4', games:'Skins · Nassau · CTP', season:true},
+    {course:'Pinehurst No.2', bg:'assets/course.png', date:'Sun · May 18', net:45,  place:'2nd of 4', games:'Nassau · Long', season:true},
+    {course:'Harbor Dunes',   bg:'assets/sunset.png', date:'Sat · May 10', net:120, place:'1st of 4', games:'Skins · Nassau · Purse', season:true},
+    {course:'Lincoln Park',   bg:'assets/turf.png',   date:'Sun · Apr 27', net:-60, place:'4th of 4', games:'Skins · Nassau', season:false},
+    {course:'Pinehurst No.2', bg:'assets/course.png', date:'Sat · Apr 19', net:200, place:'1st of 5', games:'Skins · Purse · CTP', season:false},
+    {course:'Harbor Dunes',   bg:'assets/sunset.png', date:'Sun · Apr 6',  net:95,  place:'2nd of 5', games:'Nassau · Long', season:false},
+  ];
+  // crew totals (zero-sum) keyed by scope; me is first
+  CREW = {
+    season: [
+      {name:'Mike',  color:'#2dd4bf', net:340,  rounds:5, me:true},
+      {name:'Tom',   color:'#fb923c', net:215,  rounds:5},
+      {name:'Sarah', color:'#60a5fa', net:-120, rounds:4},
+      {name:'Dave',  color:'#c084fc', net:-435, rounds:5},
+    ],
+    all: [
+      {name:'Mike',  color:'#2dd4bf', net:575,  rounds:8, me:true},
+      {name:'Tom',   color:'#fb923c', net:430,  rounds:8},
+      {name:'Sarah', color:'#60a5fa', net:-275, rounds:7},
+      {name:'Dave',  color:'#c084fc', net:-730, rounds:8},
+    ],
+  };
+
+  constructor(props){
+    super(props);
+    let saved=null;
+    try{ const raw=localStorage.getItem('golo:round'); if(raw)saved=JSON.parse(raw); }catch(e){}
+    this.saved = (saved && saved.players && saved.players.length>=2) ? saved : null;
+    // greeting name from saved round's first player, else default
+    this.meName = (this.saved && this.saved.players[0] && (this.saved.players[0].name||'').trim()) || 'Mike';
+    this.state = { view:'season' };
+  }
+
+  accentColor(){ return this.props.accent ?? '#d4f23a'; }
+  cur(){ return this.props.currency ?? '$'; }
+  hexA(hex,a){ let h=(hex||'#d4f23a').replace('#',''); if(h.length===3)h=h.split('').map(c=>c+c).join(''); const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16); return 'rgba('+r+','+g+','+b+','+a+')'; }
+  initial(n){ const t=(n||'').trim(); return t?t.charAt(0).toUpperCase():'?'; }
+  signed(n){ const c=this.cur(); if(n>0)return '+'+c+n; if(n<0)return '−'+c+(-n); return c+'0'; }
+  ncol(n){ return n>0?'#bef264':(n<0?'#fb7185':'rgba(255,255,255,.7)'); }
+  ord(n){ const s=['th','st','nd','rd'],v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+
+  setView(v){ this.setState({view:v}); }
+
+  build(){
+    const accent=this.accentColor(), view=this.state.view, isSeason=view==='season';
+    const scope = isSeason ? 'THIS SEASON' : 'ALL TIME';
+
+    // resume card
+    const sv=this.saved;
+    const resumeBg = sv ? ((sv.course&&sv.course.bg)||'assets/course.png') : 'assets/course.png';
+    const resumeTitle = sv ? ((sv.course&&sv.course.name)||'Your round') : 'Saturday at Pinehurst';
+    const resumeSub = sv
+      ? (sv.players.length+' players · '+((sv.tee&&sv.tee.name)?sv.tee.name+' tees':'18 holes'))
+      : '4 players · Blue tees';
+
+    // rounds for scope
+    const rounds = this.ROUNDS.filter(r=> isSeason ? r.season : true);
+    const roundRows = rounds.map(r=>({
+      course:r.course, bg:r.bg, date:r.date, games:r.games,
+      net:this.signed(r.net), netColor:this.ncol(r.net), place:r.place,
+    }));
+
+    // ledger stats from scope rounds
+    const net = rounds.reduce((a,r)=>a+r.net,0);
+    const wins = rounds.filter(r=>r.net>0).length;
+    const inBlack = rounds.filter(r=>r.net>=0).length;
+    const winRate = rounds.length? Math.round(100*wins/rounds.length):0;
+    const best = rounds.reduce((m,r)=>Math.max(m,r.net),0);
+
+    const stats=[
+      {label:'ROUNDS', value:String(rounds.length), sub:wins+' won'},
+      {label:'WIN RATE', value:winRate+'%', sub:'net positive'},
+      {label:'BEST', value:this.signed(best), sub:'single round'},
+    ];
+
+    // crew
+    const crewData=(isSeason?this.CREW.season:this.CREW.all).slice().sort((a,b)=>b.net-a.net);
+    const crew=crewData.map((c,i)=>({
+      rank:i+1, name:c.name, color:c.color, initial:this.initial(c.name),
+      amount:this.signed(c.net), amountColor:this.ncol(c.net),
+      sub:c.rounds+' rounds · '+this.signed(Math.round(c.net/c.rounds))+'/rd',
+      border: c.me?this.hexA(accent,.55):'rgba(255,255,255,.12)',
+      ring: c.me?accent:'rgba(255,255,255,.22)',
+      youShow: c.me?'inline-block':'none',
+    }));
+    const meRow=crewData.find(c=>c.me); const meRank=crewData.findIndex(c=>c.me)+1;
+
+    const ledgerTabs=[{id:'season',label:'Season'},{id:'all',label:'All time'}].map(t=>({
+      label:t.label, select:()=>this.setView(t.id),
+      bg: view===t.id?accent:'transparent',
+      color: view===t.id?'#13250a':'rgba(255,255,255,.6)',
+    }));
+
+    const tabs=[
+      {label:'Home',  ic:'flag', href:'Golo%20Golf%20-%20Home.dc.html', active:true},
+      {label:'Rounds',ic:'card', href:'Golo%20Golf%20-%20Payout.dc.html'},
+      {label:'Play',  ic:'plus', href:'Golo%20Golf%20-%20Setup.dc.html'},
+      {label:'You',   ic:'user', href:'Golo%20Golf%20-%20You.dc.html'},
+    ].map(t=>{
+      const col = t.active?accent:'rgba(255,255,255,.55)';
+      return { label:t.label, icon:this.ico(t.ic, col, 23), href:t.href,
+        bg: t.active?this.hexA(accent,.16):'transparent', color: col };
+    });
+
+    return {
+      backdrop:'assets/sunset.png',
+      dateKicker:'SATURDAY · JUN 14',
+      greeting:'Good morning, '+this.meName,
+      // primary / resume
+      hasResume:true, resumeBg, resumeTitle, resumeSub,
+      resumeBorder:this.hexA(accent,.45),
+      // ledger
+      ledgerTabs, ledgerScope:scope,
+      netLabel:this.signed(net), netColor:this.ncol(net),
+      netTrend: net>=0?'in the black':'in the red',
+      netSub:'Across '+rounds.length+' rounds · '+inBlack+' in the black · best '+this.signed(best),
+      ledgerBorder:this.hexA(accent,.4), ledgerGlow:this.hexA(net>=0?accent:'#fb7185',.4),
+      stats,
+      // crew
+      crew, crewSub:'you sit '+this.ord(meRank)+' of '+crewData.length,
+      // rounds
+      rounds:roundRows, roundsCount:rounds.length+' shown',
+      // tabs
+      tabs,
+    };
+  }
+
+  renderVals(){
+    const accent=this.accentColor();
+    return { M:this.build(), accent, accentGlow:this.hexA(accent,.45) };
+  }
+}
+</script>
+</body>
+</html>

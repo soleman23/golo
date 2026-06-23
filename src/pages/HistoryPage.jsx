@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import useHistoryStore from '../store/historyStore'
 import useProfileStore from '../store/profileStore'
 import { getCourseImage } from '../lib/courseImages'
-import { GoloWordmark, GoloBall } from '../components/shared/Logo'
-import BackButton from '../components/shared/BackButton'
+import { GoloBall } from '../components/shared/Logo'
+import AppHeader from '../components/shared/AppHeader'
 import {
   playerKey, displayName, autoKey, namesByKey, myNetInRoundByKey, entryMatches,
 } from '../lib/identity'
@@ -148,26 +148,16 @@ export default function HistoryPage() {
       <div style={S.scrim} />
 
       <div style={S.column}>
-        {/* header --------------------------------------------------------- */}
-        <div style={S.header}>
-          <div style={S.headerTop}>
-            <BackButton />
-            <GoloWordmark variant="white" fontPx={16} />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 }}>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: ACCENT }}>YOUR ROUNDS</div>
-              <div style={{ fontSize: 28, fontWeight: 800, marginTop: 6, letterSpacing: -0.5 }}>History</div>
-              <div style={{ fontSize: 13, color: 'rgba(255,255,255,.6)', marginTop: 2 }}>
-                {savedRounds.length} saved {savedRounds.length === 1 ? 'round' : 'rounds'}
-              </div>
-            </div>
-            <button onClick={savedRounds.length === 0 ? undefined : handleClear} disabled={savedRounds.length === 0} style={{ ...S.clearBtn, ...(savedRounds.length === 0 ? S.clearBtnDisabled : null) }}>Clear all</button>
-          </div>
+        <AppHeader accent={ACCENT} backTo="/" logo="wordmark" rightAction="pin" kicker="YOUR ROUNDS" title="History" />
+        <div style={S.headerActions}>
+          <span style={{ fontSize: 13, color: 'rgba(255,255,255,.6)' }}>
+            {savedRounds.length} saved {savedRounds.length === 1 ? 'round' : 'rounds'}
+          </span>
+          <button onClick={savedRounds.length === 0 ? undefined : handleClear} disabled={savedRounds.length === 0} style={{ ...S.clearBtn, ...(savedRounds.length === 0 ? S.clearBtnDisabled : null) }}>Clear all</button>
         </div>
 
         {/* scroll body ---------------------------------------------------- */}
-        <div style={S.scroll}>
+        <div className="golo-scroll" style={S.scroll}>
           {items.length === 0 ? (
             <div style={S.emptyCard}>
               <GoloBall size={40} fill="#ffffff" dimple="rgba(20,40,24,.3)" style={{ margin: '0 auto 10px' }} />
@@ -252,17 +242,16 @@ const S = {
     background: 'linear-gradient(180deg, rgba(6,14,9,.7) 0%, rgba(6,14,9,.52) 22%, rgba(6,16,10,.62) 56%, rgba(4,12,8,.92) 100%)',
   },
   column: { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', width: '100%', maxWidth: 480, margin: '0 auto' },
-  header: { flex: '0 0 auto', padding: 'max(10px, env(safe-area-inset-top)) 18px 10px', textShadow: '0 2px 12px rgba(0,0,0,.4)' },
-  headerTop: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
+  headerActions: { flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '0 18px 10px', boxSizing: 'border-box', textShadow: '0 2px 12px rgba(0,0,0,.4)' },
   clearBtn: { flex: '0 0 auto', minHeight: 40, padding: '0 14px', borderRadius: 12, background: 'rgba(251,113,133,.12)', border: '1px solid rgba(251,113,133,.32)', color: '#fb7185', fontSize: 13, fontWeight: 800, cursor: 'pointer' },
   clearBtnDisabled: { opacity: 0.42, cursor: 'default', background: 'rgba(255,255,255,.06)', borderColor: 'rgba(255,255,255,.12)', color: 'rgba(255,255,255,.45)' },
-  scroll: { flex: 1, overflowY: 'auto', padding: '6px 16px 14px' },
+  scroll: { flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 16px 14px' },
 
   sectionRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '4px 2px 9px' },
   sectionLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: 'rgba(255,255,255,.5)' },
   sectionSub: { fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.42)' },
 
-  roundRow: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', border: '1px solid rgba(255,255,255,.12)', cursor: 'pointer', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderRadius: 16, padding: '11px 12px', marginBottom: 9 },
+  roundRow: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', boxSizing: 'border-box', border: '1px solid rgba(255,255,255,.12)', cursor: 'pointer', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderRadius: 16, padding: '11px 12px', marginBottom: 9 },
   roundThumb: { width: 46, height: 46, borderRadius: 12, flex: '0 0 auto', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)' },
 
   emptyCard: { textAlign: 'center', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 24, padding: '34px 22px', marginTop: 24, boxShadow: '0 12px 32px rgba(0,0,0,.32)' },

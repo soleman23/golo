@@ -14,3 +14,13 @@
     display: none;
   }
 }
+
+.golo-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.golo-scroll {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  overflow-x: hidden;
+}

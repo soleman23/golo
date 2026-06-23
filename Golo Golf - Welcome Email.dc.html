@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    *{box-sizing:border-box;}
+    html,body{margin:0;padding:0;}
+  </style>
+</helmet>
+
+<div style="width:max-content;min-width:100%;min-height:100vh;padding:52px 48px 80px;box-sizing:border-box;background:radial-gradient(130% 90% at 50% -10%, #1c2a22 0%, #12161a 55%, #0c0f12 100%);font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+
+  <!-- page heading -->
+  <div style="margin-bottom:40px;">
+    <div style="font-size:12px;font-weight:800;letter-spacing:3px;color:#d4f23a;">GOLO GOLF · EMAIL</div>
+    <div style="font-size:30px;font-weight:800;letter-spacing:-0.6px;color:#fff;margin-top:10px;">Welcome email — 3 directions</div>
+    <div style="font-size:14.5px;color:rgba(255,255,255,.55);margin-top:8px;max-width:680px;line-height:1.55;">Sent the moment a player signs up. 600px body · punchy &amp; playful · &ldquo;Hey {FirstName}&rdquo; merge field. Same content, three layout systems to compare.</div>
+  </div>
+
+  <div style="display:flex;gap:48px;align-items:flex-start;">
+
+    <!-- ==================== VARIATION A ==================== -->
+    <div style="flex:none;width:600px;">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px;">
+        <span style="font-size:13px;font-weight:800;color:#d4f23a;letter-spacing:.5px;">A</span>
+        <span style="font-size:13.5px;font-weight:800;color:#fff;">Glass over turf</span>
+        <span style="font-size:12px;color:rgba(255,255,255,.45);">photo hero · the flagship</span>
+      </div>
+
+      <div style="border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,.1);box-shadow:0 40px 80px -30px rgba(0,0,0,.8);background:radial-gradient(120% 80% at 50% 0%, #1a3326 0%, #112318 50%, #0a160f 100%);color:#fff;">
+
+        <!-- top bar -->
+        <div style="padding:20px 0;display:flex;align-items:center;justify-content:center;gap:9px;border-bottom:1px solid rgba(255,255,255,.07);">
+          <span style="width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:#0c0f12;border:1px solid rgba(255,255,255,.1);box-shadow:0 6px 16px rgba(212,242,58,.3);"><svg width="22" height="22" viewBox="0 0 120 124" fill="none" style="display:block"><path d="M56 20 A40 40 0 1 0 95.8 64" stroke="#d4f23a" stroke-width="12" stroke-linecap="round"></path><line x1="95.8" y1="64" x2="64" y2="64" stroke="#d4f23a" stroke-width="12" stroke-linecap="round"></line><circle cx="56" cy="58" r="15" fill="#fff"></circle><line x1="56" y1="44" x2="56" y2="14" stroke="#d4f23a" stroke-width="3.4"></line><path d="M56 14 L86 22 L56 34 Z" fill="#fff"></path></svg></span>
+          <span style="display:flex;align-items:flex-end;"><span style="font-size:18px;font-weight:800;letter-spacing:-.02em;color:#fff;line-height:1;">Go</span><span style="font-size:18px;font-weight:800;letter-spacing:-.02em;color:#d4f23a;line-height:1;">Lo</span></span>
+        </div>
+
+        <!-- hero -->
+        <div style="position:relative;">
+          <div style="position:absolute;inset:0;background-image:url('assets/sunset.png');background-size:cover;background-position:50% 52%;"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(8,16,11,.55) 0%, rgba(8,16,11,.5) 38%, rgba(7,14,9,.92) 100%);"></div>
+          <div style="position:relative;padding:46px 36px 40px;">
+            <div style="font-size:12px;font-weight:800;letter-spacing:2.5px;color:#d4f23a;margin-bottom:16px;">WELCOME TO THE CLUB</div>
+            <h1 style="font-size:42px;font-weight:800;line-height:1.0;letter-spacing:-.02em;margin:0 0 16px;">Hey {FirstName},<br>you&rsquo;re in.</h1>
+            <p style="font-size:16px;line-height:1.55;color:rgba(255,255,255,.78);max-width:440px;margin:0 0 28px;">GoLo runs every side-game on the course, does the math you hate, and tells the group <strong style="color:#fff;">exactly who owes who</strong> before the parking lot. Let&rsquo;s get your first round going.</p>
+            <a href="#" style="display:inline-flex;align-items:center;gap:9px;height:54px;padding:0 26px;border-radius:15px;background:#d4f23a;color:#13250a;font-size:16px;font-weight:800;box-shadow:0 14px 32px rgba(212,242,58,.4);text-decoration:none;">Start your first round &rarr;</a>
+          </div>
+        </div>
+
+        <!-- three things -->
+        <div style="padding:36px 36px 12px;">
+          <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);text-transform:uppercase;margin-bottom:18px;">What GoLo does</div>
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <sc-for list="{{ things }}" as="t" hint-placeholder-count="3">
+              <div style="display:flex;align-items:flex-start;gap:15px;background:rgba(20,28,24,.5);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:16px 17px;">
+                <span style="width:46px;height:46px;flex:0 0 auto;border-radius:13px;display:flex;align-items:center;justify-content:center;background:rgba(212,242,58,.14);border:1px solid rgba(212,242,58,.32);">{{ t.el }}</span>
+                <div style="min-width:0;">
+                  <div style="font-size:17px;font-weight:800;color:#fff;">{{ t.title }}</div>
+                  <div style="font-size:13.5px;line-height:1.5;color:rgba(255,255,255,.6);margin-top:3px;">{{ t.body }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- quick start -->
+        <div style="padding:30px 36px 12px;">
+          <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);text-transform:uppercase;margin-bottom:18px;">Your first round in 3</div>
+          <div style="display:flex;flex-direction:column;gap:18px;">
+            <sc-for list="{{ steps }}" as="s" hint-placeholder-count="3">
+              <div style="display:flex;align-items:flex-start;gap:16px;">
+                <span style="width:42px;height:42px;flex:0 0 auto;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#13250a;background:#d4f23a;">{{ s.n }}</span>
+                <div style="min-width:0;padding-top:2px;">
+                  <div style="font-size:16px;font-weight:800;color:#fff;">{{ s.title }}</div>
+                  <div style="font-size:13.5px;line-height:1.5;color:rgba(255,255,255,.6);margin-top:2px;">{{ s.body }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- games -->
+        <div style="padding:30px 36px 12px;">
+          <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);text-transform:uppercase;margin-bottom:8px;">Games we settle for you</div>
+          <div style="font-size:13.5px;color:rgba(255,255,255,.6);margin-bottom:18px;line-height:1.5;">Skins, Nassau and the rest — set the stake, GoLo keeps the tab.</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <sc-for list="{{ games }}" as="g" hint-placeholder-count="4">
+              <div style="background:rgba(20,28,24,.5);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:15px 15px 16px;">
+                <span style="width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;background:rgba(212,242,58,.14);border:1px solid rgba(212,242,58,.32);margin-bottom:11px;">{{ g.el }}</span>
+                <div style="font-size:15px;font-weight:800;color:#fff;">{{ g.name }}</div>
+                <div style="font-size:12.5px;line-height:1.45;color:rgba(255,255,255,.58);margin-top:3px;">{{ g.desc }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- app badges -->
+        <div style="padding:32px 36px;">
+          <div style="border-radius:20px;border:1px solid rgba(255,255,255,.12);background:rgba(20,28,24,.45);padding:24px;text-align:center;">
+            <div style="font-size:18px;font-weight:800;color:#fff;">Take GoLo to the first tee</div>
+            <div style="font-size:13.5px;color:rgba(255,255,255,.6);margin:6px 0 18px;">Score from your pocket. Everyone&rsquo;s on the same card.</div>
+            <div style="display:flex;gap:11px;justify-content:center;">
+              <a href="#" style="display:flex;align-items:center;gap:10px;padding:10px 18px;border-radius:12px;background:#000;border:1px solid rgba(255,255,255,.22);text-decoration:none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="#fff" style="display:block"><path d="M16.36 12.78c-.02-2.2 1.8-3.26 1.88-3.31-1.03-1.5-2.62-1.71-3.19-1.73-1.36-.14-2.65.8-3.34.8-.69 0-1.75-.78-2.88-.76-1.48.02-2.85.86-3.61 2.18-1.54 2.67-.39 6.62 1.1 8.79.73 1.06 1.6 2.25 2.74 2.21 1.1-.04 1.52-.71 2.85-.71 1.33 0 1.71.71 2.88.69 1.19-.02 1.94-1.08 2.67-2.15.84-1.23 1.19-2.42 1.21-2.48-.03-.01-2.32-.89-2.34-3.53zM14.13 6.6c.6-.73 1.01-1.75.9-2.76-.87.04-1.92.58-2.55 1.31-.56.64-1.05 1.68-.92 2.67.97.08 1.96-.49 2.57-1.22z"></path></svg><span style="text-align:left;"><span style="display:block;font-size:9px;color:rgba(255,255,255,.65);font-weight:600;">Download on the</span><span style="display:block;font-size:14px;color:#fff;font-weight:800;margin-top:1px;">App Store</span></span></a>
+              <a href="#" style="display:flex;align-items:center;gap:10px;padding:10px 18px;border-radius:12px;background:#000;border:1px solid rgba(255,255,255,.22);text-decoration:none;"><svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" style="display:block"><path d="M4 2.5v19a1 1 0 0 0 1.5.87l16-9.5a1 1 0 0 0 0-1.74l-16-9.5A1 1 0 0 0 4 2.5z"></path></svg><span style="text-align:left;"><span style="display:block;font-size:9px;color:rgba(255,255,255,.65);font-weight:600;">GET IT ON</span><span style="display:block;font-size:14px;color:#fff;font-weight:800;margin-top:1px;">Google Play</span></span></a>
+            </div>
+          </div>
+        </div>
+
+        <!-- help -->
+        <div style="padding:0 36px 30px;text-align:center;">
+          <div style="font-size:13.5px;color:rgba(255,255,255,.6);">Stuck on a rule or a settle-up? <a href="#" style="color:#d4f23a;font-weight:800;text-decoration:none;">We&rsquo;ve got you &rarr;</a></div>
+        </div>
+
+        <!-- footer -->
+        <div style="padding:26px 36px 30px;border-top:1px solid rgba(255,255,255,.07);text-align:center;background:rgba(8,12,9,.4);">
+          <div style="display:flex;align-items:flex-end;justify-content:center;margin-bottom:8px;"><span style="font-size:16px;font-weight:800;color:rgba(255,255,255,.85);">Go</span><span style="font-size:16px;font-weight:800;color:#d4f23a;">Lo</span></div>
+          <div style="font-size:11.5px;color:rgba(255,255,255,.4);line-height:1.6;">Track it. Bet it. Settle it.<br>GoLo Golf, Inc. · 100 Fairway Ave, Pebble Beach, CA 93953<br><a href="#" style="color:rgba(255,255,255,.55);text-decoration:underline;">Unsubscribe</a> &nbsp;·&nbsp; <a href="#" style="color:rgba(255,255,255,.55);text-decoration:underline;">Email preferences</a></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ==================== VARIATION B ==================== -->
+    <div style="flex:none;width:600px;">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px;">
+        <span style="font-size:13px;font-weight:800;color:#d4f23a;letter-spacing:.5px;">B</span>
+        <span style="font-size:13.5px;font-weight:800;color:#fff;">Bold lime</span>
+        <span style="font-size:12px;color:rgba(255,255,255,.45);">editorial · oversized numerals</span>
+      </div>
+
+      <div style="border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,.1);box-shadow:0 40px 80px -30px rgba(0,0,0,.8);background:#0c0f12;color:#fff;">
+
+        <!-- lime band -->
+        <div style="background:#d4f23a;padding:18px 32px;display:flex;align-items:center;justify-content:space-between;">
+          <span style="display:flex;align-items:flex-end;"><span style="font-size:20px;font-weight:800;letter-spacing:-.02em;color:#13250a;line-height:1;">Go</span><span style="font-size:20px;font-weight:800;letter-spacing:-.02em;color:#0a160f;line-height:1;opacity:.55;">Lo</span></span>
+          <span style="font-size:11px;font-weight:800;letter-spacing:2px;color:#13250a;">WELCOME ABOARD</span>
+        </div>
+
+        <!-- hero -->
+        <div style="padding:48px 32px 40px;border-bottom:1px solid rgba(255,255,255,.08);">
+          <h1 style="font-size:52px;font-weight:800;line-height:.95;letter-spacing:-.03em;margin:0 0 20px;">Hey {FirstName}.<br>Let&rsquo;s settle<br>some <span style="color:#d4f23a;">bets.</span></h1>
+          <p style="font-size:16px;line-height:1.6;color:rgba(255,255,255,.72);max-width:460px;margin:0 0 28px;">You just signed up for the scorekeeper that actually closes the loop. Skins, Nassau, presses — GoLo tracks every shot and tells the group who pays up. No napkin math.</p>
+          <a href="#" style="display:inline-flex;align-items:center;gap:9px;height:54px;padding:0 26px;border-radius:14px;background:#d4f23a;color:#13250a;font-size:16px;font-weight:800;box-shadow:0 14px 32px rgba(212,242,58,.4);text-decoration:none;">Start your first round &rarr;</a>
+        </div>
+
+        <!-- three things as inline rows -->
+        <div style="padding:34px 32px;border-bottom:1px solid rgba(255,255,255,.08);">
+          <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);text-transform:uppercase;margin-bottom:20px;">The whole loop</div>
+          <div style="display:flex;flex-direction:column;">
+            <sc-for list="{{ things }}" as="t" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:16px;padding:16px 0;border-top:{{ t.divider }};">
+                <span style="font-size:13px;font-weight:800;color:#d4f23a;width:22px;flex:0 0 auto;">{{ t.k }}</span>
+                <span style="width:44px;height:44px;flex:0 0 auto;border-radius:12px;display:flex;align-items:center;justify-content:center;background:rgba(212,242,58,.14);border:1px solid rgba(212,242,58,.3);">{{ t.el }}</span>
+                <div style="min-width:0;">
+                  <div style="font-size:17px;font-weight:800;color:#fff;">{{ t.title }}</div>
+                  <div style="font-size:13px;line-height:1.45;color:rgba(255,255,255,.58);margin-top:2px;">{{ t.body }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- quick start — oversized numerals -->
+        <div style="padding:38px 32px;border-bottom:1px solid rgba(255,255,255,.08);background:radial-gradient(120% 70% at 100% 0%, rgba(212,242,58,.07) 0%, rgba(0,0,0,0) 60%);">
+          <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);text-transform:uppercase;margin-bottom:6px;">Get going</div>
+          <h2 style="font-size:27px;font-weight:800;letter-spacing:-.5px;margin:0 0 26px;">First round in three.</h2>
+          <div style="display:flex;flex-direction:column;gap:26px;">
+            <sc-for list="{{ steps }}" as="s" hint-placeholder-count="3">
+              <div style="display:flex;align-items:flex-start;gap:20px;">
+                <span style="font-size:56px;font-weight:800;line-height:.8;letter-spacing:-2px;color:#d4f23a;width:60px;flex:0 0 auto;">{{ s.n }}</span>
+                <div style="min-width:0;padding-top:6px;">
+                  <div style="font-size:18px;font-weight:800;color:#fff;">{{ s.title }}</div>
+                  <div style="font-size:14px;line-height:1.5;color:rgba(255,255,255,.6);margin-top:4px;">{{ s.body }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- games as pills -->
+        <div style="padding:34px 32px;border-bottom:1px solid rgba(255,255,255,.08);">
+          <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);text-transform:uppercase;margin-bottom:16px;">Pick your poison</div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;">
+            <sc-for list="{{ games }}" as="g" hint-placeholder-count="4">
+              <span style="display:flex;align-items:center;gap:9px;padding:11px 16px 11px 11px;border-radius:9999px;background:rgba(20,28,24,.6);border:1px solid rgba(255,255,255,.14);">
+                <span style="width:30px;height:30px;flex:0 0 auto;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(212,242,58,.16);">{{ g.elSm }}</span>
+                <span style="font-size:14.5px;font-weight:800;color:#fff;">{{ g.name }}</span>
+              </span>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- app badges -->
+        <div style="padding:32px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:space-between;background:rgba(255,255,255,.02);">
+          <div style="min-width:200px;">
+            <div style="font-size:18px;font-weight:800;color:#fff;">Get the app</div>
+            <div style="font-size:13px;color:rgba(255,255,255,.58);margin-top:3px;">Score from your phone, settle on the spot.</div>
+          </div>
+          <div style="display:flex;gap:10px;">
+            <a href="#" style="display:flex;align-items:center;gap:9px;padding:10px 16px;border-radius:12px;background:#fff;text-decoration:none;"><svg width="20" height="20" viewBox="0 0 24 24" fill="#0c0f12" style="display:block"><path d="M16.36 12.78c-.02-2.2 1.8-3.26 1.88-3.31-1.03-1.5-2.62-1.71-3.19-1.73-1.36-.14-2.65.8-3.34.8-.69 0-1.75-.78-2.88-.76-1.48.02-2.85.86-3.61 2.18-1.54 2.67-.39 6.62 1.1 8.79.73 1.06 1.6 2.25 2.74 2.21 1.1-.04 1.52-.71 2.85-.71 1.33 0 1.71.71 2.88.69 1.19-.02 1.94-1.08 2.67-2.15.84-1.23 1.19-2.42 1.21-2.48-.03-.01-2.32-.89-2.34-3.53zM14.13 6.6c.6-.73 1.01-1.75.9-2.76-.87.04-1.92.58-2.55 1.31-.56.64-1.05 1.68-.92 2.67.97.08 1.96-.49 2.57-1.22z"></path></svg><span style="text-align:left;"><span style="display:block;font-size:8.5px;color:rgba(12,15,18,.6);font-weight:600;">Download on the</span><span style="display:block;font-size:13px;color:#0c0f12;font-weight:800;">App Store</span></span></a>
+            <a href="#" style="display:flex;align-items:center;gap:9px;padding:10px 16px;border-radius:12px;background:#fff;text-decoration:none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="#0c0f12" style="display:block"><path d="M4 2.5v19a1 1 0 0 0 1.5.87l16-9.5a1 1 0 0 0 0-1.74l-16-9.5A1 1 0 0 0 4 2.5z"></path></svg><span style="text-align:left;"><span style="display:block;font-size:8.5px;color:rgba(12,15,18,.6);font-weight:600;">GET IT ON</span><span style="display:block;font-size:13px;color:#0c0f12;font-weight:800;">Google Play</span></span></a>
+          </div>
+        </div>
+
+        <!-- footer -->
+        <div style="padding:26px 32px 30px;border-top:1px solid rgba(255,255,255,.08);">
+          <div style="font-size:13px;color:rgba(255,255,255,.55);margin-bottom:14px;">Got a question about a game or a payout? <a href="#" style="color:#d4f23a;font-weight:800;text-decoration:none;">Hit up support &rarr;</a></div>
+          <div style="font-size:11.5px;color:rgba(255,255,255,.38);line-height:1.6;">GoLo Golf, Inc. · 100 Fairway Ave, Pebble Beach, CA 93953<br><a href="#" style="color:rgba(255,255,255,.52);text-decoration:underline;">Unsubscribe</a> &nbsp;·&nbsp; <a href="#" style="color:rgba(255,255,255,.52);text-decoration:underline;">Email preferences</a></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ==================== VARIATION C ==================== -->
+    <div style="flex:none;width:600px;">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px;">
+        <span style="font-size:13px;font-weight:800;color:#d4f23a;letter-spacing:.5px;">C</span>
+        <span style="font-size:13.5px;font-weight:800;color:#fff;">Scorecard</span>
+        <span style="font-size:12px;color:rgba(255,255,255,.45);">structured · compact</span>
+      </div>
+
+      <div style="border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,.1);box-shadow:0 40px 80px -30px rgba(0,0,0,.8);background:#0a160f;color:#fff;">
+
+        <!-- compact photo header -->
+        <div style="position:relative;">
+          <div style="position:absolute;inset:0;background-image:url('assets/course.png');background-size:cover;background-position:50% 50%;"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(7,14,9,.6) 0%, rgba(7,14,9,.78) 100%);"></div>
+          <div style="position:relative;padding:22px 28px;display:flex;align-items:center;gap:9px;">
+            <span style="width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:#0c0f12;border:1px solid rgba(255,255,255,.12);"><svg width="22" height="22" viewBox="0 0 120 124" fill="none" style="display:block"><path d="M56 20 A40 40 0 1 0 95.8 64" stroke="#d4f23a" stroke-width="12" stroke-linecap="round"></path><line x1="95.8" y1="64" x2="64" y2="64" stroke="#d4f23a" stroke-width="12" stroke-linecap="round"></line><circle cx="56" cy="58" r="15" fill="#fff"></circle><line x1="56" y1="44" x2="56" y2="14" stroke="#d4f23a" stroke-width="3.4"></line><path d="M56 14 L86 22 L56 34 Z" fill="#fff"></path></svg></span>
+            <span style="display:flex;align-items:flex-end;"><span style="font-size:18px;font-weight:800;color:#fff;line-height:1;">Go</span><span style="font-size:18px;font-weight:800;color:#d4f23a;line-height:1;">Lo</span></span>
+          </div>
+        </div>
+
+        <!-- title block -->
+        <div style="padding:34px 28px 28px;text-align:center;border-bottom:1px solid rgba(255,255,255,.09);">
+          <div style="font-size:12px;font-weight:800;letter-spacing:2.5px;color:#d4f23a;margin-bottom:14px;">YOUR CARD IS OPEN</div>
+          <h1 style="font-size:34px;font-weight:800;line-height:1.05;letter-spacing:-.02em;margin:0 0 14px;">Welcome, {FirstName}.</h1>
+          <p style="font-size:15px;line-height:1.55;color:rgba(255,255,255,.7);max-width:420px;margin:0 auto 24px;">The scorekeeper that settles the bet. Track every shot, run any side-game, and walk off knowing exactly who owes who.</p>
+          <a href="#" style="display:inline-flex;align-items:center;gap:9px;height:52px;padding:0 26px;border-radius:14px;background:#d4f23a;color:#13250a;font-size:15.5px;font-weight:800;box-shadow:0 12px 28px rgba(212,242,58,.4);text-decoration:none;">Start your first round &rarr;</a>
+        </div>
+
+        <!-- three things as stat-tile row -->
+        <div style="padding:26px 28px;border-bottom:1px solid rgba(255,255,255,.09);">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+            <sc-for list="{{ things }}" as="t" hint-placeholder-count="3">
+              <div style="background:rgba(20,28,24,.5);border:1px solid rgba(255,255,255,.11);border-radius:15px;padding:16px 12px;text-align:center;">
+                <span style="width:40px;height:40px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;background:rgba(212,242,58,.14);border:1px solid rgba(212,242,58,.3);margin-bottom:10px;">{{ t.el }}</span>
+                <div style="font-size:15px;font-weight:800;color:#fff;">{{ t.title }}</div>
+                <div style="font-size:11.5px;line-height:1.4;color:rgba(255,255,255,.55);margin-top:4px;">{{ t.short }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- quick start — connected timeline -->
+        <div style="padding:30px 28px;border-bottom:1px solid rgba(255,255,255,.09);">
+          <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);text-transform:uppercase;margin-bottom:18px;">Tee off in 3 steps</div>
+          <div style="display:flex;flex-direction:column;gap:0;">
+            <sc-for list="{{ steps }}" as="s" hint-placeholder-count="3">
+              <div style="display:flex;align-items:stretch;gap:15px;">
+                <div style="display:flex;flex-direction:column;align-items:center;flex:0 0 auto;">
+                  <span style="width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#13250a;background:#d4f23a;">{{ s.n }}</span>
+                  <span style="width:2px;flex:1;background:{{ s.line }};margin:4px 0;"></span>
+                </div>
+                <div style="min-width:0;padding-bottom:20px;padding-top:4px;">
+                  <div style="font-size:15.5px;font-weight:800;color:#fff;">{{ s.title }}</div>
+                  <div style="font-size:13px;line-height:1.5;color:rgba(255,255,255,.6);margin-top:2px;">{{ s.body }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- games as scorecard rows -->
+        <div style="padding:28px 28px;border-bottom:1px solid rgba(255,255,255,.09);">
+          <div style="font-size:11px;font-weight:800;letter-spacing:1.4px;color:rgba(255,255,255,.5);text-transform:uppercase;margin-bottom:14px;">The games on the card</div>
+          <div style="border:1px solid rgba(255,255,255,.11);border-radius:14px;overflow:hidden;">
+            <sc-for list="{{ games }}" as="g" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;gap:13px;padding:14px 15px;border-top:{{ g.rowDivider }};background:rgba(20,28,24,.4);">
+                <span style="width:36px;height:36px;flex:0 0 auto;border-radius:10px;display:flex;align-items:center;justify-content:center;background:rgba(212,242,58,.14);border:1px solid rgba(212,242,58,.3);">{{ g.el }}</span>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:15px;font-weight:800;color:#fff;">{{ g.name }}</div>
+                  <div style="font-size:12px;line-height:1.4;color:rgba(255,255,255,.55);margin-top:1px;">{{ g.desc }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- app badges -->
+        <div style="padding:28px;text-align:center;">
+          <div style="font-size:16.5px;font-weight:800;color:#fff;margin-bottom:4px;">Get GoLo on your phone</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.58);margin-bottom:16px;">Everyone scores from their own pocket.</div>
+          <div style="display:flex;gap:11px;justify-content:center;">
+            <a href="#" style="display:flex;align-items:center;gap:10px;padding:10px 18px;border-radius:12px;background:#000;border:1px solid rgba(255,255,255,.22);text-decoration:none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="#fff" style="display:block"><path d="M16.36 12.78c-.02-2.2 1.8-3.26 1.88-3.31-1.03-1.5-2.62-1.71-3.19-1.73-1.36-.14-2.65.8-3.34.8-.69 0-1.75-.78-2.88-.76-1.48.02-2.85.86-3.61 2.18-1.54 2.67-.39 6.62 1.1 8.79.73 1.06 1.6 2.25 2.74 2.21 1.1-.04 1.52-.71 2.85-.71 1.33 0 1.71.71 2.88.69 1.19-.02 1.94-1.08 2.67-2.15.84-1.23 1.19-2.42 1.21-2.48-.03-.01-2.32-.89-2.34-3.53zM14.13 6.6c.6-.73 1.01-1.75.9-2.76-.87.04-1.92.58-2.55 1.31-.56.64-1.05 1.68-.92 2.67.97.08 1.96-.49 2.57-1.22z"></path></svg><span style="text-align:left;"><span style="display:block;font-size:9px;color:rgba(255,255,255,.65);font-weight:600;">Download on the</span><span style="display:block;font-size:14px;color:#fff;font-weight:800;margin-top:1px;">App Store</span></span></a>
+            <a href="#" style="display:flex;align-items:center;gap:10px;padding:10px 18px;border-radius:12px;background:#000;border:1px solid rgba(255,255,255,.22);text-decoration:none;"><svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" style="display:block"><path d="M4 2.5v19a1 1 0 0 0 1.5.87l16-9.5a1 1 0 0 0 0-1.74l-16-9.5A1 1 0 0 0 4 2.5z"></path></svg><span style="text-align:left;"><span style="display:block;font-size:9px;color:rgba(255,255,255,.65);font-weight:600;">GET IT ON</span><span style="display:block;font-size:14px;color:#fff;font-weight:800;margin-top:1px;">Google Play</span></span></a>
+          </div>
+        </div>
+
+        <!-- footer -->
+        <div style="padding:24px 28px 28px;border-top:1px solid rgba(255,255,255,.09);text-align:center;background:rgba(7,14,9,.5);">
+          <div style="font-size:13px;color:rgba(255,255,255,.55);margin-bottom:12px;">Questions? <a href="#" style="color:#d4f23a;font-weight:800;text-decoration:none;">Visit the help center &rarr;</a></div>
+          <div style="font-size:11.5px;color:rgba(255,255,255,.38);line-height:1.6;">GoLo Golf, Inc. · 100 Fairway Ave, Pebble Beach, CA 93953<br><a href="#" style="color:rgba(255,255,255,.52);text-decoration:underline;">Unsubscribe</a> &nbsp;·&nbsp; <a href="#" style="color:rgba(255,255,255,.52);text-decoration:underline;">Email preferences</a></div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  ICONS = {
+    card:'<path fill-rule="evenodd" d="M5 3.5h14A1.5 1.5 0 0 1 20.5 5v14A1.5 1.5 0 0 1 19 20.5H5A1.5 1.5 0 0 1 3.5 19V5A1.5 1.5 0 0 1 5 3.5zM7 7.5h10v2H7v-2zm0 4h10v2H7v-2zm0 4h6.5v2H7v-2z"/>',
+    cash:'<path fill-rule="evenodd" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h15A1.5 1.5 0 0 1 21 6.5v11A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5v-11zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/>',
+    swap:'<path d="M3 8.5a1 1 0 0 1 1-1h12.1l-1.8-1.8a1 1 0 1 1 1.4-1.4l3.5 3.5a1 1 0 0 1 0 1.4l-3.5 3.5a1 1 0 0 1-1.4-1.4l1.8-1.8H4a1 1 0 0 1-1-1zM21 15.5a1 1 0 0 1-1 1H7.9l1.8 1.8a1 1 0 1 1-1.4 1.4l-3.5-3.5a1 1 0 0 1 0-1.4l3.5-3.5a1 1 0 0 1 1.4 1.4l-1.8 1.8H20a1 1 0 0 1 1 1z"/>',
+    target:'<path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm0 4a2 2 0 1 1 0 4 2 2 0 0 1 0-4z"/>',
+    trophy:'<path d="M6 3h12v2h3a1 1 0 0 1 1 1c0 2.9-1.9 5.2-4.6 5.8A6.5 6.5 0 0 1 13 15.8V18h3a1 1 0 0 1 1 1v2H7v-2a1 1 0 0 1 1-1h3v-2.2a6.5 6.5 0 0 1-4.4-3.9C3.9 11.2 2 8.9 2 6a1 1 0 0 1 1-1h3V3zM6 7H4.2c.3 1.4 1.1 2.4 2.1 2.9A8.6 8.6 0 0 1 6 8V7zm12 0v1c0 .6 0 1.2-.2 1.8 1-.5 1.7-1.4 2-2.8H18z"/>',
+    pin:'<path fill-rule="evenodd" d="M12 2a7 7 0 0 0-7 7c0 4.8 5.6 11.4 6.3 12.2a.9.9 0 0 0 1.4 0C13.4 20.4 19 13.8 19 9a7 7 0 0 0-7-7zm0 4.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z"/>',
+    drive:'<path d="M14 3h6.2a.8.8 0 0 1 .8.8V10a1 1 0 0 1-1.7.7l-1.8-1.8-7.7 7.7a1.4 1.4 0 0 1-2-2l7.7-7.7-1.8-1.8A1 1 0 0 1 14 3z"/><circle cx="5.5" cy="18.5" r="3"/>'
+  };
+  ico(name, color, size){ size=size||24; return React.createElement('svg',{width:size,height:size,viewBox:'0 0 24 24',fill:color||'#d4f23a',style:{display:'block',flex:'0 0 auto'},dangerouslySetInnerHTML:{__html:this.ICONS[name]||''}}); }
+  renderVals(){
+    const A = '#d4f23a';
+    const div = '1px solid rgba(255,255,255,.1)';
+    const things = [
+      {key:'card', title:'Track it', body:'A live scorecard for the whole group — tap in scores hole by hole, no pencil required.', short:'Live group scorecard'},
+      {key:'cash', title:'Bet it', body:'Set up Skins, Nassau, presses — any format, any stake, all running at once.', short:'Any game, any stake'},
+      {key:'swap', title:'Settle it', body:'GoLo runs the math and tells everyone exactly who owes who. Done before you reach the lot.', short:'Who owes who, instantly'},
+    ].map((t,i)=>({ ...t, k:'0'+(i+1), divider: i===0 ? 'none' : div, el:this.ico(t.key, A, 24) }));
+
+    const steps = [
+      {n:'1', title:'Set your handicap', body:'Drop in your GHIN or index so every net score is fair from the first tee.'},
+      {n:'2', title:'Start a round, invite your group', body:'Share one link — everyone scores from their own phone, in sync.'},
+      {n:'3', title:'Walk off settled', body:'GoLo tallies every bet automatically. Settle up before the parking lot.'},
+    ].map((s,i)=>({ ...s, line: i===2 ? 'transparent' : 'rgba(255,255,255,.14)' }));
+
+    const games = [
+      {key:'target', name:'Skins', desc:'Lowest score on a hole takes the pot — ties carry over.'},
+      {key:'trophy', name:'Nassau', desc:'Front 9, back 9 and the 18 — three bets in one.'},
+      {key:'pin', name:'Closest to the Pin', desc:'Stick it tight on the par 3s and collect.'},
+      {key:'drive', name:'Longest Drive', desc:'Bombs only. Winner takes the hole’s pot.'},
+    ].map((g,i)=>({ ...g, rowDivider: i===0 ? 'none' : div, el:this.ico(g.key, A, 22), elSm:this.ico(g.key, A, 17) }));
+
+    return { things, steps, games };
+  }
+}
+</script>
+</body>
+</html>

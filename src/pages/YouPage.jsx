@@ -10,7 +10,7 @@ import { startGhinConnect, syncGhinHandicap, isGhinConfiguredResponse } from '..
 import { isGhinConnected } from '../lib/ghin/eligibility'
 import { GoloWordmark, GoloBall } from '../components/shared/Logo'
 import { Icon } from '../components/shared/GoloIcons'
-import BackButton from '../components/shared/BackButton'
+import AppHeader from '../components/shared/AppHeader'
 import {
   playerKey, hasContact, displayName, handleOf, autoKey, namesByKey, netByKey,
   myNetInRoundByKey, playedInByKey, entryMatches,
@@ -584,16 +584,11 @@ export default function YouPage() {
       <div style={S.scrim} />
 
       <div style={S.column}>
+        <AppHeader accent={ACCENT} backTo="/" logo="wordmark" rightAction="pin" kicker="GOLO GOLF · YOU" title="Your locker" currentPage="You" />
+
         {/* identity header -------------------------------------------------- */}
         <div style={S.header}>
-          <div style={S.headerTop}>
-            <BackButton />
-            <GoloWordmark variant="white" fontPx={16} />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-            <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: ACCENT }}>YOUR LOCKER</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 15, marginTop: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
             <span style={{ ...S.avatar, width: 78, height: 78, fontSize: 30, overflow: 'hidden', boxShadow: `0 0 0 3px ${hexA(ACCENT, 0.5)}, 0 10px 24px rgba(0,0,0,.4)`, background: avatarUrl ? '#0a2418' : ACCENT, color: ACCENT_DARK }}>
               {avatarUrl ? (
                 <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -632,7 +627,7 @@ export default function YouPage() {
         </div>
 
         {/* scrollable body -------------------------------------------------- */}
-        <div style={S.scroll}>
+        <div className="golo-scroll" style={S.scroll}>
           {/* profile editor */}
           {editing && (
             <div style={{ ...S.glassCard, marginBottom: 14 }}>
@@ -1125,7 +1120,7 @@ function VenmoSheet({ value, hasLinkedVenmo, onChange, onCancel, onSave, onUnlin
 
 function SettingRow({ icon, title, sub, onClick, divider, danger, badge }) {
   return (
-    <button onClick={onClick} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 13, background: 'transparent', border: 'none', cursor: 'pointer', padding: '13px 12px', borderBottom: divider ? '1px solid rgba(255,255,255,.07)' : 'none', textAlign: 'left' }}>
+    <button onClick={onClick} style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 13, background: 'transparent', border: 'none', cursor: 'pointer', padding: '13px 12px', borderBottom: divider ? '1px solid rgba(255,255,255,.07)' : 'none', textAlign: 'left' }}>
       <span style={{ width: 38, height: 38, borderRadius: 12, flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.1)' }}>{icon}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 15, fontWeight: 800, color: danger ? '#fb7185' : '#fff' }}>{title}</div>
@@ -1169,20 +1164,19 @@ const S = {
     background: 'linear-gradient(180deg, rgba(6,14,9,.62) 0%, rgba(6,14,9,.5) 18%, rgba(6,16,10,.7) 46%, rgba(4,12,8,.94) 100%)',
   },
   column: { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', width: '100%', maxWidth: 480, margin: '0 auto' },
-  header: { flex: '0 0 auto', padding: 'max(10px, env(safe-area-inset-top)) 18px 14px', textShadow: '0 2px 12px rgba(0,0,0,.4)' },
-  headerTop: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
+  header: { flex: '0 0 auto', padding: '4px 18px 14px', textShadow: '0 2px 12px rgba(0,0,0,.4)' },
   editBtn: { display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,.13)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.18)', color: '#fff', fontSize: 12, fontWeight: 800, padding: '7px 13px', borderRadius: 9999, cursor: 'pointer' },
   venmoChip: { display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,.1)', color: '#fff', border: '1px solid rgba(255,255,255,.2)', borderRadius: 9999, padding: '4px 12px', fontSize: 14, fontWeight: 700, cursor: 'pointer' },
   venmoLink: { background: 'transparent', border: 'none', padding: 0, color: 'rgba(255,255,255,.5)', fontSize: 14, fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer' },
   avatar: { borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#fff' },
-  scroll: { flex: 1, overflowY: 'auto', padding: '2px 16px 14px' },
+  scroll: { flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '2px 16px 14px' },
 
-  primaryCta: { width: '100%', textAlign: 'center', border: 'none', cursor: 'pointer', background: ACCENT, borderRadius: 20, padding: '18px', marginBottom: 12, boxShadow: `0 14px 34px ${hexA(ACCENT, 0.45)}` },
+  primaryCta: { width: '100%', boxSizing: 'border-box', textAlign: 'center', border: 'none', cursor: 'pointer', background: ACCENT, borderRadius: 20, padding: '18px', marginBottom: 12, boxShadow: `0 14px 34px ${hexA(ACCENT, 0.45)}` },
   glassCard: { background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 24, padding: '20px 18px', marginBottom: 12, boxShadow: '0 12px 32px rgba(0,0,0,.32)' },
   cardKicker: { fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: 'rgba(255,255,255,.5)' },
   fieldLabel: { display: 'block', fontSize: 10, fontWeight: 800, letterSpacing: 0.8, color: 'rgba(255,255,255,.5)', marginTop: 14 },
   textInput: { width: '100%', marginTop: 7, padding: '11px 13px', borderRadius: 12, background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.18)', color: '#fff', fontSize: 14, fontWeight: 600, outline: 'none', boxSizing: 'border-box' },
-  doneBtn: { width: '100%', marginTop: 16, padding: '12px', borderRadius: 12, border: 'none', cursor: 'pointer', background: ACCENT, color: ACCENT_DARK, fontSize: 14, fontWeight: 800 },
+  doneBtn: { width: '100%', boxSizing: 'border-box', marginTop: 16, padding: '12px', borderRadius: 12, border: 'none', cursor: 'pointer', background: ACCENT, color: ACCENT_DARK, fontSize: 14, fontWeight: 800 },
   photoBtn: { padding: '9px 16px', borderRadius: 10, border: 'none', background: ACCENT, color: ACCENT_DARK, fontSize: 13, fontWeight: 800 },
   photoRemoveBtn: { padding: '9px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,.18)', background: 'rgba(255,255,255,.06)', color: '#fb7185', fontSize: 13, fontWeight: 800, cursor: 'pointer' },
   heroGlow: { position: 'absolute', right: -30, top: -30, width: 150, height: 150, borderRadius: '50%', filter: 'blur(36px)', pointerEvents: 'none' },
