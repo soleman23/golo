@@ -80,6 +80,14 @@ const ord = (n) => {
   return `${whole}${s[(v - 20) % 10] || s[v] || s[0]}`
 }
 
+/** "Alex's Locker" / "James' Locker" — falls back when no display name yet. */
+const lockerTitle = (name) => {
+  const n = (name || '').trim()
+  if (!n) return 'Set up your locker'
+  const stem = /s$/i.test(n) ? `${n}'` : `${n}'s`
+  return `${stem} Locker`
+}
+
 const myPlace = (r, key, name) =>
   r.leaderboard?.find((e) => entryMatches(e, key, name))?.rank ?? null
 
@@ -121,6 +129,7 @@ export default function YouPage() {
   const initialGhinStatus = searchParams.get('ghin')
 
   const [editing, setEditing] = useState(false)
+  const [pendingAvatarPick, setPendingAvatarPick] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [avatarError, setAvatarError] = useState(null)
   const [confirmAction, setConfirmAction] = useState(null)
@@ -497,6 +506,17 @@ export default function YouPage() {
     fileInputRef.current?.click()
   }
 
+  const openProfileFromAvatar = () => {
+    setEditing(true)
+    if (canUploadAvatar) setPendingAvatarPick(true)
+  }
+
+  useEffect(() => {
+    if (!editing || !pendingAvatarPick) return
+    setPendingAvatarPick(false)
+    pickAvatar()
+  }, [editing, pendingAvatarPick]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const onAvatarFile = async (e) => {
     const file = e.target.files?.[0]
     e.target.value = '' // allow re-picking the same file later
@@ -584,27 +604,27 @@ export default function YouPage() {
       <div style={S.scrim} />
 
       <div style={S.column}>
-        <AppHeader accent={ACCENT} backTo="/" logo="wordmark" rightAction="pin" kicker="GOLO GOLF · YOU" title="Your locker" currentPage="You" />
+        <AppHeader accent={ACCENT} backTo="/" logo="wordmark" rightAction="pin" title={lockerTitle(meName)} currentPage="You" showBack={!authUserId} />
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={onAvatarFile}
+          style={{ display: 'none' }}
+        />
 
         {/* identity header -------------------------------------------------- */}
         <div style={S.header}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
-            <span style={{ ...S.avatar, width: 78, height: 78, fontSize: 30, overflow: 'hidden', boxShadow: `0 0 0 3px ${hexA(ACCENT, 0.5)}, 0 10px 24px rgba(0,0,0,.4)`, background: avatarUrl ? '#0a2418' : ACCENT, color: ACCENT_DARK }}>
-              {avatarUrl ? (
-                <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : meName ? initial(meName) : (
-                <GoloBall size={42} fill="#ffffff" dimple="rgba(20,40,24,.3)" />
-              )}
-            </span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 26, fontWeight: 800, color: '#fff', letterSpacing: '-0.4px', lineHeight: 1.05 }}>{meName ?? 'Set up your profile'}</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,.6)', marginTop: 3 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,.6)', lineHeight: 1.35 }}>
                 {meHandle
                   ? meHandle
                   : hasIdentity
                     ? 'Your saved identity'
                     : meName
-                      ? 'Auto-detected — tap Edit to add your contact'
+                      ? 'Auto-detected — tap your photo to edit'
                       : 'Play a round to get started'}
               </div>
               <div style={{ marginTop: 8 }}>
@@ -623,6 +643,18 @@ export default function YouPage() {
                 </div>
               )}
             </div>
+            <button
+              type="button"
+              onClick={openProfileFromAvatar}
+              aria-label="Edit profile photo"
+              style={{ ...S.avatar, width: 78, height: 78, fontSize: 30, overflow: 'hidden', boxShadow: `0 0 0 3px ${hexA(ACCENT, 0.5)}, 0 10px 24px rgba(0,0,0,.4)`, background: avatarUrl ? '#0a2418' : ACCENT, color: ACCENT_DARK, border: 'none', padding: 0, cursor: 'pointer', flex: '0 0 auto' }}
+            >
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : meName ? initial(meName) : (
+                <GoloBall size={42} fill="#ffffff" dimple="rgba(20,40,24,.3)" />
+              )}
+            </button>
           </div>
         </div>
 
@@ -648,13 +680,6 @@ export default function YouPage() {
                 </span>
                 {canUploadAvatar ? (
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={onAvatarFile}
-                      style={{ display: 'none' }}
-                    />
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <button onClick={pickAvatar} disabled={uploading} style={{ ...S.photoBtn, opacity: uploading ? 0.6 : 1, cursor: uploading ? 'default' : 'pointer' }}>
                         {uploading ? 'Uploading…' : avatarUrl ? 'Change photo' : 'Add photo'}
