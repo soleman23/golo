@@ -225,7 +225,7 @@ export default function HomePage() {
         {/* greeting --------------------------------------------------------- */}
         <div style={S.header}>
           <div style={S.headerTop}>
-            <BackButton />
+            {authUserId ? <span aria-hidden="true" style={S.backSpacer} /> : <BackButton />}
             <GoloWordmark variant="white" fontPx={16} />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -436,6 +436,7 @@ const S = {
   column: { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', width: '100%', maxWidth: 480, margin: '0 auto' },
   header: { flex: '0 0 auto', padding: 'max(10px, env(safe-area-inset-top)) 18px 10px', textShadow: '0 2px 12px rgba(0,0,0,.4)' },
   headerTop: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
+  backSpacer: { width: 72, height: 36, flex: '0 0 auto' },
   avatar: { borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 800, color: '#fff' },
   scroll: { flex: 1, overflowY: 'auto', padding: '4px 16px 14px' },
 
