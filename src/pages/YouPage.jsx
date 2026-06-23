@@ -592,7 +592,6 @@ export default function YouPage() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
             <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: ACCENT }}>YOUR LOCKER</span>
-            <button onClick={() => setEditing((v) => !v)} style={S.editBtn}>{editing ? 'Done' : '✎ Edit'}</button>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 15, marginTop: 14 }}>
             <span style={{ ...S.avatar, width: 78, height: 78, fontSize: 30, overflow: 'hidden', boxShadow: `0 0 0 3px ${hexA(ACCENT, 0.5)}, 0 10px 24px rgba(0,0,0,.4)`, background: avatarUrl ? '#0a2418' : ACCENT, color: ACCENT_DARK }}>
@@ -907,13 +906,6 @@ export default function YouPage() {
           </div>
           <div style={{ ...S.glassCard, borderRadius: 20, padding: '5px 4px' }}>
             <SettingRow
-              icon="✎"
-              title="Edit profile"
-              sub={profileEmail || profilePhone || (meName ? `${meName}${hasIdentity ? '' : ' · add email or phone'}` : 'Name, handle, email, phone')}
-              onClick={() => setEditing(true)}
-              divider
-            />
-            <SettingRow
               icon="💸"
               title="Payouts"
               sub={venmo ? `Venmo · ${venmo}` : 'Link a payout method'}
@@ -938,7 +930,14 @@ export default function YouPage() {
               divider
             />
             <SettingRow icon="📋" title="Round history" sub={`${rounds.length} saved`} onClick={() => navigate('/history')} divider />
-            <SettingRow icon="🗑️" title="Clear history" sub="Delete all saved rounds" onClick={handleClear} divider={authEnabled} danger />
+            <SettingRow icon="🗑️" title="Clear history" sub="Delete all saved rounds" onClick={handleClear} divider danger />
+            <SettingRow
+              icon="✎"
+              title="Edit profile"
+              sub={profileEmail || profilePhone || (meName ? `${meName}${hasIdentity ? '' : ' · add email or phone'}` : 'Name, handle, email, phone')}
+              onClick={() => setEditing(true)}
+              divider={authEnabled}
+            />
             {authEnabled && (
               <SettingRow icon="🚪" title="Sign out" sub={authEmail ? `Signed in as ${authEmail}` : 'End your session'} onClick={handleSignOut} danger />
             )}
