@@ -311,7 +311,7 @@ const skinsConfigOf = (b) => ({
   savedAsDefault: !!b.savedAsDefault,
 })
 
-/** Re-resolve longest-drive holes (skins + standalone long) against the current course card. */
+/** Re-resolve longest-drive holes against the current course card when each bet is active. */
 const betsWithNormalizedLdHole = (bets, pars) => ({
   ...bets,
   skins: {
@@ -320,7 +320,7 @@ const betsWithNormalizedLdHole = (bets, pars) => ({
       ? normalizeSkinsLdHole(bets.skins.ldHole, pars)
       : bets.skins.ldHole,
   },
-  long: bets.long
+  long: bets.long?.on
     ? { ...bets.long, hole: normalizeSkinsLdHole(bets.long.hole, pars) }
     : bets.long,
 })
