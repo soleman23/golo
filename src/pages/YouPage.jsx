@@ -599,7 +599,7 @@ export default function YouPage() {
       <div style={S.scrim} />
 
       <div style={S.column}>
-        <AppHeader accent={ACCENT} backTo="/" logo="wordmark" rightAction="pin" title={lockerTitle(meName)} currentPage="You" showBack={!authUserId} />
+        <AppHeader accent={ACCENT} backTo="/" logo="wordmark" rightAction="pin" currentPage="You" showBack={!authUserId} showTitle={false} />
 
         <input
           ref={fileInputRef}
@@ -609,79 +609,86 @@ export default function YouPage() {
           style={{ display: 'none' }}
         />
 
-        {/* identity header -------------------------------------------------- */}
+        {/* identity header — reference: avatar left, locker title + handle, badge row, segment toggle */}
         <div style={S.header}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 15 }}>
+          <div style={S.identityRow}>
+            <button
+              type="button"
+              onClick={openProfileFromAvatar}
+              aria-label="Edit profile photo"
+              style={{
+                ...S.avatar,
+                ...S.headerAvatar,
+                background: avatarUrl ? '#0a2418' : ACCENT,
+              }}
+            >
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : meName ? initial(meName) : (
+                <GoloBall size={50} fill="#ffffff" dimple="rgba(20,40,24,.3)" />
+              )}
+            </button>
             <div style={{ flex: 1, minWidth: 0 }}>
-              {!meHandle && (
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,.6)', lineHeight: 1.35 }}>
+              <div style={S.lockerTitle}>{lockerTitle(meName)}</div>
+              {meHandle ? (
+                <div style={S.lockerHandle}>{meHandle}</div>
+              ) : (
+                <div style={S.lockerHandle}>
                   {hasIdentity
                     ? 'Your saved identity'
                     : meName
-                      ? 'Auto-detected — tap your photo to edit'
+                      ? 'Tap photo to edit profile'
                       : 'Play a round to get started'}
-                </div>
-              )}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: meHandle ? 0 : 8 }}>
-                {meHandle && (
-                  <span style={S.venmoChip}>{meHandle}</span>
-                )}
-                {venmoHandle ? (
-                  <button type="button" onClick={copyVenmo} style={S.venmoChip}>💸 {venmoHandle}</button>
-                ) : (
-                  <button type="button" onClick={editVenmo} style={S.venmoLink}>+ Add Venmo</button>
-                )}
-              </div>
-              {meName && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 9 }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.4, color: ACCENT_DARK, background: ACCENT, padding: '4px 10px', borderRadius: 9999 }}>Hdcp {model?.hdcpLabel ?? '—'}</span>
-                  {model?.homeClub && (
-                    <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.7)', background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.14)', padding: '4px 10px', borderRadius: 9999 }}>{model.homeClub}</span>
-                  )}
-                </div>
-              )}
-            </div>
-            <div style={S.profileColumn}>
-              <button
-                type="button"
-                onClick={openProfileFromAvatar}
-                aria-label="Edit profile photo"
-                style={{ ...S.avatar, width: 96, height: 96, fontSize: 36, overflow: 'hidden', boxShadow: `0 0 0 3px ${hexA(ACCENT, 0.5)}, 0 10px 24px rgba(0,0,0,.4)`, background: avatarUrl ? '#0a2418' : ACCENT, color: ACCENT_DARK, border: 'none', padding: 0, cursor: 'pointer' }}
-              >
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : meName ? initial(meName) : (
-                  <GoloBall size={50} fill="#ffffff" dimple="rgba(20,40,24,.3)" />
-                )}
-              </button>
-              {showViewToggle && (
-                <div style={S.viewToggleColumn}>
-                  {[
-                    { key: 'season', label: 'Season' },
-                    { key: 'alltime', label: 'All Time' },
-                  ].map((item) => {
-                    const active = view === item.key
-                    return (
-                      <button
-                        key={item.key}
-                        type="button"
-                        onClick={() => setView(item.key)}
-                        style={{
-                          ...S.viewPillCompact,
-                          background: active ? ACCENT : 'rgba(255,255,255,.08)',
-                          color: active ? ACCENT_DARK : '#fff',
-                          border: active ? '1px solid transparent' : '1px solid rgba(255,255,255,.22)',
-                          fontWeight: active ? 800 : 700,
-                        }}
-                      >
-                        {item.label}
-                      </button>
-                    )
-                  })}
                 </div>
               )}
             </div>
           </div>
+
+          {meName && (
+            <div style={S.badgeRow}>
+              <span style={S.hdcpBadge}>Hdcp {model?.hdcpLabel ?? '—'}</span>
+              {model?.homeClub && (
+                <span style={S.clubBadge}>
+                  <span aria-hidden="true" style={{ fontSize: 11, lineHeight: 1 }}>📍</span>
+                  {model.homeClub}
+                </span>
+              )}
+              {venmoHandle && (
+                <button type="button" onClick={copyVenmo} style={S.venmoBadge} aria-label="Copy Venmo handle">
+                  <span aria-hidden="true" style={{ fontSize: 12, fontWeight: 900, lineHeight: 1 }}>$</span>
+                  {venmoHandle}
+                </button>
+              )}
+            </div>
+          )}
+
+          {showViewToggle && (
+            <div style={S.viewSegment} role="tablist" aria-label="Stats range">
+              {[
+                { key: 'season', label: 'Season' },
+                { key: 'alltime', label: 'All Time' },
+              ].map((item) => {
+                const active = view === item.key
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setView(item.key)}
+                    style={{
+                      ...S.viewSegmentBtn,
+                      background: active ? ACCENT : 'transparent',
+                      color: active ? ACCENT_DARK : 'rgba(255,255,255,.72)',
+                      fontWeight: active ? 800 : 700,
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* scrollable body -------------------------------------------------- */}
@@ -1199,8 +1206,86 @@ const S = {
     background: 'linear-gradient(180deg, rgba(6,14,9,.62) 0%, rgba(6,14,9,.5) 18%, rgba(6,16,10,.7) 46%, rgba(4,12,8,.94) 100%)',
   },
   column: { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', width: '100%', maxWidth: 480, margin: '0 auto' },
-  header: { flex: '0 0 auto', padding: '4px 18px 14px', textShadow: '0 2px 12px rgba(0,0,0,.4)' },
-  profileColumn: { flex: '0 0 auto', width: 96, display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 10 },
+  header: { flex: '0 0 auto', padding: '0 18px 16px', textShadow: '0 2px 12px rgba(0,0,0,.4)' },
+  identityRow: { display: 'flex', alignItems: 'center', gap: 14 },
+  headerAvatar: {
+    width: 96,
+    height: 96,
+    fontSize: 36,
+    overflow: 'hidden',
+    boxShadow: `0 0 0 2px ${ACCENT}, 0 10px 24px rgba(0,0,0,.35)`,
+    background: ACCENT,
+    color: ACCENT_DARK,
+    border: 'none',
+    padding: 0,
+    cursor: 'pointer',
+  },
+  lockerTitle: { fontSize: 22, fontWeight: 800, color: '#fff', letterSpacing: '-0.35px', lineHeight: 1.12 },
+  lockerHandle: { fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,.58)', marginTop: 4, lineHeight: 1.35 },
+  badgeRow: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  hdcpBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    fontSize: 12,
+    fontWeight: 800,
+    letterSpacing: 0.2,
+    color: ACCENT_DARK,
+    background: ACCENT,
+    padding: '6px 12px',
+    borderRadius: 9999,
+  },
+  clubBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 5,
+    fontSize: 12,
+    fontWeight: 700,
+    color: 'rgba(255,255,255,.82)',
+    background: 'rgba(255,255,255,.1)',
+    border: '1px solid rgba(255,255,255,.16)',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    padding: '6px 12px',
+    borderRadius: 9999,
+  },
+  venmoBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 5,
+    fontSize: 12,
+    fontWeight: 700,
+    color: '#fff',
+    background: hexA(ACCENT, 0.14),
+    border: `1px solid ${hexA(ACCENT, 0.38)}`,
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    padding: '6px 12px',
+    borderRadius: 9999,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+  },
+  viewSegment: {
+    display: 'flex',
+    gap: 4,
+    marginTop: 14,
+    padding: 4,
+    borderRadius: 9999,
+    background: 'rgba(255,255,255,.1)',
+    border: '1px solid rgba(255,255,255,.14)',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    boxSizing: 'border-box',
+  },
+  viewSegmentBtn: {
+    flex: 1,
+    minHeight: 36,
+    borderRadius: 9999,
+    border: 'none',
+    fontSize: 13,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    boxSizing: 'border-box',
+  },
   editBtn: { display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,.13)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.18)', color: '#fff', fontSize: 12, fontWeight: 800, padding: '7px 13px', borderRadius: 9999, cursor: 'pointer' },
   venmoChip: { display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,.1)', color: '#fff', border: '1px solid rgba(255,255,255,.2)', borderRadius: 9999, padding: '4px 12px', fontSize: 14, fontWeight: 700, cursor: 'pointer' },
   venmoLink: { background: 'transparent', border: 'none', padding: 0, color: 'rgba(255,255,255,.5)', fontSize: 14, fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer' },
@@ -1217,10 +1302,6 @@ const S = {
   photoRemoveBtn: { padding: '9px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,.18)', background: 'rgba(255,255,255,.06)', color: '#fb7185', fontSize: 13, fontWeight: 800, cursor: 'pointer' },
   heroGlow: { position: 'absolute', right: -30, top: -30, width: 150, height: 150, borderRadius: '50%', filter: 'blur(36px)', pointerEvents: 'none' },
   statTile: { background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 14, padding: '11px 10px' },
-  viewToggle: { display: 'flex', alignItems: 'center', gap: 8, margin: '0 2px 12px' },
-  viewToggleColumn: { display: 'flex', flexDirection: 'column', gap: 6, width: '100%' },
-  viewPill: { height: 36, borderRadius: 9999, padding: '0 20px', background: 'transparent', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
-  viewPillCompact: { width: '100%', boxSizing: 'border-box', height: 30, borderRadius: 9999, padding: '0 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' },
 
   sectionRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '18px 2px 9px' },
   sectionLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: 'rgba(255,255,255,.5)' },
