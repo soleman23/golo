@@ -129,7 +129,6 @@ export default function YouPage() {
   const initialGhinStatus = searchParams.get('ghin')
 
   const [editing, setEditing] = useState(false)
-  const [pendingAvatarPick, setPendingAvatarPick] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [avatarError, setAvatarError] = useState(null)
   const [confirmAction, setConfirmAction] = useState(null)
@@ -508,14 +507,8 @@ export default function YouPage() {
 
   const openProfileFromAvatar = () => {
     setEditing(true)
-    if (canUploadAvatar) setPendingAvatarPick(true)
+    if (canUploadAvatar) pickAvatar()
   }
-
-  useEffect(() => {
-    if (!editing || !pendingAvatarPick) return
-    setPendingAvatarPick(false)
-    pickAvatar()
-  }, [editing, pendingAvatarPick]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const onAvatarFile = async (e) => {
     const file = e.target.files?.[0]
@@ -597,6 +590,8 @@ export default function YouPage() {
   }
 
   const emptyStats = model.allCount === 0
+  const seasonScopedEmpty = view === 'season' && model.seasonCount === 0 && !emptyStats
+  const showViewToggle = !!meName && !emptyStats
 
   return (
     <div style={S.root}>
@@ -616,22 +611,25 @@ export default function YouPage() {
 
         {/* identity header -------------------------------------------------- */}
         <div style={S.header}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 15 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,.6)', lineHeight: 1.35 }}>
-                {meHandle
-                  ? meHandle
-                  : hasIdentity
+              {!meHandle && (
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,.6)', lineHeight: 1.35 }}>
+                  {hasIdentity
                     ? 'Your saved identity'
                     : meName
                       ? 'Auto-detected — tap your photo to edit'
                       : 'Play a round to get started'}
-              </div>
-              <div style={{ marginTop: 8 }}>
+                </div>
+              )}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: meHandle ? 0 : 8 }}>
+                {meHandle && (
+                  <span style={S.venmoChip}>{meHandle}</span>
+                )}
                 {venmoHandle ? (
-                  <button onClick={copyVenmo} style={S.venmoChip}>💸 {venmoHandle}</button>
+                  <button type="button" onClick={copyVenmo} style={S.venmoChip}>💸 {venmoHandle}</button>
                 ) : (
-                  <button onClick={editVenmo} style={S.venmoLink}>+ Add Venmo</button>
+                  <button type="button" onClick={editVenmo} style={S.venmoLink}>+ Add Venmo</button>
                 )}
               </div>
               {meName && (
@@ -643,18 +641,46 @@ export default function YouPage() {
                 </div>
               )}
             </div>
-            <button
-              type="button"
-              onClick={openProfileFromAvatar}
-              aria-label="Edit profile photo"
-              style={{ ...S.avatar, width: 78, height: 78, fontSize: 30, overflow: 'hidden', boxShadow: `0 0 0 3px ${hexA(ACCENT, 0.5)}, 0 10px 24px rgba(0,0,0,.4)`, background: avatarUrl ? '#0a2418' : ACCENT, color: ACCENT_DARK, border: 'none', padding: 0, cursor: 'pointer', flex: '0 0 auto' }}
-            >
-              {avatarUrl ? (
-                <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : meName ? initial(meName) : (
-                <GoloBall size={42} fill="#ffffff" dimple="rgba(20,40,24,.3)" />
+            <div style={S.profileColumn}>
+              <button
+                type="button"
+                onClick={openProfileFromAvatar}
+                aria-label="Edit profile photo"
+                style={{ ...S.avatar, width: 96, height: 96, fontSize: 36, overflow: 'hidden', boxShadow: `0 0 0 3px ${hexA(ACCENT, 0.5)}, 0 10px 24px rgba(0,0,0,.4)`, background: avatarUrl ? '#0a2418' : ACCENT, color: ACCENT_DARK, border: 'none', padding: 0, cursor: 'pointer' }}
+              >
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : meName ? initial(meName) : (
+                  <GoloBall size={50} fill="#ffffff" dimple="rgba(20,40,24,.3)" />
+                )}
+              </button>
+              {showViewToggle && (
+                <div style={S.viewToggleColumn}>
+                  {[
+                    { key: 'season', label: 'Season' },
+                    { key: 'alltime', label: 'All Time' },
+                  ].map((item) => {
+                    const active = view === item.key
+                    return (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => setView(item.key)}
+                        style={{
+                          ...S.viewPillCompact,
+                          background: active ? ACCENT : 'rgba(255,255,255,.08)',
+                          color: active ? ACCENT_DARK : '#fff',
+                          border: active ? '1px solid transparent' : '1px solid rgba(255,255,255,.22)',
+                          fontWeight: active ? 800 : 700,
+                        }}
+                      >
+                        {item.label}
+                      </button>
+                    )
+                  })}
+                </div>
               )}
-            </button>
+            </div>
           </div>
         </div>
 
@@ -760,36 +786,20 @@ export default function YouPage() {
             </button>
           ) : (
             <>
-              {/* HERO · season net */}
-              <div style={S.viewToggle}>
-                {[
-                  { key: 'season', label: 'Season' },
-                  { key: 'alltime', label: 'All Time' },
-                ].map((item) => {
-                  const active = view === item.key
-                  return (
-                    <button
-                      key={item.key}
-                      onClick={() => setView(item.key)}
-                      style={{
-                        ...S.viewPill,
-                        background: active ? ACCENT : 'transparent',
-                        color: active ? ACCENT_DARK : '#fff',
-                        border: active ? '1px solid transparent' : '1px solid rgba(255,255,255,.3)',
-                        fontWeight: active ? 800 : 700,
-                      }}
-                    >
-                      {item.label}
-                    </button>
-                  )
-                })}
-              </div>
-
               {emptyStats ? (
                 <div style={{ ...S.glassCard, position: 'relative', overflow: 'hidden', borderColor: hexA(ACCENT, 0.4) }}>
                   <span style={{ ...S.heroGlow, background: hexA(ACCENT, 0.28) }} />
                   <div style={{ position: 'relative', fontSize: 11, fontWeight: 800, letterSpacing: 1.6, color: 'rgba(255,255,255,.55)' }}>YOUR STATS</div>
                   <div style={S.emptyStatsText}>Play your first round to see stats here</div>
+                </div>
+              ) : seasonScopedEmpty ? (
+                <div style={{ ...S.glassCard, position: 'relative', overflow: 'hidden', borderColor: hexA(ACCENT, 0.4) }}>
+                  <span style={{ ...S.heroGlow, background: hexA(ACCENT, 0.28) }} />
+                  <div style={{ position: 'relative', fontSize: 11, fontWeight: 800, letterSpacing: 1.6, color: 'rgba(255,255,255,.55)' }}>{model.viewLabel}</div>
+                  <div style={{ ...S.emptyStatsText, marginTop: 10 }}>No rounds this season yet.</div>
+                  <button type="button" onClick={() => setView('alltime')} style={{ ...S.venmoLink, marginTop: 12, textDecoration: 'none', color: ACCENT }}>
+                    View all time →
+                  </button>
                 </div>
               ) : (
                 <>
@@ -1190,6 +1200,7 @@ const S = {
   },
   column: { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', width: '100%', maxWidth: 480, margin: '0 auto' },
   header: { flex: '0 0 auto', padding: '4px 18px 14px', textShadow: '0 2px 12px rgba(0,0,0,.4)' },
+  profileColumn: { flex: '0 0 auto', width: 96, display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 10 },
   editBtn: { display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,.13)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.18)', color: '#fff', fontSize: 12, fontWeight: 800, padding: '7px 13px', borderRadius: 9999, cursor: 'pointer' },
   venmoChip: { display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,.1)', color: '#fff', border: '1px solid rgba(255,255,255,.2)', borderRadius: 9999, padding: '4px 12px', fontSize: 14, fontWeight: 700, cursor: 'pointer' },
   venmoLink: { background: 'transparent', border: 'none', padding: 0, color: 'rgba(255,255,255,.5)', fontSize: 14, fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer' },
@@ -1207,7 +1218,9 @@ const S = {
   heroGlow: { position: 'absolute', right: -30, top: -30, width: 150, height: 150, borderRadius: '50%', filter: 'blur(36px)', pointerEvents: 'none' },
   statTile: { background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 14, padding: '11px 10px' },
   viewToggle: { display: 'flex', alignItems: 'center', gap: 8, margin: '0 2px 12px' },
+  viewToggleColumn: { display: 'flex', flexDirection: 'column', gap: 6, width: '100%' },
   viewPill: { height: 36, borderRadius: 9999, padding: '0 20px', background: 'transparent', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
+  viewPillCompact: { width: '100%', boxSizing: 'border-box', height: 30, borderRadius: 9999, padding: '0 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' },
 
   sectionRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '18px 2px 9px' },
   sectionLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: 'rgba(255,255,255,.5)' },
