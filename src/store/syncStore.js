@@ -7,8 +7,13 @@ import { create } from 'zustand'
 const useSyncStore = create((set) => ({
   syncing: false,
   syncError: null,
+  // True once the first post-login cloud hydration has finished (or been torn
+  // down on logout). Lets route gating wait for the real profile before deciding
+  // between Home (returning user) and the locker (brand-new account).
+  ready: false,
 
   setSyncing: (syncing) => set({ syncing }),
+  setReady: (ready) => set({ ready }),
   setSyncError: (syncError) => set({ syncError: syncError || null }),
   clearSyncError: () => set({ syncError: null }),
 }))

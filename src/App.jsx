@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import useProfileStore from './store/profileStore'
 import useAuthStore from './store/authStore'
+import useSyncStore from './store/syncStore'
 import { hasContact } from './lib/identity'
 import { syncOnLogin, syncOnLogout } from './lib/sync'
 
@@ -74,6 +75,7 @@ export default function App() {
   const onboarded = useProfileStore((s) => s.onboarded)
 
   const userId = useAuthStore((s) => s.user?.id ?? null)
+  const syncReady = useSyncStore((s) => s.ready)
 
   useEffect(() => {
     initAuth()
@@ -88,7 +90,8 @@ export default function App() {
 
   const profileComplete = onboarded && hasContact({ name, nickname, email, phone })
 
-  // Backend configured: the Supabase session is the real gate.
+  // Backend configured: a verified Supabase session is the real gate — everyone
+  // must sign in before they can continue.
   if (authEnabled) {
     if (authLoading) return <Splash />
     if (!session) {
@@ -100,7 +103,13 @@ export default function App() {
         </Suspense>
       )
     }
-    // Signed in but no contact identity yet — finish the locker step.
+    // Wait for the post-login cloud hydration so we route from the real profile,
+    // not the empty local default — otherwise a returning user signing in on a
+    // fresh device would flash the locker before their profile loads.
+    if (!syncReady) return <Splash />
+    // Returning users already set up their locker (profile hydrated from the
+    // backend) → straight to Home. Only brand-new accounts, with no completed
+    // locker yet, get the "set up your locker" step.
     if (!profileComplete) return <OnboardingGate lockerOnly />
     return <MainRoutes />
   }

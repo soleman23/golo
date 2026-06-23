@@ -25,7 +25,7 @@ import { fetchRounds, saveRound as dbSaveRound } from './db/rounds'
 const PROFILE_FIELDS = [
   'name', 'nickname', 'email', 'phone', 'handicapIndex', 'avatarUrl', 'homeClub',
   'venmo', 'ghinNumber', 'ghinConnectedAt', 'ghinLastSyncAt', 'ghinSync',
-  'notifySettle', 'notifyLive', 'skinsDefault',
+  'notifySettle', 'notifyLive', 'skinsDefault', 'onboarded',
 ]
 
 let currentUserId = null
@@ -61,7 +61,7 @@ export async function syncOnLogin(userId, { force = false } = {}) {
   if (!isSupabaseConfigured || !userId) return
   if (!force && userId === currentUserId) return
 
-  const { setSyncing, setSyncError, clearSyncError } = useSyncStore.getState()
+  const { setSyncing, setSyncError, clearSyncError, setReady } = useSyncStore.getState()
   setSyncing(true)
   clearSyncError()
 
@@ -115,6 +115,9 @@ export async function syncOnLogin(userId, { force = false } = {}) {
     )
   } finally {
     setSyncing(false)
+    // Hydration attempt is done (success or handled error) — routing can now
+    // decide Home vs. locker from the real (remote-backed) profile.
+    setReady(true)
   }
 }
 
@@ -127,6 +130,8 @@ export async function retrySyncOnLogin(userId) {
 export function syncOnLogout() {
   currentUserId = null
   stopProfileSync()
-  useSyncStore.getState().clearSyncError()
+  const { clearSyncError, setReady } = useSyncStore.getState()
+  clearSyncError()
+  setReady(false)
   // Local cache is intentionally left intact for offline use.
 }

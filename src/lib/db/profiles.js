@@ -28,6 +28,7 @@ const toDb = (f = {}) => ({
   notify_settle: f.notifySettle !== false,
   notify_live: f.notifyLive !== false,
   skins_default: f.skinsDefault ?? null,
+  onboarded: !!f.onboarded,
 })
 
 const fromDb = (r) =>
@@ -47,6 +48,7 @@ const fromDb = (r) =>
     notifySettle: r.notify_settle !== false,
     notifyLive: r.notify_live !== false,
     skinsDefault: r.skins_default ?? null,
+    onboarded: !!r.onboarded,
   }
 
 export async function fetchProfile(userId) {
