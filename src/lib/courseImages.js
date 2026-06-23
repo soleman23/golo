@@ -22,20 +22,31 @@ const COURSE_IMAGE_BY_NORMALIZED_NAME = Object.fromEntries(
   Object.entries(COURSE_IMAGES_BY_NAME).map(([name, image]) => [name.toLowerCase(), image])
 )
 
+/** A stored image string is only usable if it looks like a real URL/path. */
+const isUsableImagePath = (value) =>
+  value.startsWith('/') || value.startsWith('http') || value.startsWith('data:')
+
 export function getCourseImage(courseOrRound, courseName) {
   const source =
     courseOrRound && typeof courseOrRound === 'object'
       ? courseOrRound
       : { courseId: courseOrRound, course: courseName ?? courseOrRound }
 
-  const savedImage = normalize(source.courseBg ?? source.bg ?? source.image ?? source.imageUrl)
-  if (savedImage) return savedImage
-
+  // Resolve from the canonical catalogue first — it's the stable source of truth
+  // and always points at assets that ship with the app. A round can carry a
+  // stale/garbage `courseBg` (an old build asset URL, a renamed path, even the
+  // string "undefined"), so a stored value is only a fallback for courses the
+  // catalogue doesn't know about.
   const courseId = normalize(source.courseId ?? source.id)
   if (courseId && COURSE_IMAGES_BY_ID[courseId]) return COURSE_IMAGES_BY_ID[courseId]
 
   const name = normalize(source.course ?? source.name)
-  if (name) return COURSE_IMAGE_BY_NORMALIZED_NAME[name.toLowerCase()] ?? DEFAULT_COURSE_IMAGE
+  if (name && COURSE_IMAGE_BY_NORMALIZED_NAME[name.toLowerCase()]) {
+    return COURSE_IMAGE_BY_NORMALIZED_NAME[name.toLowerCase()]
+  }
+
+  const savedImage = normalize(source.courseBg ?? source.bg ?? source.image ?? source.imageUrl)
+  if (savedImage && isUsableImagePath(savedImage)) return savedImage
 
   return DEFAULT_COURSE_IMAGE
 }
