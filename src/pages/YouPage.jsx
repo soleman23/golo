@@ -304,6 +304,7 @@ export default function YouPage() {
 
     // Recent results: last 10 rounds (chronological), per-round net.
     const allMine = rounds.filter((r) => playedInByKey(r, meKey))
+    const seasonOnlyCount = seasonRounds.filter((r) => playedInByKey(r, meKey)).length
     const recent = [...scopedMine].reverse().slice(-10).map((r, i, arr) => ({
       net: myNetInRoundByKey(r, meKey),
       last: i === arr.length - 1,
@@ -391,7 +392,7 @@ export default function YouPage() {
       viewRoundLabel: view === 'season' ? 'this season' : 'all time',
       hdcpLabel, homeClub, winRate, wins, best,
       form, mix, placed, scoreMix, holesScored, badges, earnedCount,
-      allCount: allMine.length,
+      allCount: allMine.length, seasonOnlyCount,
     }
   }, [rounds, livePlayers, liveCourse, meKey, meName, homeClubOverride, profileHandicap, view])
 
@@ -654,9 +655,9 @@ export default function YouPage() {
                 </span>
               )}
               {venmoHandle && (
-                <button type="button" onClick={copyVenmo} style={S.venmoBadge} aria-label="Copy Venmo handle">
-                  <span aria-hidden="true" style={{ fontSize: 12, fontWeight: 900, lineHeight: 1 }}>$</span>
-                  {venmoHandle}
+                <button type="button" onClick={copyVenmo} style={S.venmoBadge} aria-label={`Copy Venmo ${venmoHandle}`}>
+                  <Icon name="cash" size={14} color={ACCENT} />
+                  <span style={S.venmoBadgeHandle}>{venmoHandle}</span>
                 </button>
               )}
             </div>
@@ -665,8 +666,8 @@ export default function YouPage() {
           {showViewToggle && (
             <div style={S.viewSegment} role="tablist" aria-label="Stats range">
               {[
-                { key: 'season', label: 'Season' },
-                { key: 'alltime', label: 'All Time' },
+                { key: 'season', label: 'Season', count: model.seasonOnlyCount },
+                { key: 'alltime', label: 'All time', count: model.allCount },
               ].map((item) => {
                 const active = view === item.key
                 return (
@@ -684,6 +685,7 @@ export default function YouPage() {
                     }}
                   >
                     {item.label}
+                    <span style={{ opacity: active ? 0.72 : 0.55, fontWeight: 700, marginLeft: 4 }}>· {item.count}</span>
                   </button>
                 )
               })}
@@ -813,7 +815,7 @@ export default function YouPage() {
               <div style={{ ...S.glassCard, position: 'relative', overflow: 'hidden', borderColor: hexA(ACCENT, 0.4) }}>
                 <span style={{ ...S.heroGlow, background: hexA(model.seasonNet >= 0 ? ACCENT : '#fb7185', 0.4) }} />
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.6, color: 'rgba(255,255,255,.55)' }}>{model.viewLabel}</span>
+                  <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.8, color: ACCENT, textTransform: 'uppercase' }}>{model.viewLabel}</span>
                   {model.meRank > 0 && (
                     <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.4, color: model.meRank === 1 ? ACCENT_DARK : 'rgba(255,255,255,.7)', background: model.meRank === 1 ? ACCENT : 'rgba(255,255,255,.1)', padding: '3px 9px', borderRadius: 9999 }}>
                       {ord(model.meRank)} of {model.crewSize} in crew
@@ -1220,7 +1222,16 @@ const S = {
     padding: 0,
     cursor: 'pointer',
   },
-  lockerTitle: { fontSize: 22, fontWeight: 800, color: '#fff', letterSpacing: '-0.35px', lineHeight: 1.12 },
+  lockerTitle: {
+    fontSize: 22,
+    fontWeight: 800,
+    color: '#fff',
+    letterSpacing: '-0.35px',
+    lineHeight: 1.12,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
   lockerHandle: { fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,.58)', marginTop: 4, lineHeight: 1.35 },
   badgeRow: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 },
   hdcpBadge: {
@@ -1252,6 +1263,8 @@ const S = {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 5,
+    maxWidth: '100%',
+    flexShrink: 0,
     fontSize: 12,
     fontWeight: 700,
     color: '#fff',
@@ -1263,6 +1276,13 @@ const S = {
     borderRadius: 9999,
     cursor: 'pointer',
     fontFamily: 'inherit',
+    whiteSpace: 'nowrap',
+  },
+  venmoBadgeHandle: {
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    maxWidth: 120,
+    color: '#fff',
   },
   viewSegment: {
     display: 'flex',
