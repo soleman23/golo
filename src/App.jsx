@@ -4,7 +4,7 @@ import useProfileStore from './store/profileStore'
 import useAuthStore from './store/authStore'
 import useSyncStore from './store/syncStore'
 import { hasContact } from './lib/identity'
-import { syncOnLogin, syncOnLogout } from './lib/sync'
+import { retrySyncOnLogin, syncOnLogin, syncOnLogout } from './lib/sync'
 
 const HomePage = lazy(() => import('./pages/HomePage'))
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'))
@@ -62,11 +62,54 @@ function Splash() {
   )
 }
 
+function SyncErrorGate({ message, syncing, userId, onRetry, onSignOut }) {
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 22,
+        boxSizing: 'border-box',
+        background: 'radial-gradient(120% 70% at 50% 0%, #2a7d4a 0%, #14532d 45%, #0a2418 85%)',
+        color: '#fff',
+        fontFamily: "system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",
+      }}
+    >
+      <div style={{ width: '100%', maxWidth: 380, borderRadius: 22, padding: 20, background: 'rgba(20,28,24,.72)', border: '1px solid rgba(255,255,255,.16)', boxShadow: '0 18px 48px rgba(0,0,0,.38)' }}>
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.4, color: '#d4f23a', marginBottom: 8 }}>SYNC NEEDED</div>
+        <div style={{ fontSize: 23, fontWeight: 850, letterSpacing: -0.4 }}>Could not load your locker.</div>
+        <p style={{ margin: '10px 0 18px', fontSize: 14, lineHeight: 1.5, color: 'rgba(255,255,255,.72)' }}>
+          {message}
+        </p>
+        <button
+          type="button"
+          onClick={() => userId && onRetry(userId)}
+          disabled={syncing || !userId}
+          style={{ width: '100%', border: 'none', borderRadius: 15, padding: 14, fontSize: 15, fontWeight: 850, color: '#13250a', background: '#d4f23a', cursor: syncing || !userId ? 'not-allowed' : 'pointer', opacity: syncing || !userId ? 0.65 : 1 }}
+        >
+          {syncing ? 'Retrying...' : 'Retry sync'}
+        </button>
+        <button
+          type="button"
+          onClick={onSignOut}
+          style={{ width: '100%', marginTop: 11, border: '1px solid rgba(255,255,255,.16)', borderRadius: 15, padding: 13, fontSize: 14, fontWeight: 800, color: '#fff', background: 'rgba(255,255,255,.08)', cursor: 'pointer' }}
+        >
+          Sign out
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const authEnabled = useAuthStore((s) => s.enabled)
   const session = useAuthStore((s) => s.session)
   const authLoading = useAuthStore((s) => s.loading)
   const initAuth = useAuthStore((s) => s.init)
+  const signOut = useAuthStore((s) => s.signOut)
 
   const name = useProfileStore((s) => s.name)
   const nickname = useProfileStore((s) => s.nickname)
@@ -76,6 +119,8 @@ export default function App() {
 
   const userId = useAuthStore((s) => s.user?.id ?? null)
   const syncReady = useSyncStore((s) => s.ready)
+  const syncing = useSyncStore((s) => s.syncing)
+  const syncError = useSyncStore((s) => s.syncError)
 
   useEffect(() => {
     initAuth()
@@ -106,7 +151,20 @@ export default function App() {
     // Wait for the post-login cloud hydration so we route from the real profile,
     // not the empty local default — otherwise a returning user signing in on a
     // fresh device would flash the locker before their profile loads.
-    if (!syncReady) return <Splash />
+    if (!syncReady) {
+      if (syncError) {
+        return (
+          <SyncErrorGate
+            message={syncError}
+            syncing={syncing}
+            userId={userId}
+            onRetry={retrySyncOnLogin}
+            onSignOut={signOut}
+          />
+        )
+      }
+      return <Splash />
+    }
     // Returning users already set up their locker (profile hydrated from the
     // backend) → straight to Home. Only brand-new accounts, with no completed
     // locker yet, get the "set up your locker" step.

@@ -63,6 +63,7 @@ export async function syncOnLogin(userId, { force = false } = {}) {
 
   const { setSyncing, setSyncError, clearSyncError, setReady } = useSyncStore.getState()
   setSyncing(true)
+  setReady(false)
   clearSyncError()
 
   try {
@@ -108,16 +109,15 @@ export async function syncOnLogin(userId, { force = false } = {}) {
 
     startProfileSync(userId)
     currentUserId = userId
+    setReady(true)
   } catch (err) {
     console.error('[sync] syncOnLogin', err)
     setSyncError(
       'Could not sync your profile and history. Check your connection, then tap Retry below or sign out and back in.'
     )
+    setReady(false)
   } finally {
     setSyncing(false)
-    // Hydration attempt is done (success or handled error) — routing can now
-    // decide Home vs. locker from the real (remote-backed) profile.
-    setReady(true)
   }
 }
 

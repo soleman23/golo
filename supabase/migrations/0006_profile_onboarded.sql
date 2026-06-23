@@ -5,10 +5,12 @@
 
 alter table public.profiles add column if not exists onboarded boolean not null default false;
 
--- Backfill: anyone who already has a profile identity has clearly completed the
--- locker step, so mark them onboarded. New signups default to false until they
--- finish the locker.
+-- Backfill: match the app's hasContact() gate. Name/handle alone do not count
+-- as a completed locker because the app requires email or a valid phone.
 update public.profiles
    set onboarded = true
  where onboarded = false
-   and (email is not null or phone is not null or name is not null or nickname is not null);
+   and (
+     nullif(btrim(email), '') is not null
+     or length(regexp_replace(coalesce(phone, ''), '\D', '', 'g')) >= 7
+   );
