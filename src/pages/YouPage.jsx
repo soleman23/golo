@@ -523,7 +523,7 @@ export default function YouPage() {
   if (!meKey || !model) {
     return (
       <div style={S.emptyRoot}>
-        <div style={{ ...S.backdrop, background: COURSE_FALLBACK_BG, backgroundImage: `url(${BACKDROP}), ${COURSE_FALLBACK_BG}` }} />
+        <div style={{ ...S.backdrop, backgroundImage: `url(${BACKDROP}), ${COURSE_FALLBACK_BG}` }} />
         <div style={S.scrim} />
         <div style={S.emptyShell}>
           <div style={S.emptyLogo}>
@@ -580,7 +580,7 @@ export default function YouPage() {
 
   return (
     <div style={S.root}>
-      <div style={{ ...S.backdrop, background: COURSE_FALLBACK_BG, backgroundImage: `url(${BACKDROP}), ${COURSE_FALLBACK_BG}` }} />
+      <div style={{ ...S.backdrop, backgroundImage: `url(${BACKDROP}), ${COURSE_FALLBACK_BG}` }} />
       <div style={S.scrim} />
 
       <div style={S.column}>

@@ -144,7 +144,7 @@ export default function HistoryPage() {
 
   return (
     <div style={S.root}>
-      <div style={{ ...S.backdrop, background: COURSE_FALLBACK_BG, backgroundImage: `url(${BACKDROP}), ${COURSE_FALLBACK_BG}`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+      <div style={{ ...S.backdrop, backgroundImage: `url(${BACKDROP}), ${COURSE_FALLBACK_BG}`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
       <div style={S.scrim} />
 
       <div style={S.column}>
@@ -185,7 +185,7 @@ export default function HistoryPage() {
               </div>
               {items.map((g) => (
                 <button key={g.key} onClick={() => navigate(`/history/${g.roundId}`)} style={S.roundRow}>
-                  <span style={{ ...S.roundThumb, background: COURSE_FALLBACK_BG, backgroundImage: layeredCourseBg(g.bg), backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                  <span style={{ ...S.roundThumb, backgroundImage: layeredCourseBg(g.bg), backgroundSize: 'cover', backgroundPosition: 'center' }} />
                   <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                     <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.course}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>

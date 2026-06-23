@@ -150,7 +150,7 @@ export default function HistoryDetailPage() {
 
   return (
     <div style={S.root}>
-      <div style={{ ...S.backdrop, background: COURSE_FALLBACK_BG, backgroundImage: layeredCourseBg(backdrop), backgroundSize: 'cover', backgroundPosition: 'center' }} />
+      <div style={{ ...S.backdrop, backgroundImage: layeredCourseBg(backdrop), backgroundSize: 'cover', backgroundPosition: 'center' }} />
       <div style={S.scrim} />
 
       <div style={S.column}>

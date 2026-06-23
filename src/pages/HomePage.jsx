@@ -218,7 +218,7 @@ export default function HomePage() {
 
   return (
     <div style={S.root}>
-      <div style={{ ...S.backdrop, background: COURSE_FALLBACK_BG, backgroundImage: `url(${BACKDROP}), ${COURSE_FALLBACK_BG}`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+      <div style={{ ...S.backdrop, backgroundImage: `url(${BACKDROP}), ${COURSE_FALLBACK_BG}`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
       <div style={S.scrim} />
 
       <div style={S.column}>
@@ -269,7 +269,7 @@ export default function HomePage() {
           {/* RESUME */}
           {resume && (
             <button onClick={() => navigate('/scoring')} style={{ ...S.resumeCard, borderColor: hexA(ACCENT, 0.45) }}>
-              <span style={{ ...S.resumeThumb, background: COURSE_FALLBACK_BG, backgroundImage: layeredCourseBg(resume.bg), backgroundSize: 'cover', backgroundPosition: 'center' }}>
+              <span style={{ ...S.resumeThumb, backgroundImage: layeredCourseBg(resume.bg), backgroundSize: 'cover', backgroundPosition: 'center' }}>
                 <span style={S.resumeDot}>▸</span>
               </span>
               <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
@@ -338,7 +338,7 @@ export default function HomePage() {
                   </div>
                   {model.recent.map((g) => (
                     <button key={g.key} onClick={() => navigate(`/history/${g.roundId}`)} style={S.roundRow}>
-                      <span style={{ ...S.roundThumb, background: COURSE_FALLBACK_BG, backgroundImage: layeredCourseBg(g.bg), backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                      <span style={{ ...S.roundThumb, backgroundImage: layeredCourseBg(g.bg), backgroundSize: 'cover', backgroundPosition: 'center' }} />
                       <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                         <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.course}</div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
