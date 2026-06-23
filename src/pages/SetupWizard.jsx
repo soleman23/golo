@@ -7,6 +7,7 @@ import { calculateCourseHandicap } from '../engines/handicap'
 import { hasContact, displayName, playerKey } from '../lib/identity'
 import { fetchCourses } from '../lib/db/courses'
 import { getCourseImage } from '../lib/courseImages'
+import { defaultHomeCourse, sortCoursesHomeFirst } from '../lib/homeCourse'
 import { normalizeSkinsLdHole, resolveLdHoleNumber } from '../engines/skins'
 import AppHeader from '../components/shared/AppHeader'
 import { Icon } from '../components/shared/GoloIcons'
@@ -342,6 +343,15 @@ const skinsSelectionFrom = (c) => {
   }
 }
 
+/** Course card for wizard state — saved round card, course-specific card, or generic. */
+function cardForCourse(course, holes, roundPars, roundStrokeIndex) {
+  if (roundPars && roundStrokeIndex) return defaultCard(holes, roundPars, roundStrokeIndex)
+  if (course?.pars && course?.strokeIndex) {
+    return { pars: { ...course.pars }, strokeIndex: { ...course.strokeIndex } }
+  }
+  return defaultCard(holes)
+}
+
 /** Seed wizard state from any round already in the store (edit / back-nav). */
 function initState() {
   const {
@@ -359,6 +369,17 @@ function initState() {
   const courseMatch =
     COURSES.find((c) => c.id === round?.courseId) ??
     COURSES.find((c) => c.name === round?.course)
+
+  const profile = useProfileStore.getState()
+  const historyRounds = useHistoryStore.getState().rounds
+  const homeCourse = defaultHomeCourse(COURSES, {
+    homeClub: profile.homeClub,
+    rounds: historyRounds,
+  })
+  const initialCourse = courseMatch ?? homeCourse ?? COURSES.find((c) => c.id === 'pinehurst') ?? COURSES[0]
+  const card = courseMatch
+    ? defaultCard(holes, round?.pars, round?.strokeIndex)
+    : cardForCourse(initialCourse, holes)
 
   // Players
   const teamOf = (id) =>
@@ -380,7 +401,7 @@ function initState() {
     // Fresh round: the only player carried over is "you" — the organizer, always
     // the first card. Everyone else is added explicitly below and must carry a
     // verified contact before the round can start.
-    const me = useProfileStore.getState()
+    const me = profile
     players = [
       {
         id: crypto.randomUUID(),
@@ -415,8 +436,7 @@ function initState() {
   // Skins has its own config panel: seed from a saved round's skinsConfig, else
   // the player's saved default, else a fresh selection.
   const savedSkins = findBet('skins')
-  const skinsFromSaved = skinsSelectionFrom(savedSkins?.config?.skinsConfig ?? useProfileStore.getState().skinsDefault)
-  const card = defaultCard(holes, round?.pars, round?.strokeIndex)
+  const skinsFromSaved = skinsSelectionFrom(savedSkins?.config?.skinsConfig ?? profile.skinsDefault)
   const skinsBet = {
     on: !!savedSkins,
     who: savedSkins?.playerIds?.length ? savedSkins.playerIds.filter((x) => ids.includes(x)) : ids.slice(),
@@ -440,7 +460,7 @@ function initState() {
 
   return {
     step: 0,
-    courseId: courseMatch?.id ?? 'pinehurst',
+    courseId: initialCourse.id,
     courseQuery: '',
     teeIdx: 1,
     holes,
@@ -471,9 +491,11 @@ export default function SetupWizard() {
   // Saved rounds double as the "account directory": the people you've finished
   // rounds with (and who left a contact) are the players you can re-add.
   const historyRounds = useHistoryStore((s) => s.rounds)
+  const profileHomeClub = useProfileStore((s) => s.homeClub)
 
   const [st, setSt] = useState(initState)
   const patch = (p) => setSt((s) => ({ ...s, ...p }))
+  const userPickedCourse = useRef(false)
 
   // Course catalogue: starts with the bundled fallback list, then swaps in the
   // backend catalogue once it loads (when Supabase is configured). The hardcoded
@@ -491,6 +513,34 @@ export default function SetupWizard() {
     })
     return () => { active = false }
   }, [])
+
+  // When the DB catalogue loads, default to home course if it wasn't in the bundled list.
+  useEffect(() => {
+    if (!coursesFromDb || userPickedCourse.current) return
+    const { round } = useRoundStore.getState()
+    if (round && round.status !== 'complete') return
+
+    const profile = useProfileStore.getState()
+    const historyRounds = useHistoryStore.getState().rounds
+    const homeCourse = defaultHomeCourse(catalog, {
+      homeClub: profile.homeClub,
+      rounds: historyRounds,
+    })
+    if (!homeCourse) return
+
+    setSt((s) => {
+      if (s.courseId === homeCourse.id) return s
+      const card = cardForCourse(homeCourse, s.holes)
+      return {
+        ...s,
+        courseId: homeCourse.id,
+        teeIdx: 1,
+        pars: card.pars,
+        strokeIndex: card.strokeIndex,
+        bets: betsWithNormalizedLdHole(s.bets, card.pars),
+      }
+    })
+  }, [coursesFromDb, catalog])
 
   // Open every step at the top of the scroll, not wherever the previous step
   // left the shared scroll container.
@@ -592,6 +642,7 @@ export default function SetupWizard() {
   // tee; courses without their own data fall back to a generic par-4 card.
   const selectCourse = (id) => {
     if (id === st.courseId) return
+    userPickedCourse.current = true
     const c = catalog.find((x) => x.id === id) ?? catalog[0]
     const card =
       c.pars && c.strokeIndex
@@ -872,7 +923,11 @@ export default function SetupWizard() {
     const visible = coursesFromDb
       ? catalog
       : VISIBLE_COURSE_IDS.map((id) => catalog.find((c) => c.id === id)).filter(Boolean)
-    const matches = visible.filter((c) => !q || (c.name + ' ' + (c.loc ?? '')).toLowerCase().includes(q))
+    const ordered = sortCoursesHomeFirst(visible, {
+      homeClub: profileHomeClub,
+      rounds: historyRounds,
+    })
+    const matches = ordered.filter((c) => !q || (c.name + ' ' + (c.loc ?? '')).toLowerCase().includes(q))
     return (
       <div>
         {sectionLabel('COURSE SEARCH')}
