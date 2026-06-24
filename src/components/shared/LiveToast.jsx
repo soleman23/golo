@@ -8,11 +8,12 @@ const ACCENT_DARK = '#13250a'
 export default function LiveToast() {
   const toasts = useNotificationStore((s) => s.toasts)
   const dismiss = useNotificationStore((s) => s.dismissToast)
+  const clearAll = useNotificationStore((s) => s.clearToasts)
 
   useEffect(() => {
     if (!toasts.length) return undefined
     const timers = toasts.map((t) =>
-      setTimeout(() => dismiss(t.id), t.duration ?? 5000)
+      setTimeout(() => dismiss(t.id), t.duration ?? 4000)
     )
     return () => timers.forEach(clearTimeout)
   }, [toasts, dismiss])
@@ -34,12 +35,39 @@ export default function LiveToast() {
         pointerEvents: 'none',
       }}
     >
+      {toasts.length > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', pointerEvents: 'auto' }}>
+          <button
+            type="button"
+            onClick={clearAll}
+            style={{
+              border: 'none',
+              background: 'rgba(14,20,16,.92)',
+              backdropFilter: 'blur(26px)',
+              WebkitBackdropFilter: 'blur(26px)',
+              boxShadow: '0 8px 22px rgba(0,0,0,.3)',
+              color: 'rgba(255,255,255,.82)',
+              fontWeight: 800,
+              fontSize: 11,
+              letterSpacing: 0.3,
+              borderRadius: 9999,
+              padding: '5px 12px',
+              cursor: 'pointer',
+            }}
+          >
+            Clear all ({toasts.length})
+          </button>
+        </div>
+      )}
       {toasts.map((t) => (
         <div
           key={t.id}
           role="status"
+          onClick={() => dismiss(t.id)}
+          title="Tap to dismiss"
           style={{
             pointerEvents: 'auto',
+            cursor: 'pointer',
             borderRadius: 16,
             padding: '12px 14px',
             background: 'rgba(14,20,16,.92)',
@@ -67,8 +95,8 @@ export default function LiveToast() {
           </div>
           <button
             type="button"
-            onClick={() => dismiss(t.id)}
-            aria-label="Dismiss"
+            onClick={(e) => { e.stopPropagation(); dismiss(t.id) }}
+            aria-label="Dismiss notification"
             style={{
               flex: '0 0 auto',
               border: 'none',
