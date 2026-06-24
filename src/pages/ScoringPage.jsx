@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import useRoundStore from '../store/roundStore'
+import useLiveRoundStore, { useLiveRoundRole } from '../store/liveRoundStore'
 import { buildLeaderboard } from '../engines/scoring'
 import {
   buildStablefordLeaderboard,
@@ -17,6 +18,9 @@ import { playerKey } from '../lib/identity'
 import { getCourseImage } from '../lib/courseImages'
 import AppHeader from '../components/shared/AppHeader'
 import { Icon } from '../components/shared/GoloIcons'
+import { fetchLiveRound } from '../lib/db/liveRounds'
+import { attachLiveSync, hydrateFromServer, subscribeToLiveRound } from '../lib/liveRoundSync'
+import { debugLog } from '../lib/debugLog'
 
 /**
  * ScoringPage — the live round, "Scoring (Immersive)".
@@ -149,6 +153,15 @@ export default function ScoringPage() {
   const [sheet, setSheet] = useState(null) // 'leaderboard' | 'bets' | 'finish' | null
   const [keypadFor, setKeypadFor] = useState(null) // entity id | null
   const [lbView, setLbView] = useState(() => (round?.scoring === 'gross' ? 'gross' : 'net')) // 'net' | 'gross' | 'money'
+  const [copiedInvite, setCopiedInvite] = useState(false)
+  const [liveLoading, setLiveLoading] = useState(false)
+
+  const liveRole = useLiveRoundRole()
+  const liveRoundId = useLiveRoundStore((s) => s.liveRoundId)
+  const inviteCode = useLiveRoundStore((s) => s.inviteCode)
+  const scorerName = useLiveRoundStore((s) => s.scorerName)
+  const readOnly = liveRole === 'player' || liveRole === 'viewer'
+  const isLiveScorer = liveRole === 'scorer'
 
   // "You" detection for the YOU badge — profile identity, else the organizer.
   const profName = useProfileStore((s) => s.name)
@@ -181,8 +194,44 @@ export default function ScoringPage() {
 
   // Flip the round into scoring mode the first time this screen mounts.
   useEffect(() => {
-    if (round && roundStatus !== 'in_progress') startScoring()
-  }, [round, roundStatus, startScoring])
+    if (round && roundStatus !== 'in_progress' && !readOnly) startScoring()
+  }, [round, roundStatus, startScoring, readOnly])
+
+  // Live round sync: scorer pushes patches; viewers subscribe to server state.
+  useEffect(() => {
+    // #region agent log
+    debugLog('E', 'ScoringPage.jsx:liveSync', 'session snapshot', {
+      liveRoundId: liveRoundId ?? null,
+      liveRole,
+      hasInvite: !!inviteCode,
+      isLiveScorer,
+    })
+    // #endregion
+    if (!liveRoundId || liveRole === 'local-only') return undefined
+
+    if (isLiveScorer) {
+      attachLiveSync()
+      return undefined
+    }
+
+    setLiveLoading(true)
+    let cancelled = false
+    fetchLiveRound(liveRoundId).then((row) => {
+      if (cancelled) return
+      if (row?.state) hydrateFromServer(row.state)
+      setLiveLoading(false)
+    })
+
+    const unsub = subscribeToLiveRound(liveRoundId, (state, status) => {
+      if (status === 'complete') return
+      if (state) hydrateFromServer(state)
+    })
+
+    return () => {
+      cancelled = true
+      unsub()
+    }
+  }, [liveRoundId, liveRole, isLiveScorer])
 
   // Scores start empty and stay empty until entered — a hole shows "–" for each
   // player until tapped, so a fresh round (and every unplayed hole) carries no
@@ -517,10 +566,31 @@ export default function ScoringPage() {
 
   // No round set up yet — bounce back to setup.
   if (!round) {
+    if (liveRoundId && liveLoading) {
+      return (
+        <div style={S.root}>
+          <div style={S.scrim} />
+          <div style={{ ...S.column, alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700 }}>
+            Loading live round…
+          </div>
+        </div>
+      )
+    }
     return <Navigate to="/setup" replace />
   }
 
   const backdrop = getCourseImage(round)
+  const courseLabel = round.course || round.tee?.name || ''
+  const headerProps = {
+    accent: ACCENT,
+    backTo: '/',
+    logo: 'wordmark',
+    rightAction: 'pin',
+    showTitle: false,
+    contextPillOnly: true,
+    contextPill: courseLabel,
+    currentPage: 'Play',
+  }
 
   if (isScramble && teams.length === 0) {
     return (
@@ -528,7 +598,7 @@ export default function ScoringPage() {
         <div style={{ ...S.backdrop, background: COURSE_FALLBACK_BG, backgroundImage: `url(${backdrop}), ${COURSE_FALLBACK_BG}` }} />
         <div style={S.scrim} />
         <div style={S.column}>
-          <AppHeader accent={ACCENT} backTo="/" logo="wordmark" rightAction="pin" kicker="LIVE ROUND" title="Scoring" contextPill={round.course} />
+          <AppHeader {...headerProps} />
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
             <div style={S.panel}>
               <div style={{ fontSize: 21, fontWeight: 800, color: '#fff' }}>Teams not set up for this round.</div>
@@ -558,8 +628,21 @@ export default function ScoringPage() {
     if (!isLastHole) setCurrentHole(clampHole(currentHole + 1, totalHoles))
   }
   const finishRound = () => {
+    if (readOnly) return
     completeRound()
     navigate('/payouts')
+  }
+
+  const inviteUrl = inviteCode ? `${window.location.origin}/join/${inviteCode}` : null
+  const copyInvite = async () => {
+    if (!inviteUrl) return
+    try {
+      await navigator.clipboard.writeText(inviteUrl)
+      setCopiedInvite(true)
+      setTimeout(() => setCopiedInvite(false), 2000)
+    } catch {
+      /* clipboard blocked */
+    }
   }
 
   const boardTitle = isMatchplay
@@ -569,6 +652,12 @@ export default function ScoringPage() {
       : isScramble
         ? 'Teams'
         : 'Leaderboard'
+
+  const holeDetail = [
+    `Par ${par}`,
+    si != null ? `SI ${si}` : null,
+    round?.holeYards?.[currentHole] ? `${round.holeYards[currentHole]}y` : null,
+  ].filter(Boolean).join(' · ')
 
   /* --------------------------------------------------------------- entity card */
 
@@ -615,11 +704,17 @@ export default function ScoringPage() {
         </div>
 
         <div style={S.cardScoreRow}>
-          <button onClick={() => adjust(e.id, -1)} aria-label={`${e.name} minus`} style={S.minusBtn}>−</button>
-          <button onClick={() => setKeypadFor(e.id)} aria-label={`${e.name} score`} style={S.numBtn}>
-            {gross == null ? '–' : gross}
-          </button>
-          <button onClick={() => adjust(e.id, +1)} aria-label={`${e.name} plus`} style={S.plusBtn}>+</button>
+          {readOnly ? (
+            <span style={{ ...S.numBtn, cursor: 'default' }}>{gross == null ? '–' : gross}</span>
+          ) : (
+            <>
+              <button onClick={() => adjust(e.id, -1)} aria-label={`${e.name} minus`} style={S.minusBtn}>−</button>
+              <button onClick={() => setKeypadFor(e.id)} aria-label={`${e.name} score`} style={S.numBtn}>
+                {gross == null ? '–' : gross}
+              </button>
+              <button onClick={() => adjust(e.id, +1)} aria-label={`${e.name} plus`} style={S.plusBtn}>+</button>
+            </>
+          )}
         </div>
       </div>
     )
@@ -633,38 +728,52 @@ export default function ScoringPage() {
       <div style={S.scrim} />
 
       <div style={S.column}>
-        <AppHeader accent={ACCENT} backTo="/" logo="wordmark" rightAction="pin" kicker="LIVE ROUND" title="Scoring" contextPill={round.course} />
-        <div style={{ flex: '0 0 auto', padding: '0 16px 4px', display: 'flex', justifyContent: 'flex-start', boxSizing: 'border-box' }}>
-          <button onClick={() => navigate('/setup')} aria-label="Round settings" style={S.iconBtn}>⛳</button>
-        </div>
+        <AppHeader {...headerProps} />
+
+        {readOnly && (
+          <div style={{ margin: '0 18px 4px', padding: '7px 12px', borderRadius: 9999, background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.14)', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,.78)', textAlign: 'center' }}>
+            Watching — {scorerName || 'Scorer'} is scoring
+          </div>
+        )}
+
+        {isLiveScorer && inviteUrl && (
+          <div style={{ flex: '0 0 auto', margin: '0 18px 2px', padding: '6px 10px', borderRadius: 9999, background: 'rgba(20,28,24,.5)', border: `1px solid ${hexA(ACCENT, 0.25)}`, display: 'flex', alignItems: 'center', gap: 8, boxSizing: 'border-box' }}>
+            <div style={{ flex: 1, minWidth: 0, fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.72)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              Invite · /join/{inviteCode}
+            </div>
+            <button type="button" onClick={copyInvite} style={{ flex: '0 0 auto', border: 'none', borderRadius: 9999, padding: '6px 10px', background: ACCENT, color: ACCENT_DARK, fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>
+              {copiedInvite ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+        )}
 
         {/* header ------------------------------------------------------------ */}
         <div style={S.header}>
           {/* hole block */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
             <button onClick={goPrev} disabled={atFirstHole} aria-label="Previous hole" style={{ ...S.navCircle, opacity: atFirstHole ? 0.4 : 1, cursor: atFirstHole ? 'not-allowed' : 'pointer' }}>‹</button>
             <div style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
               <div style={{ fontSize: 11, letterSpacing: 3, color: 'rgba(255,255,255,.7)', fontWeight: 800 }}>HOLE</div>
-              <div style={{ fontSize: 70, fontWeight: 800, lineHeight: 0.98, color: '#fff' }}>{currentHole}</div>
-              <div style={S.detailLine}>
-                Par {par}
-                {si != null ? ` · SI ${si}` : ''}
+              <div style={S.holeNum}>{currentHole}</div>
+              <div style={{ maxWidth: '100%', overflow: 'hidden' }}>
+                <div style={S.detailLine}>{holeDetail}</div>
               </div>
             </div>
             <button onClick={goNext} disabled={isLastHole} aria-label="Next hole" style={{ ...S.navCircle, opacity: isLastHole ? 0.4 : 1, cursor: isLastHole ? 'not-allowed' : 'pointer' }}>›</button>
           </div>
 
           {/* dots */}
-          <div style={{ display: 'flex', gap: 5, alignItems: 'center', justifyContent: 'center', marginTop: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 5, alignItems: 'center', justifyContent: 'center', marginTop: 10 }}>
             {dots.map((d, i) => (
               <span key={i} style={{ height: 7, borderRadius: 9999, flex: '0 0 auto', background: d.bg, width: d.w }} />
             ))}
           </div>
         </div>
 
-        {/* scrollable list --------------------------------------------------- */}
+        {/* body: scrollable scores + pinned footer chrome -------------------- */}
+        <div style={S.body}>
         <div className="golo-scroll" style={S.scroll}>
-          {isMatchplay && matchInfo && (
+          {isMatchplay && matchInfo && !readOnly && (
             <MatchPanel
               info={matchInfo}
               hole={currentHole}
@@ -675,7 +784,7 @@ export default function ScoringPage() {
 
           {entities.map(card)}
 
-          {wolfActive && (
+          {wolfActive && !readOnly && (
             <WolfPanel
               players={wolfPlayers}
               wolfId={wolfId}
@@ -685,7 +794,7 @@ export default function ScoringPage() {
             />
           )}
 
-          {bbbActive && (
+          {bbbActive && !readOnly && (
             <BBBPanel
               players={bbbPlayers}
               flags={bbbFlags[currentHole]}
@@ -693,7 +802,7 @@ export default function ScoringPage() {
             />
           )}
 
-          {ctpBet && (
+          {ctpBet && !readOnly && (
             <PickerPanel
               title={`📍 Closest to pin · Hole ${currentHole}`}
               players={ctpPlayers}
@@ -701,7 +810,7 @@ export default function ScoringPage() {
               onSelect={(pid) => flagCTP(currentHole, pid)}
             />
           )}
-          {ldBet && (
+          {ldBet && !readOnly && (
             <PickerPanel
               title={`🚀 Longest drive · Hole ${currentHole}`}
               players={ldPlayers}
@@ -709,7 +818,7 @@ export default function ScoringPage() {
               onSelect={(pid) => flagLD(currentHole, pid)}
             />
           )}
-          {skinsActive && (
+          {skinsActive && !readOnly && (
             <SkinsPanel
               types={manualSkinTypes}
               players={skinPlayers}
@@ -722,16 +831,16 @@ export default function ScoringPage() {
 
         {/* active bets ------------------------------------------------------- */}
         {pills.length > 0 && (
-          <div style={{ flex: '0 0 auto', padding: '8px 14px 0' }}>
+          <div style={{ flex: '0 0 auto', padding: '8px 14px 0', boxSizing: 'border-box' }}>
             <div style={S.activeLabel}>ACTIVE BETS</div>
-            <div style={{ display: 'flex', gap: 9, overflowX: 'auto', paddingBottom: 2 }}>
+            <div className="no-scrollbar" style={S.betRow}>
               {pills.map((b) => (
-                <button key={b.id} onClick={() => setSheet('bets')} style={S.betChip}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#fff' }}>
+                <button key={b.id} type="button" onClick={() => setSheet('bets')} style={S.betChip}>
+                  <span style={S.betChipTitle}>
                     <BetGlyph bet={b} size={16} />
-                    {b.title}
+                    <span style={S.betChipTitleText}>{b.title}</span>
                   </span>
-                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,.62)' }}>{b.status}</span>
+                  <span style={S.betChipStatus}>{b.status}</span>
                 </button>
               ))}
             </div>
@@ -740,15 +849,43 @@ export default function ScoringPage() {
 
         {/* bottom nav -------------------------------------------------------- */}
         <div style={{ flex: '0 0 auto', padding: '8px 14px max(14px, env(safe-area-inset-bottom))' }}>
-          {/* Hole nav lives in the header (‹ › + dots); these mirror it compactly
-              so the round can always be finished — Finish is offered on every
-              hole, not just the last (the confirm modal handles an early end). */}
           <div style={S.navBar}>
-            <button onClick={goPrev} disabled={atFirstHole} aria-label="Previous hole" style={{ ...S.navText, opacity: atFirstHole ? 0.35 : 1, cursor: atFirstHole ? 'not-allowed' : 'pointer' }}>◀</button>
-            <button onClick={() => setSheet('leaderboard')} style={S.navPrimary}>{boardTitle}</button>
-            <button onClick={goNext} disabled={isLastHole} aria-label="Next hole" style={{ ...S.navText, opacity: isLastHole ? 0.35 : 1, cursor: isLastHole ? 'not-allowed' : 'pointer' }}>▶</button>
-            <button onClick={() => setSheet('finish')} style={{ ...S.navText, color: ACCENT, fontWeight: 800 }}>Finish</button>
+            <button
+              type="button"
+              onClick={goPrev}
+              disabled={atFirstHole}
+              aria-label="Previous hole"
+              style={{ ...S.navSide, opacity: atFirstHole ? 0.35 : 1, cursor: atFirstHole ? 'not-allowed' : 'pointer' }}
+            >
+              <span aria-hidden="true" style={S.navArrow}>◀</span>
+              <span>Prev</span>
+            </button>
+            <button type="button" onClick={() => setSheet('leaderboard')} style={S.navPrimary}>
+              {boardTitle}
+            </button>
+            {isLastHole ? (
+              <button
+                type="button"
+                onClick={() => setSheet('finish')}
+                disabled={readOnly}
+                aria-label="Finish round"
+                style={{ ...S.navSide, color: ACCENT, fontWeight: 800, opacity: readOnly ? 0.35 : 1, cursor: readOnly ? 'not-allowed' : 'pointer' }}
+              >
+                Finish
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={goNext}
+                aria-label="Next hole"
+                style={S.navSide}
+              >
+                <span>Next</span>
+                <span aria-hidden="true" style={S.navArrow}>▶</span>
+              </button>
+            )}
           </div>
+        </div>
         </div>
 
         {/* ===== sheets (framed inside the phone column) ===== */}
@@ -767,7 +904,10 @@ export default function ScoringPage() {
                   <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: 1, color: '#fff' }}>LIVE</span>
                   <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,.6)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{round.course}</span>
                 </div>
-                <button onClick={() => setSheet('finish')} aria-label="Payouts" style={S.iconBtn}>↗</button>
+                {!readOnly && (
+                  <button onClick={() => setSheet('finish')} aria-label="Payouts" style={S.iconBtn}>↗</button>
+                )}
+                {readOnly && <span style={{ width: 40 }} />}
               </div>
 
               <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10, marginTop: 12 }}>
@@ -1173,6 +1313,7 @@ const chip = (on) => ({
 const S = {
   root: {
     position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden',
+    height: '100dvh', maxHeight: '100dvh',
     fontFamily: "system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif", color: '#fff',
     background: COURSE_FALLBACK_BG,
   },
@@ -1181,14 +1322,16 @@ const S = {
     position: 'absolute', inset: 0, pointerEvents: 'none',
     background: 'linear-gradient(180deg, rgba(6,14,9,.58) 0%, rgba(6,14,9,.28) 24%, rgba(6,16,10,.34) 58%, rgba(4,12,8,.8) 100%)',
   },
-  column: { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', width: '100%', maxWidth: 480, margin: '0 auto' },
-  header: { flex: '0 0 auto', padding: 'max(10px, env(safe-area-inset-top)) 16px 10px', textShadow: '0 2px 12px rgba(0,0,0,.4)' },
+  column: { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1, width: '100%', maxWidth: 480, margin: '0 auto', minHeight: 0, maxHeight: '100%', overflow: 'hidden' },
+  header: { flex: '0 0 auto', padding: '2px 16px 8px', textShadow: '0 2px 12px rgba(0,0,0,.4)' },
+  body: { flex: '1 1 0', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+  holeNum: { fontSize: 'clamp(52px, 14vw, 74px)', fontWeight: 800, lineHeight: 0.98, color: '#fff' },
   headerTop: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10 },
   iconBtn: { width: 46, height: 46, borderRadius: '50%', flex: '0 0 auto', background: 'rgba(255,255,255,.14)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', fontSize: 19, cursor: 'pointer' },
   coursePill: { display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,.13)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.16)', padding: '9px 16px', borderRadius: 9999, maxWidth: 220, minWidth: 0 },
   navCircle: { width: 54, height: 54, borderRadius: '50%', flex: '0 0 auto', background: 'rgba(255,255,255,.14)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', fontSize: 24, fontWeight: 800, cursor: 'pointer' },
-  detailLine: { display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 6, background: 'rgba(255,255,255,.13)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.16)', padding: '6px 14px', borderRadius: 9999, fontSize: 13, fontWeight: 700, color: '#fff' },
-  scroll: { flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 14px 10px' },
+  detailLine: { display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 8, maxWidth: '100%', background: 'rgba(255,255,255,.13)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.16)', padding: '6px 14px', borderRadius: 9999, fontSize: 13, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  scroll: { flex: '1 1 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', padding: '4px 14px 8px', boxSizing: 'border-box', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' },
 
   cardWrap: { position: 'relative', overflow: 'hidden', background: 'rgba(20,28,24,.46)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 22, boxShadow: '0 10px 30px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.12)', padding: '15px 16px 16px', marginBottom: 13 },
   cardGlow: { position: 'absolute', left: -30, top: -10, width: 90, height: 90, borderRadius: '50%', filter: 'blur(26px)', pointerEvents: 'none' },
@@ -1206,11 +1349,17 @@ const S = {
   panel: { background: 'rgba(20,28,24,.46)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 20, padding: 15, boxShadow: '0 10px 30px rgba(0,0,0,.3)' },
 
   activeLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: 'rgba(255,255,255,.55)', padding: '0 2px 8px' },
-  betChip: { flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: 3, textAlign: 'left', minWidth: 154, background: 'rgba(255,255,255,.12)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,.16)', borderRadius: 16, padding: '11px 13px', cursor: 'pointer' },
+  betRow: { display: 'flex', gap: 9, overflowX: 'auto', paddingBottom: 2, width: '100%', boxSizing: 'border-box' },
+  betChip: { display: 'flex', flexDirection: 'column', gap: 3, textAlign: 'left', flex: '0 0 auto', minWidth: 154, maxWidth: 220, boxSizing: 'border-box', background: 'rgba(255,255,255,.12)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,.16)', borderRadius: 16, padding: '11px 13px', cursor: 'pointer', fontFamily: 'inherit' },
+  betChipTitle: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#fff', minWidth: 0 },
+  betChipTitleText: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 },
+  betChipStatus: { fontSize: 12, color: 'rgba(255,255,255,.62)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
 
-  navBar: { display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(16,22,18,.55)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 22, padding: 8, boxShadow: '0 10px 30px rgba(0,0,0,.35)' },
-  navText: { minHeight: 52, padding: '0 16px', borderRadius: 15, background: 'transparent', border: 'none', fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,.85)', cursor: 'pointer' },
-  navPrimary: { flex: 1, minHeight: 52, borderRadius: 15, background: ACCENT, color: ACCENT_DARK, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', boxShadow: `0 6px 18px ${hexA(ACCENT, 0.45)}` },
+  navBar: { display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(16,22,18,.55)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 22, padding: 8, boxShadow: '0 10px 30px rgba(0,0,0,.35)', boxSizing: 'border-box' },
+  navSide: { display: 'flex', alignItems: 'center', gap: 6, minHeight: 52, padding: '0 12px', borderRadius: 15, background: 'transparent', border: 'none', fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,.85)', cursor: 'pointer', fontFamily: 'inherit', flex: '0 0 auto' },
+  navText: { minHeight: 52, padding: '0 16px', borderRadius: 15, background: 'transparent', border: 'none', fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,.85)', cursor: 'pointer', fontFamily: 'inherit' },
+  navArrow: { fontSize: 11, lineHeight: 1 },
+  navPrimary: { flex: 1, minHeight: 52, borderRadius: 15, background: ACCENT, color: ACCENT_DARK, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: 'inherit', boxShadow: `0 6px 18px ${hexA(ACCENT, 0.45)}` },
 
   sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, background: 'rgba(14,20,16,.92)', backdropFilter: 'blur(26px)', WebkitBackdropFilter: 'blur(26px)', borderTop: '1px solid rgba(255,255,255,.14)', borderRadius: '26px 26px 0 0', padding: '8px 0 18px', maxHeight: '78%', display: 'flex', flexDirection: 'column' },
   grab: { width: 42, height: 5, borderRadius: 9999, background: 'rgba(255,255,255,.22)', margin: '6px auto 12px' },

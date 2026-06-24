@@ -4,7 +4,11 @@ import useRoundStore from '../store/roundStore'
 import useHistoryStore from '../store/historyStore'
 import useProfileStore from '../store/profileStore'
 import useAuthStore from '../store/authStore'
+import useLiveRoundStore from '../store/liveRoundStore'
 import { saveRound as dbSaveRound } from '../lib/db/rounds'
+import { completeLiveRound } from '../lib/db/liveRounds'
+import { teardownLiveSync } from '../lib/liveRoundSync'
+import { debugLog } from '../lib/debugLog'
 import { fetchCourseGhinMapping } from '../lib/db/courses'
 import { postRoundToGhin } from '../lib/ghin/client'
 import { canPostToGhin, isGhinConnected } from '../lib/ghin/eligibility'
@@ -599,7 +603,19 @@ export default function PayoutsPage() {
     try {
       completeRound()
       await persistRound()
+      const liveRoundId = useLiveRoundStore.getState().liveRoundId
+      if (liveRoundId) {
+        const { error: liveErr } = await completeLiveRound(liveRoundId)
+        // #region agent log
+        debugLog('D', 'PayoutsPage.jsx:handleCompleteRound', liveErr ? 'complete failed' : 'complete ok', {
+          liveRoundId,
+          err: liveErr?.message?.slice(0, 120) ?? null,
+        })
+        // #endregion
+      }
     } finally {
+      teardownLiveSync()
+      useLiveRoundStore.getState().clearSession()
       resetRound()
       navigate('/you', { replace: true })
     }

@@ -1,12 +1,17 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import useRoundStore from '../store/roundStore'
 import useHistoryStore from '../store/historyStore'
 import useProfileStore from '../store/profileStore'
 import useAuthStore from '../store/authStore'
 import useSyncStore from '../store/syncStore'
+import useLiveRoundStore from '../store/liveRoundStore'
 import { retrySyncOnLogin } from '../lib/sync'
 import { getCourseImage } from '../lib/courseImages'
+import { isSupabaseConfigured } from '../lib/supabaseClient'
+import { fetchClaimableLiveRounds, fetchMyActiveLiveRounds, joinLiveRound, liveRoundUserMessage } from '../lib/db/liveRounds'
+import useNotificationStore from '../store/notificationStore'
+import { hydrateFromServer } from '../lib/liveRoundSync'
 import { GoloBall } from '../components/shared/Logo'
 import AppHeader from '../components/shared/AppHeader'
 import {
@@ -104,6 +109,9 @@ export default function HomePage() {
   const syncing = useSyncStore((s) => s.syncing)
 
   const [view, setView] = useState('season') // 'season' | 'all'
+  const [claimable, setClaimable] = useState([])
+  const [liveWatching, setLiveWatching] = useState([])
+  const [claiming, setClaiming] = useState(false)
   const safeLivePlayers = asArray(livePlayers)
   const savedRounds = asArray(rounds)
 
@@ -131,6 +139,64 @@ export default function HomePage() {
   const startSetup = () => {
     if (round && status === 'complete') resetRound()
     navigate('/setup')
+  }
+
+  useEffect(() => {
+    if (!authUserId || !isSupabaseConfigured) {
+      setClaimable([])
+      setLiveWatching([])
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      const [claims, active] = await Promise.all([
+        fetchClaimableLiveRounds(),
+        fetchMyActiveLiveRounds(),
+      ])
+      if (cancelled) return
+      setClaimable(Array.isArray(claims) ? claims : [])
+      setLiveWatching((active ?? []).filter((r) => r.role === 'player' || r.role === 'viewer'))
+    })()
+    return () => { cancelled = true }
+  }, [authUserId])
+
+  const claimSpot = async (claim) => {
+    if (claiming || !claim?.invite_code) return
+    setClaiming(true)
+    try {
+      const res = await joinLiveRound(claim.invite_code, claim.player_key)
+      if (res.error || !res.data) {
+        useNotificationStore.getState().pushToast({
+          kicker: 'LIVE ROUND',
+          title: 'Could not join round',
+          body: liveRoundUserMessage(res.error ?? 'Join failed'),
+          duration: 8000,
+        })
+        return
+      }
+      const data = res.data
+      useLiveRoundStore.getState().setSession({
+        liveRoundId: data.live_round_id,
+        inviteCode: data.invite_code,
+        role: data.role,
+        scorerName: data.state?.players?.[0]?.name ?? 'Scorer',
+      })
+      hydrateFromServer(data.state)
+      navigate('/scoring')
+    } finally {
+      setClaiming(false)
+    }
+  }
+
+  const openLiveWatch = (row) => {
+    useLiveRoundStore.getState().setSession({
+      liveRoundId: row.id,
+      inviteCode: row.invite_code,
+      role: row.role,
+      scorerName: row.state?.players?.[0]?.name ?? 'Scorer',
+    })
+    if (row.state) hydrateFromServer(row.state)
+    navigate('/scoring')
   }
 
   const model = useMemo(() => {
@@ -247,6 +313,49 @@ export default function HomePage() {
                 {syncing ? 'Syncing…' : 'Retry'}
               </button>
             </div>
+          )}
+
+          {claimable.length > 0 && (
+            <button
+              type="button"
+              disabled={claiming}
+              onClick={() => claimSpot(claimable[0])}
+              style={{ ...S.resumeCard, borderColor: hexA(ACCENT, 0.55), marginTop: 0 }}
+            >
+              <span style={{ ...S.resumeThumb, background: COURSE_FALLBACK_BG }}>
+                <span style={S.resumeDot}>◎</span>
+              </span>
+              <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.2, color: ACCENT }}>CLAIM YOUR SPOT</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  Live round · {claimable[0].course_name || 'Course'}
+                </div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,.55)', marginTop: 1 }}>
+                  {claiming ? 'Joining…' : 'You’re on the roster — tap to follow live.'}
+                </div>
+              </div>
+              <span style={{ fontSize: 20, color: 'rgba(255,255,255,.5)', flex: '0 0 auto' }}>›</span>
+            </button>
+          )}
+
+          {liveWatching.length > 0 && !resume && (
+            <button
+              type="button"
+              onClick={() => openLiveWatch(liveWatching[0])}
+              style={{ ...S.resumeCard, borderColor: hexA(ACCENT, 0.35) }}
+            >
+              <span style={{ ...S.resumeThumb, background: COURSE_FALLBACK_BG }}>
+                <span style={S.resumeDot}>▸</span>
+              </span>
+              <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.2, color: ACCENT }}>LIVE ROUND</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {liveWatching[0].course_name || 'In progress'}
+                </div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,.55)', marginTop: 1 }}>Tap to open the live board.</div>
+              </div>
+              <span style={{ fontSize: 20, color: 'rgba(255,255,255,.5)', flex: '0 0 auto' }}>›</span>
+            </button>
           )}
 
           {/* PRIMARY · new round */}

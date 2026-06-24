@@ -278,6 +278,25 @@ const useRoundStore = create(
           else next[hole] = playerId
           return { concededHoles: next }
         }),
+
+      /** Replace local state from a live_rounds.state payload (viewers / reconnect). */
+      hydrateFromLiveState: (liveState) => {
+        if (!liveState) return
+        set({
+          round: liveState.round ?? null,
+          players: liveState.players ?? [],
+          scores: liveState.scores ?? {},
+          bets: liveState.bets ?? [],
+          teams: liveState.teams ?? [],
+          sideGameFlags: liveState.sideGameFlags ?? { closestToPin: {}, longestDrive: {} },
+          wolfPicks: liveState.wolfPicks ?? {},
+          bbbFlags: liveState.bbbFlags ?? {},
+          skinFlags: liveState.skinFlags ?? {},
+          concededHoles: liveState.concededHoles ?? {},
+          currentHole: liveState.currentHole ?? 1,
+          status: liveState.status ?? 'in_progress',
+        })
+      },
     }),
     { name: 'golf-round-state' }
   )

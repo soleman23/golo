@@ -3,12 +3,19 @@ import { useNavigate } from 'react-router-dom'
 import useRoundStore from '../store/roundStore'
 import useHistoryStore from '../store/historyStore'
 import useProfileStore from '../store/profileStore'
+import useAuthStore from '../store/authStore'
+import useLiveRoundStore from '../store/liveRoundStore'
 import { calculateCourseHandicap } from '../engines/handicap'
 import { hasContact, displayName, playerKey } from '../lib/identity'
 import { fetchCourses } from '../lib/db/courses'
 import { getCourseImage } from '../lib/courseImages'
 import { defaultHomeCourse, sortCoursesHomeFirst } from '../lib/homeCourse'
 import { normalizeSkinsLdHole, resolveLdHoleNumber } from '../engines/skins'
+import { isSupabaseConfigured } from '../lib/supabaseClient'
+import { serializeRoundState, startLiveRound, liveRoundUserMessage } from '../lib/db/liveRounds'
+import { attachLiveSync, teardownLiveSync } from '../lib/liveRoundSync'
+import useNotificationStore from '../store/notificationStore'
+import { debugLog } from '../lib/debugLog'
 import AppHeader from '../components/shared/AppHeader'
 import { Icon } from '../components/shared/GoloIcons'
 
@@ -205,6 +212,43 @@ const initial = (p) => {
   return t ? t.charAt(0).toUpperCase() : '?'
 }
 const today = () => new Date().toISOString().slice(0, 10)
+
+/** Saved-round identities with contact — the "has an account" directory. */
+function buildAccountDirectory(rounds, inRound) {
+  const map = {}
+  for (const r of rounds) {
+    for (const p of r.players ?? []) {
+      if (!hasContact(p)) continue
+      const k = playerKey(p)
+      if (!k || inRound.has(k) || map[k]) continue
+      map[k] = { key: k, name: p.name ?? '', nickname: p.nickname ?? '', email: p.email ?? '', phone: p.phone ?? '' }
+    }
+  }
+  return Object.values(map)
+}
+
+/** Everyone you've shared a round with (crew), newest contact info wins. */
+function buildCrewRoster(rounds, inRound) {
+  const map = {}
+  for (const r of rounds) {
+    for (const p of r.players ?? []) {
+      const k = playerKey(p)
+      if (!k || inRound.has(k)) continue
+      if (!map[k]) {
+        map[k] = {
+          key: k,
+          name: p.name ?? '',
+          nickname: p.nickname ?? '',
+          email: p.email ?? '',
+          phone: p.phone ?? '',
+          rounds: 0,
+        }
+      }
+      map[k].rounds += 1
+    }
+  }
+  return Object.values(map).sort((a, b) => b.rounds - a.rounds)
+}
 
 /** Default course card: par 4, stroke index = hole number (a valid permutation). */
 function defaultCard(totalHoles, pars, strokeIndex) {
@@ -467,6 +511,7 @@ function initState() {
     date: round?.date ?? today(),
     showCard: false,
     showAccountPicker: false,
+    showCrewPicker: false,
     pars: card.pars,
     strokeIndex: card.strokeIndex,
     format: round?.scoringType ?? 'stroke',
@@ -492,6 +537,9 @@ export default function SetupWizard() {
   // rounds with (and who left a contact) are the players you can re-add.
   const historyRounds = useHistoryStore((s) => s.rounds)
   const profileHomeClub = useProfileStore((s) => s.homeClub)
+  const authEnabled = useAuthStore((s) => s.enabled)
+  const userId = useAuthStore((s) => s.user?.id ?? null)
+  const liveRoundsEnabled = isSupabaseConfigured && authEnabled && !!userId
 
   const [st, setSt] = useState(initState)
   const patch = (p) => setSt((s) => ({ ...s, ...p }))
@@ -583,16 +631,29 @@ export default function SetupWizard() {
     setSt((s) => {
       const used = s.players.map((p) => p.color)
       const color = PALETTE.find((c) => !used.includes(c)) ?? PALETTE[s.players.length % PALETTE.length]
-      const player = { id, name: '', nickname: '', email: '', phone: '', hdcp: 12, guest: false, color, team: nextTeam(s.players), ...fields }
+      const player = {
+        id, name: '', nickname: '', email: '', phone: '', hdcp: 12,
+        guest: false, inviteGuest: false, color, team: nextTeam(s.players), ...fields,
+      }
       const players = [...s.players, player]
       const bets = { ...s.bets }
       Object.keys(bets).forEach((k) => { bets[k] = { ...bets[k], who: [...bets[k].who, id] } })
-      return { ...s, players, bets, showAccountPicker: false }
+      return { ...s, players, bets, showAccountPicker: false, showCrewPicker: false }
     })
   }
-  const addVerifiedPlayer = () => addRoundPlayer({ guest: false })
+  const addInviteGuest = () => addRoundPlayer({ guest: false, inviteGuest: true })
+  const addGuest = () => addRoundPlayer({ guest: true, inviteGuest: false })
   const addAccount = (acct) =>
-    addRoundPlayer({ guest: false, name: acct.name, nickname: acct.nickname, email: acct.email, phone: acct.phone })
+    addRoundPlayer({ guest: false, inviteGuest: false, name: acct.name, nickname: acct.nickname, email: acct.email, phone: acct.phone })
+  const addCrewMember = (member) =>
+    addRoundPlayer({
+      guest: false,
+      inviteGuest: false,
+      name: member.name,
+      nickname: member.nickname,
+      email: member.email,
+      phone: member.phone,
+    })
   const removePlayer = (id) => {
     // The organizer (first card) is always carried over and can't be removed.
     if (st.players[0]?.id === id) return
@@ -680,11 +741,16 @@ export default function SetupWizard() {
   }
 
   /* ---- validation ---- */
-  // Every player needs a name before the round can continue.
+  // Every player needs a name; live rounds also require email or phone per player.
   const organizer = st.players[0]
-  const isReady = (p) => p.name?.trim().length > 0
-  const readyPlayers = st.players.filter((p, i) => isReady(p, i))
-  const everyoneReady = st.players.every((p, i) => isReady(p, i))
+  const isReady = (p) => {
+    if (!p.name?.trim()) return false
+    if (p.guest) return true
+    if (liveRoundsEnabled && !hasContact(p)) return false
+    return true
+  }
+  const readyPlayers = st.players.filter((p) => isReady(p))
+  const everyoneReady = st.players.every((p) => isReady(p))
   const validStep = (step) => {
     if (step === 1) {
       if (!organizer || !isReady(organizer)) return false
@@ -710,7 +776,10 @@ export default function SetupWizard() {
   const valid = isReview ? validStep(1) && validStep(3) : validStep(st.step)
   let hintText = ''
   if (!valid && st.step === 1) {
-    if (!organizer || !isReady(organizer)) hintText = 'Add your name to continue.'
+    if (!organizer || !organizer.name?.trim()) hintText = 'Add your name to continue.'
+    else if (liveRoundsEnabled && st.players.some((p) => p.name?.trim() && !p.guest && !hasContact(p))) {
+      hintText = 'Add email or phone for invited players so they can join live.'
+    }
     else if (!everyoneReady) hintText = 'Add a name for every player.'
     else if (readyPlayers.length < 2) hintText = 'Add at least one more player.'
     else if (isScramble) hintText = 'Put a player on each team.'
@@ -759,8 +828,8 @@ export default function SetupWizard() {
       handicapIndex: p.hdcp,
       courseHandicap: calculateCourseHandicap(p.hdcp, tee.slope, tee.rating, tee.par),
       color: p.color,
-      guest: false,
-      loggedIn: true,
+      guest: !!p.guest,
+      loggedIn: !p.guest,
       verified: hasContact(p),
     }))
     setPlayers(players)
@@ -817,10 +886,98 @@ export default function SetupWizard() {
     if (profilePlayer) prof.setHandicapIndex(profilePlayer.handicapIndex)
   }
 
-  const next = () => {
+  const next = async () => {
     if (!valid) return
     if (st.step < 4) patch({ step: st.step + 1 })
-    else { commit(); patch({ started: true }) }
+    else {
+      commit()
+      if (liveRoundsEnabled) {
+        const rs = useRoundStore.getState()
+        const roundId = rs.round?.roundId
+        // #region agent log
+        debugLog('A', 'SetupWizard.jsx:next', 'live start attempt', {
+          liveRoundsEnabled,
+          hasRoundId: !!roundId,
+          hasUser: !!userId,
+        })
+        // #endregion
+        if (roundId) {
+          const prevLive = useLiveRoundStore.getState()
+          const stale = prevLive.liveRoundId && prevLive.liveRoundId !== roundId
+          // #region agent log
+          debugLog('G', 'SetupWizard.jsx:next', 'live session check', {
+            roundId,
+            prevLiveRoundId: prevLive.liveRoundId ?? null,
+            stale,
+          }, 'post-fix')
+          // #endregion
+          if (stale) {
+            teardownLiveSync()
+            useLiveRoundStore.getState().clearSession()
+          }
+          const { data: res, error: liveErr } = await startLiveRound({
+            roundId,
+            state: serializeRoundState(rs),
+            courseName: course.name,
+          })
+          if (liveErr) {
+            // #region agent log
+            debugLog('A', 'SetupWizard.jsx:next', 'startLiveRound failed', {
+              roundId,
+              err: liveErr?.slice(0, 120),
+            })
+            // #endregion
+            teardownLiveSync()
+            useLiveRoundStore.getState().clearSession()
+            useNotificationStore.getState().pushToast({
+              kicker: 'LIVE ROUND',
+              title: 'Could not start live sync',
+              body: liveRoundUserMessage(liveErr),
+              duration: 10000,
+            })
+          } else if (res?.invite_code) {
+            // #region agent log
+            debugLog('A', 'SetupWizard.jsx:next', 'startLiveRound ok', {
+              roundId,
+              hasInvite: true,
+            })
+            // #endregion
+            const me = readyPlayers[0]
+            useLiveRoundStore.getState().setSession({
+              liveRoundId: roundId,
+              inviteCode: res.invite_code,
+              role: 'scorer',
+              scorerName: me?.name?.trim() || displayName(me) || 'Scorer',
+            })
+            attachLiveSync()
+          } else {
+            // #region agent log
+            debugLog('A', 'SetupWizard.jsx:next', 'startLiveRound no invite — session not set', {
+              roundId,
+              resNull: res == null,
+            })
+            // #endregion
+            useNotificationStore.getState().pushToast({
+              kicker: 'LIVE ROUND',
+              title: 'Live sync unavailable',
+              body: 'Round saved locally. Finish the database migration to enable invite links.',
+              duration: 8000,
+            })
+            teardownLiveSync()
+            useLiveRoundStore.getState().clearSession()
+          }
+        }
+      } else {
+        // #region agent log
+        debugLog('F', 'SetupWizard.jsx:next', 'live rounds skipped', {
+          configured: isSupabaseConfigured,
+          authEnabled,
+          hasUser: !!userId,
+        })
+        // #endregion
+      }
+      patch({ started: true })
+    }
   }
 
   /* --------------------------------------------------------------- render */
@@ -1031,20 +1188,29 @@ export default function SetupWizard() {
   }
 
   function renderPlayers() {
-    // The "account directory" stand-in: identities from saved rounds that left a
-    // contact, minus anyone already in this round. Newest label wins.
     const inRound = new Set(st.players.map(playerKey).filter(Boolean))
-    const accountMap = {}
-    for (const r of historyRounds) {
-      for (const p of r.players ?? []) {
-        if (!hasContact(p)) continue
-        const k = playerKey(p)
-        if (!k || inRound.has(k) || accountMap[k]) continue
-        accountMap[k] = { key: k, name: p.name ?? '', nickname: p.nickname ?? '', email: p.email ?? '', phone: p.phone ?? '' }
-      }
-    }
-    const accounts = Object.values(accountMap)
+    const accounts = buildAccountDirectory(historyRounds, inRound)
+    const crew = buildCrewRoster(historyRounds, inRound)
     const full = st.players.length >= MAX_PLAYERS
+
+    const renderPickerList = (items, emptyText, onPick, subFor) => (
+      <div style={{ background: 'rgba(20,28,24,.5)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 14, padding: items.length ? 6 : 14 }}>
+        {items.length === 0 ? (
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,.55)', lineHeight: 1.5 }}>{emptyText}</div>
+        ) : (
+          items.map((a) => (
+            <button key={a.key} onClick={() => onPick(a)} disabled={full} style={accountRow}>
+              <span style={{ width: 32, height: 32, borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#fff', background: 'rgba(255,255,255,.18)' }}>{initial(a.name || a.email)}</span>
+              <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name || a.email || a.phone}</span>
+                <span style={{ display: 'block', fontSize: 11.5, color: 'rgba(255,255,255,.5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{subFor(a)}</span>
+              </span>
+              <span style={{ color: ACCENT, fontSize: 18, fontWeight: 800, flex: '0 0 auto' }}>+</span>
+            </button>
+          ))
+        )}
+      </div>
+    )
 
     return (
       <div>
@@ -1054,7 +1220,7 @@ export default function SetupWizard() {
         {sectionLabel('ADD PLAYERS', { margin: '18px 0 10px' })}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           {/* 1 — existing account holder */}
-          <button onClick={() => !full && patch({ showAccountPicker: !st.showAccountPicker })} disabled={full} style={addOption(st.showAccountPicker, full)}>
+          <button onClick={() => !full && patch({ showAccountPicker: !st.showAccountPicker, showCrewPicker: false })} disabled={full} style={addOption(st.showAccountPicker, full)}>
             <span style={addOptionIcon}>👤</span>
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={addOptionTitle}>Add player</span>
@@ -1062,33 +1228,45 @@ export default function SetupWizard() {
             </span>
             <span style={{ color: ACCENT, fontSize: 22, fontWeight: 800, flex: '0 0 auto' }}>{st.showAccountPicker ? '×' : '+'}</span>
           </button>
-          {st.showAccountPicker && (
-            <div style={{ background: 'rgba(20,28,24,.5)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 14, padding: accounts.length ? 6 : 14 }}>
-              {accounts.length === 0 ? (
-                <div style={{ fontSize: 13, color: 'rgba(255,255,255,.55)', lineHeight: 1.5 }}>
-                  No saved players yet. People you finish rounds with show up here, or add a verified player below.
-                </div>
-              ) : (
-                accounts.map((a) => (
-                  <button key={a.key} onClick={() => addAccount(a)} disabled={full} style={accountRow}>
-                    <span style={{ width: 32, height: 32, borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#fff', background: 'rgba(255,255,255,.18)' }}>{initial(a.name || a.email)}</span>
-                    <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-                      <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name || a.email || a.phone}</span>
-                      <span style={{ display: 'block', fontSize: 11.5, color: 'rgba(255,255,255,.5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.email || a.phone}</span>
-                    </span>
-                    <span style={{ color: ACCENT, fontSize: 18, fontWeight: 800, flex: '0 0 auto' }}>+</span>
-                  </button>
-                ))
-              )}
-            </div>
+          {st.showAccountPicker && renderPickerList(
+            accounts,
+            'No saved players yet. Finish a round with someone who has an email or phone and they will show up here.',
+            addAccount,
+            (a) => a.email || a.phone,
           )}
 
-          {/* 2 — verified player entered manually */}
-          <button onClick={() => !full && addVerifiedPlayer()} disabled={full} style={addOption(false, full)}>
-            <span style={addOptionIcon}>🙋</span>
+          {/* 2 — crew roster */}
+          <button onClick={() => !full && patch({ showCrewPicker: !st.showCrewPicker, showAccountPicker: false })} disabled={full} style={addOption(st.showCrewPicker, full)}>
+            <span style={addOptionIcon}>👥</span>
             <span style={{ flex: 1, minWidth: 0 }}>
-              <span style={addOptionTitle}>Add verified player</span>
-              <span style={addOptionSub}>Enter a name before starting</span>
+              <span style={addOptionTitle}>Add someone from your crew</span>
+              <span style={addOptionSub}>People you've played rounds with</span>
+            </span>
+            <span style={{ color: ACCENT, fontSize: 22, fontWeight: 800, flex: '0 0 auto' }}>{st.showCrewPicker ? '×' : '+'}</span>
+          </button>
+          {st.showCrewPicker && renderPickerList(
+            crew,
+            'Your crew fills in as you finish rounds together.',
+            addCrewMember,
+            (a) => `${a.rounds} ${a.rounds === 1 ? 'round' : 'rounds'} together${a.email || a.phone ? ` · ${a.email || a.phone}` : ''}`,
+          )}
+
+          {/* 3 — invite for live join link */}
+          <button onClick={() => !full && addInviteGuest()} disabled={full} style={addOption(false, full)}>
+            <span style={addOptionIcon}>📨</span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={addOptionTitle}>Invite guest</span>
+              <span style={addOptionSub}>Name + email or phone — they'll get a join link</span>
+            </span>
+            <span style={{ color: ACCENT, fontSize: 22, fontWeight: 800, flex: '0 0 auto' }}>+</span>
+          </button>
+
+          {/* 4 — local guest, name only */}
+          <button onClick={() => !full && addGuest()} disabled={full} style={addOption(false, full)}>
+            <span style={addOptionIcon}>⛳</span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={addOptionTitle}>Add guest</span>
+              <span style={addOptionSub}>Name only — no account or contact needed</span>
             </span>
             <span style={{ color: ACCENT, fontSize: 22, fontWeight: 800, flex: '0 0 auto' }}>+</span>
           </button>
@@ -1100,9 +1278,14 @@ export default function SetupWizard() {
 
   function renderPlayerCard(p, idx) {
     const isOrganizer = idx === 0
-    const kind = isOrganizer ? 'you' : 'account'
-    const ready = isReady(p, idx)
-    const badge = { you: { t: 'YOU', c: ACCENT }, account: { t: 'VERIFIED', c: '#60a5fa' } }[kind]
+    const ready = isReady(p)
+    const badge = isOrganizer
+      ? { t: 'YOU', c: ACCENT }
+      : p.guest
+        ? { t: 'GUEST', c: '#fb923c' }
+        : p.inviteGuest
+          ? { t: 'INVITE', c: ACCENT }
+          : { t: 'VERIFIED', c: '#60a5fa' }
     return (
       <div key={p.id} style={{ background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${ready ? 'rgba(255,255,255,.12)' : 'rgba(251,113,133,.6)'}`, borderRadius: 18, padding: 12, marginBottom: 11 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -1124,14 +1307,33 @@ export default function SetupWizard() {
           )}
         </div>
 
-        <div style={{ display: 'flex', gap: 8, marginTop: 11 }}>
-          <input value={p.nickname} onChange={(e) => updatePlayer(p.id, { nickname: e.target.value })} placeholder="@handle" autoCapitalize="none" autoCorrect="off" style={{ ...playerField, flex: 1 }} />
-          <input value={p.email} onChange={(e) => updatePlayer(p.id, { email: e.target.value })} placeholder="Email (optional)" type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" style={{ ...playerField, flex: 1.4 }} />
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-          <input value={p.phone} onChange={(e) => updatePlayer(p.id, { phone: e.target.value })} placeholder="Phone (optional)" type="tel" inputMode="tel" style={{ ...playerField, flex: 1 }} />
-          {!p.name?.trim() && <span style={{ fontSize: 11, fontWeight: 700, color: '#fb7185', flex: '0 0 auto' }}>Name required</span>}
-        </div>
+        {p.guest ? (
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,.5)', marginTop: 10, lineHeight: 1.45 }}>
+            Guest — scores and settles up in this round only. No email or phone needed.
+          </div>
+        ) : (
+          <>
+            {p.inviteGuest && liveRoundsEnabled && (
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,.55)', marginTop: 10, lineHeight: 1.45 }}>
+                Add email or phone so they can claim this spot from your live invite link.
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8, marginTop: 11 }}>
+              <input value={p.nickname} onChange={(e) => updatePlayer(p.id, { nickname: e.target.value })} placeholder="@handle" autoCapitalize="none" autoCorrect="off" style={{ ...playerField, flex: 1 }} />
+              <input value={p.email} onChange={(e) => updatePlayer(p.id, { email: e.target.value })} placeholder={p.inviteGuest && liveRoundsEnabled ? 'Email' : 'Email (optional)'} type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" style={{ ...playerField, flex: 1.4 }} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+              <input value={p.phone} onChange={(e) => updatePlayer(p.id, { phone: e.target.value })} placeholder={p.inviteGuest && liveRoundsEnabled ? 'Phone' : 'Phone (optional)'} type="tel" inputMode="tel" style={{ ...playerField, flex: 1 }} />
+              {!p.name?.trim() && <span style={{ fontSize: 11, fontWeight: 700, color: '#fb7185', flex: '0 0 auto' }}>Name required</span>}
+              {p.name?.trim() && p.inviteGuest && liveRoundsEnabled && !hasContact(p) && (
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#fb7185', flex: '0 0 auto' }}>Contact required</span>
+              )}
+            </div>
+          </>
+        )}
+        {p.guest && !p.name?.trim() && (
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#fb7185', marginTop: 8 }}>Name required</div>
+        )}
 
         {isScramble && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>

@@ -56,6 +56,7 @@ export default function AppHeader({
   contextPill = '',
   currentPage = '',
   showTitle = true,
+  contextPillOnly = false,
   showBack = true,
   style,
 }) {
@@ -63,6 +64,7 @@ export default function AppHeader({
   const [menuOpen, setMenuOpen] = useState(false)
   const hasKicker = String(kicker).trim().length > 0
   const hasPill = String(contextPill).trim().length > 0
+  const showTitleRow = (showTitle || contextPillOnly) && (showTitle || hasPill)
   const menuItems = [
     { label: 'Home', to: '/' },
     { label: 'You', to: '/you' },
@@ -80,17 +82,7 @@ export default function AppHeader({
   }
 
   return (
-    <div style={{ flex: '0 0 auto', display: 'block', color: '#fff', textShadow: '0 2px 12px rgba(0,0,0,.4)', ...style }}>
-      <div style={{ height: 34, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', fontSize: 13, fontWeight: 700 }}>
-        <span>9:41</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span>5G</span>
-          <span style={{ display: 'inline-block', width: 23, height: 11, border: '1.5px solid #fff', borderRadius: 3, position: 'relative' }}>
-            <span style={{ position: 'absolute', left: 1.5, top: 1.5, bottom: 1.5, right: 6, background: '#fff', borderRadius: 1 }} />
-          </span>
-        </span>
-      </div>
-
+    <div style={{ flex: '0 0 auto', display: 'block', color: '#fff', textShadow: '0 2px 12px rgba(0,0,0,.4)', paddingTop: 'max(8px, env(safe-area-inset-top))', ...style }}>
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, padding: '2px 14px 0', minHeight: 48 }}>
         {showBack ? (
           <button type="button" onClick={goBack} aria-label="Go back" style={{ flex: '0 0 auto', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
@@ -138,12 +130,12 @@ export default function AppHeader({
         )}
       </div>
 
-      {showTitle && (
-        <div style={{ padding: '8px 18px 12px' }}>
-          {hasKicker && <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: accent }}>{kicker}</div>}
-          <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.4, lineHeight: 1.12, marginTop: 2 }}>{title}</div>
+      {showTitleRow && (
+        <div style={{ padding: contextPillOnly ? '2px 18px 8px' : '8px 18px 12px' }}>
+          {showTitle && hasKicker && <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: accent }}>{kicker}</div>}
+          {showTitle && <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.4, lineHeight: 1.12, marginTop: 2 }}>{title}</div>}
           {hasPill && (
-            <div style={{ display: 'flex', marginTop: 10 }}>
+            <div style={{ display: 'flex', justifyContent: contextPillOnly ? 'center' : 'flex-start', marginTop: contextPillOnly ? 0 : 10 }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, maxWidth: '100%', background: 'rgba(255,255,255,.13)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.16)', padding: '6px 13px', borderRadius: 9999, fontSize: 12, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 <span style={{ width: 7, height: 7, borderRadius: '50%', flex: '0 0 auto', background: accent }} />
                 {contextPill}

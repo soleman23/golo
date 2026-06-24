@@ -5,6 +5,9 @@ import useAuthStore from './store/authStore'
 import useSyncStore from './store/syncStore'
 import { hasContact } from './lib/identity'
 import { retrySyncOnLogin, syncOnLogin, syncOnLogout } from './lib/sync'
+import { flushDebugLog, probeLiveRoundHealth } from './lib/debugLog'
+import LiveToast from './components/shared/LiveToast'
+import LiveNotifications from './components/shared/LiveNotifications'
 
 const HomePage = lazy(() => import('./pages/HomePage'))
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'))
@@ -16,10 +19,12 @@ const PayoutsPage = lazy(() => import('./pages/PayoutsPage'))
 const HistoryPage = lazy(() => import('./pages/HistoryPage'))
 const HistoryDetailPage = lazy(() => import('./pages/HistoryDetailPage'))
 const ContactPage = lazy(() => import('./pages/ContactPage'))
+const JoinRoundPage = lazy(() => import('./pages/JoinRoundPage'))
 
 /** The signed-in app's full route tree. */
 function MainRoutes() {
   return (
+    <>
     <Suspense fallback={<Splash />}>
       <Routes>
         <Route path="/" element={<HomePage />} />
@@ -34,8 +39,12 @@ function MainRoutes() {
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/history/:roundId" element={<HistoryDetailPage />} />
         <Route path="/contact" element={<ContactPage />} />
+        <Route path="/join/:code" element={<JoinRoundPage />} />
       </Routes>
+      <LiveToast />
+      <LiveNotifications />
     </Suspense>
+    </>
   )
 }
 
@@ -127,6 +136,11 @@ export default function App() {
   useEffect(() => {
     initAuth()
   }, [initAuth])
+
+  useEffect(() => {
+    flushDebugLog('app-mount')
+    probeLiveRoundHealth()
+  }, [])
 
   // Hydrate/migrate local stores to Supabase on login; tear down on logout.
   useEffect(() => {
