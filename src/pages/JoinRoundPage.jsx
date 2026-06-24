@@ -5,7 +5,7 @@ import useProfileStore from '../store/profileStore'
 import useLiveRoundStore from '../store/liveRoundStore'
 import { playerKey, displayName, hasContact } from '../lib/identity'
 import { joinLiveRound, peekLiveRound, liveRoundUserMessage } from '../lib/db/liveRounds'
-import { hydrateFromServer, attachLiveSync } from '../lib/liveRoundSync'
+import { hydrateFromServer } from '../lib/liveRoundSync'
 import { isSupabaseConfigured } from '../lib/supabaseClient'
 import AppHeader from '../components/shared/AppHeader'
 
@@ -43,10 +43,9 @@ export default function JoinRoundPage() {
   const myKey = playerKey(profile)
   const canClaim = hasContact(profile) && myKey != null
 
-  const rosterMatch = useMemo(() => {
-    if (!preview?.state?.players || !myKey) return null
-    return preview.state.players.find((p) => playerKey(p) === myKey) ?? null
-  }, [preview, myKey])
+  // The server matches us to a roster slot (peek redacts contact info, so we
+  // can't match client-side) and returns just {id, name} when we're on it.
+  const rosterMatch = preview?.my_slot ?? null
 
   useEffect(() => {
     if (!code || !isSupabaseConfigured || !userId) return
@@ -90,7 +89,6 @@ export default function JoinRoundPage() {
     })
 
     hydrateFromServer(data.state)
-    if (role === 'scorer') attachLiveSync()
 
     navigate('/scoring', { replace: true })
   }

@@ -8,7 +8,10 @@ let debounceTimer = null
 let storeUnsub = null
 let roundChannel = null
 let eventsChannel = null
-let hydrating = false
+// The last state we actually pushed to the server. Events are detected against
+// this (not the previous store tick) so a change isn't dropped when several land
+// inside one debounce window.
+let lastPushed = null
 
 function detectEvent(state, prev) {
   if (!prev) return null
@@ -31,14 +34,14 @@ function detectEvent(state, prev) {
   return null
 }
 
-function schedulePush(state, prev) {
+function schedulePush(state) {
   const { liveRoundId, role } = useLiveRoundStore.getState()
-  if (role !== 'scorer' || !liveRoundId || hydrating) return
+  if (role !== 'scorer' || !liveRoundId) return
 
   clearTimeout(debounceTimer)
   debounceTimer = setTimeout(async () => {
     const payload = serializeRoundState(state)
-    const event = detectEvent(state, prev)
+    const event = detectEvent(state, lastPushed)
     const { error } = await patchLiveRound(
       liveRoundId,
       payload,
@@ -53,7 +56,9 @@ function schedulePush(state, prev) {
         body: liveRoundUserMessage(msg),
         duration: 6000,
       })
+      return
     }
+    lastPushed = state
   }, 450)
 }
 
@@ -61,16 +66,14 @@ export function attachLiveSync() {
   detachLiveSync()
   if (!isSupabaseConfigured) return
 
-  let prev = useRoundStore.getState()
-  storeUnsub = useRoundStore.subscribe((state) => {
-    schedulePush(state, prev)
-    prev = state
-  })
+  lastPushed = useRoundStore.getState()
+  storeUnsub = useRoundStore.subscribe(schedulePush)
 }
 
 export function detachLiveSync() {
   clearTimeout(debounceTimer)
   debounceTimer = null
+  lastPushed = null
   if (storeUnsub) {
     storeUnsub()
     storeUnsub = null
@@ -79,11 +82,7 @@ export function detachLiveSync() {
 
 export function hydrateFromServer(liveState) {
   if (!liveState) return
-  hydrating = true
   useRoundStore.getState().hydrateFromLiveState(liveState)
-  requestAnimationFrame(() => {
-    hydrating = false
-  })
 }
 
 export function subscribeToLiveRound(liveRoundId, onStateUpdate) {

@@ -253,21 +253,36 @@ begin
   slot_id := null;
   slot_key := null;
 
+  -- A claim is honoured only for the slot whose key matches the CALLER'S OWN
+  -- profile identity (server-derived). p_claim_player_key signals intent only;
+  -- its value is never trusted — otherwise anyone could claim a slot by guessing
+  -- another roster player's email/phone.
   if p_claim_player_key is not null and length(trim(p_claim_player_key)) > 0 then
-    select (elem->>'id')::uuid, public.player_key_from_player_json(elem)
-      into slot_id, slot_key
-      from jsonb_array_elements(lr_state->'players') elem
-     where public.player_key_from_player_json(elem) = trim(p_claim_player_key)
-     limit 1;
+    select public.player_key_from_player_json(
+             jsonb_build_object('email', email, 'phone', phone, 'name', name, 'guest', false)
+           )
+      into slot_key
+      from public.profiles
+     where id = uid;
 
-    if slot_id is not null then
-      if exists (
-        select 1 from public.live_round_members
-        where live_round_id = lr_id and player_key = slot_key
-      ) then
-        raise exception 'slot already claimed';
+    if slot_key is not null then
+      select (elem->>'id')::uuid
+        into slot_id
+        from jsonb_array_elements(lr_state->'players') elem
+       where public.player_key_from_player_json(elem) = slot_key
+       limit 1;
+
+      if slot_id is not null then
+        if exists (
+          select 1 from public.live_round_members
+          where live_round_id = lr_id and player_key = slot_key
+        ) then
+          raise exception 'slot already claimed';
+        end if;
+        member_role := 'player';
+      else
+        slot_key := null;  -- caller isn't on the roster; fall back to viewer
       end if;
-      member_role := 'player';
     end if;
   end if;
 
@@ -352,6 +367,9 @@ declare
   lr_invite text;
   lr_state jsonb;
   lr_course text;
+  my_key text;
+  redacted_players jsonb;
+  my_slot jsonb;
 begin
   if uid is null then
     raise exception 'not authenticated';
@@ -367,11 +385,41 @@ begin
     return null;
   end if;
 
+  -- Caller's identity key, derived from their own profile (never from the wire).
+  select public.player_key_from_player_json(
+           jsonb_build_object('email', email, 'phone', phone, 'name', name, 'guest', false)
+         )
+    into my_key
+    from public.profiles
+   where id = uid;
+
+  -- Roster stripped of contact PII — the join screen only needs names/colours.
+  select coalesce(jsonb_agg(elem - 'email' - 'phone'), '[]'::jsonb)
+    into redacted_players
+    from jsonb_array_elements(lr_state->'players') elem;
+
+  -- The caller's own slot (id + name only), if they're on the roster.
+  if my_key is not null then
+    select jsonb_build_object('id', elem->>'id', 'name', elem->>'name')
+      into my_slot
+      from jsonb_array_elements(lr_state->'players') elem
+     where public.player_key_from_player_json(elem) = my_key
+     limit 1;
+  end if;
+
   return jsonb_build_object(
     'live_round_id', lr_id,
     'course_name', lr_course,
     'invite_code', lr_invite,
-    'state', lr_state,
+    -- Pre-join callers only see redacted roster; members already have RLS access.
+    'state', case
+      when exists (
+        select 1 from public.live_round_members m
+        where m.live_round_id = lr_id and m.user_id = uid
+      ) then lr_state
+      else jsonb_set(coalesce(lr_state, '{}'::jsonb), '{players}', redacted_players)
+    end,
+    'my_slot', my_slot,
     'already_member', exists (
       select 1 from public.live_round_members m
       where m.live_round_id = lr_id and m.user_id = uid
