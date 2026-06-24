@@ -1,6 +1,6 @@
--- 0008: Live round tables (part 1 of 2).
--- Easiest path: skip this and run 0009_live_rounds_functions.sql alone — it creates tables + functions.
--- Use this file only for a clean table-only apply via Supabase CLI.
+-- 0008 — Live rounds: tables, indexes, extensions.
+-- Run this first, then 0009_live_rounds_functions.sql (functions, RLS, grants).
+-- Every object uses IF NOT EXISTS, so re-running is safe.
 
 create extension if not exists pgcrypto with schema extensions;
 

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { hexA } from '../lib/colors'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import useRoundStore from '../store/roundStore'
 import useLiveRoundStore, { useLiveRoundRole } from '../store/liveRoundStore'
@@ -19,7 +20,8 @@ import { getCourseImage } from '../lib/courseImages'
 import AppHeader from '../components/shared/AppHeader'
 import { Icon } from '../components/shared/GoloIcons'
 import { fetchLiveRound } from '../lib/db/liveRounds'
-import { attachLiveSync, hydrateFromServer, subscribeToLiveRound } from '../lib/liveRoundSync'
+import { attachLiveSync, hydrateFromServer, subscribeToLiveRound, teardownLiveSync } from '../lib/liveRoundSync'
+import useNotificationStore from '../store/notificationStore'
 
 /**
  * ScoringPage — the live round, "Scoring (Immersive)".
@@ -61,17 +63,6 @@ function BetGlyph({ bet, size = 18, color = ACCENT }) {
 }
 
 /* ------------------------------------------------------------------- helpers */
-
-function hexA(hex, a) {
-  let h = (hex || ACCENT).replace('#', '')
-  if (h.length === 3) h = h.split('').map((c) => c + c).join('')
-  const r = parseInt(h.slice(0, 2), 16)
-  const g = parseInt(h.slice(2, 4), 16)
-  const b = parseInt(h.slice(4, 6), 16)
-  // Non-hex (e.g. a named team colour like "green") — fall back to soft white.
-  if ([r, g, b].some(Number.isNaN)) return `rgba(255,255,255,${a})`
-  return `rgba(${r},${g},${b},${a})`
-}
 
 const initial = (name) => (name || '').trim().charAt(0).toUpperCase() || '?'
 /** Format net-to-par the golf way: E, +2, -1. */
@@ -154,6 +145,7 @@ export default function ScoringPage() {
   const [lbView, setLbView] = useState(() => (round?.scoring === 'gross' ? 'gross' : 'net')) // 'net' | 'gross' | 'money'
   const [copiedInvite, setCopiedInvite] = useState(false)
   const [liveLoading, setLiveLoading] = useState(false)
+  const liveEndedHandled = useRef(false)
 
   const liveRole = useLiveRoundRole()
   const liveRoundId = useLiveRoundStore((s) => s.liveRoundId)
@@ -198,6 +190,10 @@ export default function ScoringPage() {
 
   // Live round sync: scorer pushes patches; viewers subscribe to server state.
   useEffect(() => {
+    liveEndedHandled.current = false
+  }, [liveRoundId])
+
+  useEffect(() => {
     if (!liveRoundId || liveRole === 'local-only') return undefined
 
     if (isLiveScorer) {
@@ -205,16 +201,37 @@ export default function ScoringPage() {
       return undefined
     }
 
+    const finishLive = () => {
+      if (liveEndedHandled.current) return
+      liveEndedHandled.current = true
+      teardownLiveSync()
+      useLiveRoundStore.getState().clearSession()
+      useNotificationStore.getState().pushToast({
+        kicker: 'LIVE ROUND',
+        title: 'Round finished',
+        body: 'The scorer finished this round.',
+        duration: 6000,
+      })
+      navigate('/', { replace: true })
+    }
+
     setLiveLoading(true)
     let cancelled = false
     fetchLiveRound(liveRoundId).then((row) => {
       if (cancelled) return
+      if (row?.status === 'complete') {
+        finishLive()
+        return
+      }
       if (row?.state) hydrateFromServer(row.state)
       setLiveLoading(false)
     })
 
     const unsub = subscribeToLiveRound(liveRoundId, (state, status) => {
-      if (status === 'complete') return
+      if (status === 'complete') {
+        finishLive()
+        return
+      }
       if (state) hydrateFromServer(state)
     })
 
@@ -222,7 +239,7 @@ export default function ScoringPage() {
       cancelled = true
       unsub()
     }
-  }, [liveRoundId, liveRole, isLiveScorer])
+  }, [liveRoundId, liveRole, isLiveScorer, navigate])
 
   // Scores start empty and stay empty until entered — a hole shows "–" for each
   // player until tapped, so a fresh round (and every unplayed hole) carries no

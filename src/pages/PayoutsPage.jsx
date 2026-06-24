@@ -1,3 +1,4 @@
+import { hexA } from '../lib/colors'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import useRoundStore from '../store/roundStore'
@@ -52,16 +53,6 @@ const FORMAT_LABEL = {
 }
 
 /* ------------------------------------------------------------------- helpers */
-
-function hexA(hex, a) {
-  let h = (hex || ACCENT).replace('#', '')
-  if (h.length === 3) h = h.split('').map((c) => c + c).join('')
-  const r = parseInt(h.slice(0, 2), 16)
-  const g = parseInt(h.slice(2, 4), 16)
-  const b = parseInt(h.slice(4, 6), 16)
-  if ([r, g, b].some(Number.isNaN)) return `rgba(255,255,255,${a})`
-  return `rgba(${r},${g},${b},${a})`
-}
 
 const initial = (name) => (name || '').trim().charAt(0).toUpperCase() || '?'
 // cents — avoids half-up sign asymmetry & matches History/You. Normalises -0 so

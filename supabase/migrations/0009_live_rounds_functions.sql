@@ -1,9 +1,6 @@
--- 0009: Live rounds — functions, RLS, Realtime.
---
--- If you already created public.live_rounds (Step A), DO NOT re-run the table section
--- (lines 14–65). Use supabase/scripts/live_rounds_finish.sql OR run from line 67 onward.
---
--- Full fresh install: run entire file (uses CREATE TABLE IF NOT EXISTS for live_rounds).
+-- 0009 — Live rounds: functions, RLS, Realtime, grants.
+-- Requires 0008_live_rounds.sql (tables + indexes) to have run first.
+-- Idempotent: drops policies/functions up front and recreates everything, so re-running is safe.
 
 -- ------------------------------------------------------------------ cleanup (policies before functions — policies depend on is_live_member)
 drop policy if exists live_events_select on public.live_round_events;
@@ -20,43 +17,6 @@ drop function if exists public.join_live_round(text, text);
 drop function if exists public.start_live_round(uuid, jsonb, text);
 drop function if exists public.is_live_member(uuid);
 drop function if exists public.is_live_scorer(uuid);
-
--- ------------------------------------------------------------------ tables (live_rounds must already exist — do not recreate here)
-create extension if not exists pgcrypto with schema extensions;
-
-do $$
-begin
-  if to_regclass('public.live_rounds') is null then
-    raise exception 'public.live_rounds missing. Run 0008_live_rounds.sql or Step A CREATE TABLE first.';
-  end if;
-end $$;
-
-create table if not exists public.live_round_members (
-  id              uuid primary key default extensions.gen_random_uuid(),
-  live_round_id   uuid not null references public.live_rounds (id) on delete cascade,
-  user_id         uuid not null references auth.users (id) on delete cascade,
-  role            text not null check (role in ('scorer', 'player', 'viewer')),
-  player_key      text,
-  slot_player_id  uuid,
-  joined_at       timestamptz not null default now(),
-  unique (live_round_id, user_id)
-);
-
-create index if not exists live_members_round_idx on public.live_round_members (live_round_id);
-create index if not exists live_members_user_idx on public.live_round_members (user_id);
-create unique index if not exists live_members_slot_key_idx
-  on public.live_round_members (live_round_id, player_key)
-  where player_key is not null;
-
-create table if not exists public.live_round_events (
-  id              uuid primary key default extensions.gen_random_uuid(),
-  live_round_id   uuid not null references public.live_rounds (id) on delete cascade,
-  type            text not null,
-  payload         jsonb not null default '{}'::jsonb,
-  created_at      timestamptz not null default now()
-);
-
-create index if not exists live_events_round_idx on public.live_round_events (live_round_id, created_at desc);
 
 -- ------------------------------------------------------------------ helpers
 create or replace function public.set_updated_at()
@@ -497,9 +457,13 @@ drop policy if exists live_rounds_update_scorer on public.live_rounds;
 create policy live_rounds_update_scorer on public.live_rounds
   for update using (scorer_user_id = auth.uid()) with check (scorer_user_id = auth.uid());
 
+-- Each member sees only their OWN membership row. (Not is_live_member — that let
+-- any member read every member row of the round, exposing other players'
+-- player_key, which embeds their email/phone.) Cross-member checks happen inside
+-- the SECURITY DEFINER RPCs, which bypass RLS.
 drop policy if exists live_members_select on public.live_round_members;
 create policy live_members_select on public.live_round_members
-  for select using (public.is_live_member(live_round_id) or user_id = auth.uid());
+  for select using (user_id = auth.uid());
 
 -- No insert policy: memberships are created ONLY via the join_live_round /
 -- start_live_round SECURITY DEFINER RPCs (they bypass RLS as the table owner).

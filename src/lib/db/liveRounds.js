@@ -175,7 +175,7 @@ export function liveRoundUserMessage(err) {
   if (!err) return 'Something went wrong with the live round.'
   const s = String(err)
   if (/Could not find the function|PGRST202|schema cache/i.test(s)) {
-    return 'Live round functions are missing in Supabase. Run supabase/migrations/0009_live_rounds_functions.sql in the SQL editor (use the policy+function drop block first if re-running).'
+    return 'Live round functions are missing in Supabase. In the SQL editor, run supabase/migrations/0008_live_rounds.sql then 0009_live_rounds_functions.sql.'
   }
   if (/not authenticated/i.test(s)) {
     return 'Your session expired. Sign in again, then retry.'

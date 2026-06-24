@@ -1,3 +1,4 @@
+import { hexA } from '../lib/colors'
 import { useState } from 'react'
 import useAuthStore from '../store/authStore'
 import { GoloWordmark } from '../components/shared/Logo'
@@ -17,16 +18,6 @@ import BackButton from '../components/shared/BackButton'
 
 const ACCENT = '#d4f23a'
 const ACCENT_DARK = '#13250a'
-
-function hexA(hex, a) {
-  let h = (hex || ACCENT).replace('#', '')
-  if (h.length === 3) h = h.split('').map((c) => c + c).join('')
-  const r = parseInt(h.slice(0, 2), 16)
-  const g = parseInt(h.slice(2, 4), 16)
-  const b = parseInt(h.slice(4, 6), 16)
-  if ([r, g, b].some(Number.isNaN)) return `rgba(255,255,255,${a})`
-  return `rgba(${r},${g},${b},${a})`
-}
 
 export default function AuthPage() {
   const signIn = useAuthStore((s) => s.signIn)

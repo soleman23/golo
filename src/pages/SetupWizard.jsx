@@ -1,3 +1,4 @@
+import { hexA } from '../lib/colors'
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useRoundStore from '../store/roundStore'
@@ -194,15 +195,6 @@ const GAME_DEFS = [
 ]
 
 /* ------------------------------------------------------------------- helpers */
-
-function hexA(hex, a) {
-  let h = (hex || ACCENT).replace('#', '')
-  if (h.length === 3) h = h.split('').map((c) => c + c).join('')
-  const r = parseInt(h.slice(0, 2), 16)
-  const g = parseInt(h.slice(2, 4), 16)
-  const b = parseInt(h.slice(4, 6), 16)
-  return `rgba(${r},${g},${b},${a})`
-}
 
 const comma = (n) => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 /** Avatar initial from a player's best label (name → handle → email). */
@@ -828,6 +820,8 @@ export default function SetupWizard() {
       courseHandicap: calculateCourseHandicap(p.hdcp, tee.slope, tee.rating, tee.par),
       color: p.color,
       guest: !!p.guest,
+      // Non-guests (incl. invite-guests) count as "logged in" — they're verified by
+      // contact for the season ledger, not by an actual auth session.
       loggedIn: !p.guest,
       verified: hasContact(p),
     }))

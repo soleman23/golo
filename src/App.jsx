@@ -24,25 +24,25 @@ const JoinRoundPage = lazy(() => import('./pages/JoinRoundPage'))
 function MainRoutes() {
   return (
     <>
-    <Suspense fallback={<Splash />}>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/onboarding" element={<Navigate to="/" replace />} />
-        <Route path="/setup" element={<SetupWizard />} />
-        {/* Legacy multi-page setup flow replaced by the single SetupWizard.
-            Old routes redirect so any bookmarks still land on setup. */}
-        <Route path="/setup/*" element={<Navigate to="/setup" replace />} />
-        <Route path="/you" element={<YouPage />} />
-        <Route path="/scoring" element={<ScoringPage />} />
-        <Route path="/payouts" element={<PayoutsPage />} />
-        <Route path="/history" element={<HistoryPage />} />
-        <Route path="/history/:roundId" element={<HistoryDetailPage />} />
-        <Route path="/contact" element={<ContactPage />} />
-        <Route path="/join/:code" element={<JoinRoundPage />} />
-      </Routes>
-      <LiveToast />
-      <LiveNotifications />
-    </Suspense>
+      <Suspense fallback={<Splash />}>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/onboarding" element={<Navigate to="/" replace />} />
+          <Route path="/setup" element={<SetupWizard />} />
+          {/* Legacy multi-page setup flow replaced by the single SetupWizard.
+              Old routes redirect so any bookmarks still land on setup. */}
+          <Route path="/setup/*" element={<Navigate to="/setup" replace />} />
+          <Route path="/you" element={<YouPage />} />
+          <Route path="/scoring" element={<ScoringPage />} />
+          <Route path="/payouts" element={<PayoutsPage />} />
+          <Route path="/history" element={<HistoryPage />} />
+          <Route path="/history/:roundId" element={<HistoryDetailPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/join/:code" element={<JoinRoundPage />} />
+        </Routes>
+        <LiveToast />
+        <LiveNotifications />
+      </Suspense>
     </>
   )
 }
