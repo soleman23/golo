@@ -501,9 +501,12 @@ drop policy if exists live_members_select on public.live_round_members;
 create policy live_members_select on public.live_round_members
   for select using (public.is_live_member(live_round_id) or user_id = auth.uid());
 
+-- No insert policy: memberships are created ONLY via the join_live_round /
+-- start_live_round SECURITY DEFINER RPCs (they bypass RLS as the table owner).
+-- A self-insert policy would let any authed user POST a membership row with an
+-- arbitrary role/player_key and claim a slot, bypassing join_live_round's
+-- server-side identity check. The drop clears any previously-created policy.
 drop policy if exists live_members_insert_self on public.live_round_members;
-create policy live_members_insert_self on public.live_round_members
-  for insert with check (user_id = auth.uid());
 
 drop policy if exists live_events_select on public.live_round_events;
 create policy live_events_select on public.live_round_events
