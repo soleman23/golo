@@ -145,6 +145,7 @@ export default function ScoringPage() {
   const [lbView, setLbView] = useState(() => (round?.scoring === 'gross' ? 'gross' : 'net')) // 'net' | 'gross' | 'money'
   const [copiedInvite, setCopiedInvite] = useState(false)
   const [liveLoading, setLiveLoading] = useState(false)
+  const [headerCollapsed, setHeaderCollapsed] = useState(false)
   const liveEndedHandled = useRef(false)
 
   const liveRole = useLiveRoundRole()
@@ -594,9 +595,11 @@ export default function ScoringPage() {
     backTo: '/',
     logo: 'wordmark',
     rightAction: 'pin',
-    showTitle: false,
-    contextPillOnly: true,
+    kicker: 'LIVE ROUND',
+    title: 'Scoring',
     contextPill: courseLabel,
+    pillAlign: 'right',
+    titleCollapsed: headerCollapsed,
     currentPage: 'Play',
   }
 
@@ -663,9 +666,15 @@ export default function ScoringPage() {
 
   const holeDetail = [
     `Par ${par}`,
-    si != null ? `SI ${si}` : null,
+    si != null ? `H ${si}` : null,
     round?.holeYards?.[currentHole] ? `${round.holeYards[currentHole]}y` : null,
   ].filter(Boolean).join(' · ')
+
+  // Collapse the header title row as the score list scrolls (hysteresis avoids flicker).
+  const onListScroll = (e) => {
+    const y = e.currentTarget.scrollTop
+    setHeaderCollapsed((c) => (c ? y >= 8 : y > 26))
+  }
 
   /* --------------------------------------------------------------- entity card */
 
@@ -780,7 +789,7 @@ export default function ScoringPage() {
 
         {/* body: scrollable scores + pinned footer chrome -------------------- */}
         <div style={S.body}>
-        <div className="golo-scroll" style={S.scroll}>
+        <div className="golo-scroll" onScroll={onListScroll} style={S.scroll}>
           {isMatchplay && matchInfo && !readOnly && (
             <MatchPanel
               info={matchInfo}
@@ -1341,18 +1350,18 @@ const S = {
   detailLine: { display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 8, maxWidth: '100%', background: 'rgba(255,255,255,.13)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.16)', padding: '6px 14px', borderRadius: 9999, fontSize: 13, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   scroll: { flex: '1 1 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', padding: '4px 14px 8px', boxSizing: 'border-box', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' },
 
-  cardWrap: { position: 'relative', overflow: 'hidden', background: 'rgba(20,28,24,.46)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 22, boxShadow: '0 10px 30px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.12)', padding: '15px 16px 16px', marginBottom: 13 },
+  cardWrap: { position: 'relative', overflow: 'hidden', background: 'rgba(20,28,24,.46)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 20, boxShadow: '0 10px 30px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.12)', padding: '11px 14px 12px', marginBottom: 10 },
   cardGlow: { position: 'absolute', left: -30, top: -10, width: 90, height: 90, borderRadius: '50%', filter: 'blur(26px)', pointerEvents: 'none' },
-  cardHead: { position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 13 },
-  avatar: { width: 44, height: 44, borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: '#fff', boxShadow: '0 0 0 2px rgba(255,255,255,.25)' },
+  cardHead: { position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 9 },
+  avatar: { width: 40, height: 40, borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 800, color: '#fff', boxShadow: '0 0 0 2px rgba(255,255,255,.25)' },
   cardName: { fontSize: 18, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   cardSub: { fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,.55)' },
   wolfTag: { fontSize: 11, fontWeight: 800, color: ACCENT_DARK, background: ACCENT, padding: '2px 7px', borderRadius: 9999, flex: '0 0 auto' },
   badge: { fontSize: 12, fontWeight: 800, color: 'rgba(255,255,255,.92)', background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.12)', padding: '4px 9px', borderRadius: 9999 },
   cardScoreRow: { position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 22 },
-  minusBtn: { width: 54, height: 54, borderRadius: '50%', flex: '0 0 auto', background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', fontSize: 30, fontWeight: 700, cursor: 'pointer' },
-  numBtn: { minWidth: 60, height: 60, border: 'none', background: 'transparent', fontSize: 50, fontWeight: 800, color: '#fff', cursor: 'pointer', lineHeight: 1, textShadow: '0 2px 16px rgba(0,0,0,.4)' },
-  plusBtn: { width: 54, height: 54, borderRadius: '50%', flex: '0 0 auto', background: ACCENT, border: 'none', color: ACCENT_DARK, fontSize: 30, fontWeight: 800, cursor: 'pointer', boxShadow: `0 6px 18px ${hexA(ACCENT, 0.45)}` },
+  minusBtn: { width: 48, height: 48, borderRadius: '50%', flex: '0 0 auto', background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', fontSize: 28, fontWeight: 700, cursor: 'pointer' },
+  numBtn: { minWidth: 56, height: 54, border: 'none', background: 'transparent', fontSize: 44, fontWeight: 800, color: '#fff', cursor: 'pointer', lineHeight: 1, textShadow: '0 2px 16px rgba(0,0,0,.4)' },
+  plusBtn: { width: 48, height: 48, borderRadius: '50%', flex: '0 0 auto', background: ACCENT, border: 'none', color: ACCENT_DARK, fontSize: 28, fontWeight: 800, cursor: 'pointer', boxShadow: `0 6px 18px ${hexA(ACCENT, 0.45)}` },
 
   panel: { background: 'rgba(20,28,24,.46)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 20, padding: 15, boxShadow: '0 10px 30px rgba(0,0,0,.3)' },
 

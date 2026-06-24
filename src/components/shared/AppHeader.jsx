@@ -46,6 +46,15 @@ function HeaderLogo({ logo = 'wordmark', accent = DEFAULT_ACCENT }) {
   )
 }
 
+function ContextPill({ accent = DEFAULT_ACCENT, label, style }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, maxWidth: '100%', background: 'rgba(255,255,255,.13)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.16)', padding: '6px 13px', borderRadius: 9999, fontSize: 12, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...style }}>
+      <span style={{ width: 7, height: 7, borderRadius: '50%', flex: '0 0 auto', background: accent }} />
+      {label}
+    </span>
+  )
+}
+
 export default function AppHeader({
   accent = DEFAULT_ACCENT,
   backTo = '/',
@@ -54,9 +63,10 @@ export default function AppHeader({
   kicker = '',
   title = '',
   contextPill = '',
+  pillAlign = 'below',
   currentPage = '',
   showTitle = true,
-  contextPillOnly = false,
+  titleCollapsed = false,
   showBack = true,
   style,
 }) {
@@ -64,7 +74,8 @@ export default function AppHeader({
   const [menuOpen, setMenuOpen] = useState(false)
   const hasKicker = String(kicker).trim().length > 0
   const hasPill = String(contextPill).trim().length > 0
-  const showTitleRow = (showTitle || contextPillOnly) && (showTitle || hasPill)
+  const pillRight = hasPill && pillAlign === 'right'
+  const pillBelow = hasPill && pillAlign !== 'right'
   const menuItems = [
     { label: 'Home', to: '/' },
     { label: 'You', to: '/you' },
@@ -130,18 +141,20 @@ export default function AppHeader({
         )}
       </div>
 
-      {showTitleRow && (
-        <div style={{ padding: contextPillOnly ? '2px 18px 8px' : '8px 18px 12px' }}>
-          {showTitle && hasKicker && <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: accent }}>{kicker}</div>}
-          {showTitle && <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.4, lineHeight: 1.12, marginTop: 2 }}>{title}</div>}
-          {hasPill && (
-            <div style={{ display: 'flex', justifyContent: contextPillOnly ? 'center' : 'flex-start', marginTop: contextPillOnly ? 0 : 10 }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, maxWidth: '100%', background: 'rgba(255,255,255,.13)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.16)', padding: '6px 13px', borderRadius: 9999, fontSize: 12, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', flex: '0 0 auto', background: accent }} />
-                {contextPill}
-              </span>
+      {showTitle && (
+        <div style={{ overflow: 'hidden', transition: 'max-height .34s cubic-bezier(.4,0,.2,1), opacity .26s ease', maxHeight: titleCollapsed ? 0 : 160, opacity: titleCollapsed ? 0 : 1 }}>
+          <div style={{ padding: '8px 18px 12px', display: 'flex', alignItems: 'flex-end', gap: 12 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {hasKicker && <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: accent }}>{kicker}</div>}
+              <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.4, lineHeight: 1.12, marginTop: 2 }}>{title}</div>
+              {pillBelow && (
+                <div style={{ display: 'flex', marginTop: 10 }}>
+                  <ContextPill accent={accent} label={contextPill} />
+                </div>
+              )}
             </div>
-          )}
+            {pillRight && <ContextPill accent={accent} label={contextPill} style={{ flex: '0 0 auto', maxWidth: '60%' }} />}
+          </div>
         </div>
       )}
     </div>
