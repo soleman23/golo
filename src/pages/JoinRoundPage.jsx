@@ -6,7 +6,6 @@ import useLiveRoundStore from '../store/liveRoundStore'
 import { playerKey, displayName, hasContact } from '../lib/identity'
 import { joinLiveRound, peekLiveRound, liveRoundUserMessage } from '../lib/db/liveRounds'
 import { hydrateFromServer, attachLiveSync } from '../lib/liveRoundSync'
-import { debugLog } from '../lib/debugLog'
 import { isSupabaseConfigured } from '../lib/supabaseClient'
 import AppHeader from '../components/shared/AppHeader'
 
@@ -60,12 +59,6 @@ export default function JoinRoundPage() {
         setStatus('error')
         return
       }
-      // #region agent log
-      debugLog('D', 'JoinRoundPage.jsx:peek', 'preview loaded', {
-        hasState: !!data?.state,
-        alreadyMember: !!data?.already_member,
-      })
-      // #endregion
       setPreview(data)
       if (data.already_member) setStatus('member')
     })()
@@ -80,17 +73,11 @@ export default function JoinRoundPage() {
     const res = await joinLiveRound(code, claimKey)
     if (res.error) {
       const msg = liveRoundUserMessage(res.error)
-      // #region agent log
-      debugLog('D', 'JoinRoundPage.jsx:doJoin', 'join failed', { err: msg?.slice(0, 120) })
-      // #endregion
       setError(msg)
       setStatus('error')
       return
     }
     const data = res.data
-    // #region agent log
-    debugLog('D', 'JoinRoundPage.jsx:doJoin', 'join ok', { role: data?.role, asPlayer: !!claimKey })
-    // #endregion
     const liveRoundId = data.live_round_id
     const role = data.role
     const organizer = data.state?.players?.[0]?.name ?? 'Organizer'

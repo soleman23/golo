@@ -5,7 +5,6 @@ import useAuthStore from './store/authStore'
 import useSyncStore from './store/syncStore'
 import { hasContact } from './lib/identity'
 import { retrySyncOnLogin, syncOnLogin, syncOnLogout } from './lib/sync'
-import { flushDebugLog, probeLiveRoundHealth } from './lib/debugLog'
 import LiveToast from './components/shared/LiveToast'
 import LiveNotifications from './components/shared/LiveNotifications'
 
@@ -136,11 +135,6 @@ export default function App() {
   useEffect(() => {
     initAuth()
   }, [initAuth])
-
-  useEffect(() => {
-    flushDebugLog('app-mount')
-    probeLiveRoundHealth()
-  }, [])
 
   // Hydrate/migrate local stores to Supabase on login; tear down on logout.
   useEffect(() => {

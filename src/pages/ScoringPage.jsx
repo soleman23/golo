@@ -20,7 +20,6 @@ import AppHeader from '../components/shared/AppHeader'
 import { Icon } from '../components/shared/GoloIcons'
 import { fetchLiveRound } from '../lib/db/liveRounds'
 import { attachLiveSync, hydrateFromServer, subscribeToLiveRound } from '../lib/liveRoundSync'
-import { debugLog } from '../lib/debugLog'
 
 /**
  * ScoringPage — the live round, "Scoring (Immersive)".
@@ -199,14 +198,6 @@ export default function ScoringPage() {
 
   // Live round sync: scorer pushes patches; viewers subscribe to server state.
   useEffect(() => {
-    // #region agent log
-    debugLog('E', 'ScoringPage.jsx:liveSync', 'session snapshot', {
-      liveRoundId: liveRoundId ?? null,
-      liveRole,
-      hasInvite: !!inviteCode,
-      isLiveScorer,
-    })
-    // #endregion
     if (!liveRoundId || liveRole === 'local-only') return undefined
 
     if (isLiveScorer) {

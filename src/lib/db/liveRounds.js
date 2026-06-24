@@ -1,11 +1,4 @@
 import { supabase, isSupabaseConfigured } from '../supabaseClient'
-import { debugLog } from '../debugLog'
-
-// #region agent log
-function dbg(hypothesisId, location, message, data = {}) {
-  debugLog(hypothesisId, location, message, data)
-}
-// #endregion
 
 function normalizeRpcJsonb(data) {
   if (data == null) return null
@@ -39,9 +32,6 @@ export function serializeRoundState(state) {
 
 export async function startLiveRound({ roundId, state, courseName }) {
   if (!isSupabaseConfigured || !roundId) {
-    // #region agent log
-    dbg('A', 'liveRounds.js:startLiveRound', 'skipped', { configured: isSupabaseConfigured, roundId: !!roundId })
-    // #endregion
     return { data: null, error: 'not configured' }
   }
   const { data, error } = await supabase.rpc('start_live_round', {
@@ -49,16 +39,6 @@ export async function startLiveRound({ roundId, state, courseName }) {
     p_state: state,
     p_course_name: courseName ?? null,
   })
-  // #region agent log
-  const parsed = normalizeRpcJsonb(data)
-  dbg('A', 'liveRounds.js:startLiveRound', 'rpc result', {
-    ok: !error,
-    errorCode: error?.code ?? null,
-    errorMsg: error?.message?.slice(0, 120) ?? null,
-    dataType: data == null ? null : typeof data,
-    hasInvite: !!(parsed?.invite_code),
-  })
-  // #endregion
   if (error) {
     console.error('[db] startLiveRound', error)
     const dup =
@@ -67,15 +47,12 @@ export async function startLiveRound({ roundId, state, courseName }) {
     if (dup) {
       const existing = await fetchLiveRound(roundId)
       if (existing?.invite_code) {
-        dbg('A', 'liveRounds.js:startLiveRound', 'duplicate — reused existing', {
-          hasInvite: true,
-        })
         return { data: { id: roundId, invite_code: existing.invite_code }, error: null }
       }
     }
     return { data: null, error: error.message }
   }
-  return { data: parsed, error: null }
+  return { data: normalizeRpcJsonb(data), error: null }
 }
 
 export async function joinLiveRound(inviteCode, claimPlayerKey = null) {
@@ -85,17 +62,10 @@ export async function joinLiveRound(inviteCode, claimPlayerKey = null) {
     p_claim_player_key: claimPlayerKey,
   })
   if (error) {
-    // #region agent log
-    dbg('D', 'liveRounds.js:joinLiveRound', 'rpc error', { code: error.code, msg: error.message?.slice(0, 120) })
-    // #endregion
     console.error('[db] joinLiveRound', error)
     return { error: error.message }
   }
-  // #region agent log
-  const parsed = normalizeRpcJsonb(data)
-  dbg('D', 'liveRounds.js:joinLiveRound', 'rpc ok', { role: parsed?.role, already: !!parsed?.already_member })
-  // #endregion
-  return { data: parsed }
+  return { data: normalizeRpcJsonb(data) }
 }
 
 export async function patchLiveRound(roundId, state, eventType = null, eventPayload = {}) {
@@ -106,13 +76,6 @@ export async function patchLiveRound(roundId, state, eventType = null, eventPayl
     p_event_type: eventType,
     p_event_payload: eventPayload,
   })
-  // #region agent log
-  dbg('B', 'liveRounds.js:patchLiveRound', error ? 'rpc error' : 'rpc ok', {
-    errorCode: error?.code ?? null,
-    errorMsg: error?.message?.slice(0, 120) ?? null,
-    eventType,
-  })
-  // #endregion
   if (error) console.error('[db] patchLiveRound', error)
   return { error }
 }
@@ -120,11 +83,6 @@ export async function patchLiveRound(roundId, state, eventType = null, eventPayl
 export async function completeLiveRound(roundId) {
   if (!isSupabaseConfigured || !roundId) return { error: null }
   const { error } = await supabase.rpc('complete_live_round', { p_id: roundId })
-  // #region agent log
-  dbg('D', 'liveRounds.js:completeLiveRound', error ? 'rpc error' : 'rpc ok', {
-    errorMsg: error?.message?.slice(0, 120) ?? null,
-  })
-  // #endregion
   if (error) console.error('[db] completeLiveRound', error)
   return { error }
 }
@@ -136,16 +94,9 @@ export async function peekLiveRound(inviteCode) {
   })
   if (error) {
     console.error('[db] peekLiveRound', error)
-    // #region agent log
-    dbg('D', 'liveRounds.js:peekLiveRound', 'rpc error', { code: error.code, msg: error.message?.slice(0, 120) })
-    // #endregion
     return null
   }
-  const parsed = normalizeRpcJsonb(data)
-  // #region agent log
-  dbg('D', 'liveRounds.js:peekLiveRound', 'rpc ok', { hasState: !!parsed?.state, already: !!parsed?.already_member })
-  // #endregion
-  return parsed
+  return normalizeRpcJsonb(data)
 }
 
 export async function fetchClaimableLiveRounds() {
@@ -167,14 +118,8 @@ export async function fetchLiveRound(roundId) {
     .maybeSingle()
   if (error) {
     console.error('[db] fetchLiveRound', error)
-    // #region agent log
-    dbg('C', 'liveRounds.js:fetchLiveRound', 'select error', { code: error.code, msg: error.message?.slice(0, 120) })
-    // #endregion
     return null
   }
-  // #region agent log
-  dbg('C', 'liveRounds.js:fetchLiveRound', 'select ok', { hasState: !!data?.state, status: data?.status ?? null })
-  // #endregion
   return data
 }
 

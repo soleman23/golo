@@ -15,7 +15,6 @@ import { isSupabaseConfigured } from '../lib/supabaseClient'
 import { serializeRoundState, startLiveRound, liveRoundUserMessage } from '../lib/db/liveRounds'
 import { attachLiveSync, teardownLiveSync } from '../lib/liveRoundSync'
 import useNotificationStore from '../store/notificationStore'
-import { debugLog } from '../lib/debugLog'
 import AppHeader from '../components/shared/AppHeader'
 import { Icon } from '../components/shared/GoloIcons'
 
@@ -894,23 +893,9 @@ export default function SetupWizard() {
       if (liveRoundsEnabled) {
         const rs = useRoundStore.getState()
         const roundId = rs.round?.roundId
-        // #region agent log
-        debugLog('A', 'SetupWizard.jsx:next', 'live start attempt', {
-          liveRoundsEnabled,
-          hasRoundId: !!roundId,
-          hasUser: !!userId,
-        })
-        // #endregion
         if (roundId) {
           const prevLive = useLiveRoundStore.getState()
           const stale = prevLive.liveRoundId && prevLive.liveRoundId !== roundId
-          // #region agent log
-          debugLog('G', 'SetupWizard.jsx:next', 'live session check', {
-            roundId,
-            prevLiveRoundId: prevLive.liveRoundId ?? null,
-            stale,
-          }, 'post-fix')
-          // #endregion
           if (stale) {
             teardownLiveSync()
             useLiveRoundStore.getState().clearSession()
@@ -921,12 +906,6 @@ export default function SetupWizard() {
             courseName: course.name,
           })
           if (liveErr) {
-            // #region agent log
-            debugLog('A', 'SetupWizard.jsx:next', 'startLiveRound failed', {
-              roundId,
-              err: liveErr?.slice(0, 120),
-            })
-            // #endregion
             teardownLiveSync()
             useLiveRoundStore.getState().clearSession()
             useNotificationStore.getState().pushToast({
@@ -936,12 +915,6 @@ export default function SetupWizard() {
               duration: 10000,
             })
           } else if (res?.invite_code) {
-            // #region agent log
-            debugLog('A', 'SetupWizard.jsx:next', 'startLiveRound ok', {
-              roundId,
-              hasInvite: true,
-            })
-            // #endregion
             const me = readyPlayers[0]
             useLiveRoundStore.getState().setSession({
               liveRoundId: roundId,
@@ -951,12 +924,6 @@ export default function SetupWizard() {
             })
             attachLiveSync()
           } else {
-            // #region agent log
-            debugLog('A', 'SetupWizard.jsx:next', 'startLiveRound no invite — session not set', {
-              roundId,
-              resNull: res == null,
-            })
-            // #endregion
             useNotificationStore.getState().pushToast({
               kicker: 'LIVE ROUND',
               title: 'Live sync unavailable',
@@ -967,14 +934,6 @@ export default function SetupWizard() {
             useLiveRoundStore.getState().clearSession()
           }
         }
-      } else {
-        // #region agent log
-        debugLog('F', 'SetupWizard.jsx:next', 'live rounds skipped', {
-          configured: isSupabaseConfigured,
-          authEnabled,
-          hasUser: !!userId,
-        })
-        // #endregion
       }
       patch({ started: true })
     }

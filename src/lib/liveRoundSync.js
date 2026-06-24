@@ -3,7 +3,6 @@ import useRoundStore from '../store/roundStore'
 import useLiveRoundStore from '../store/liveRoundStore'
 import useNotificationStore from '../store/notificationStore'
 import { serializeRoundState, patchLiveRound, liveRoundUserMessage } from './db/liveRounds'
-import { debugLog } from './debugLog'
 
 let debounceTimer = null
 let storeUnsub = null
@@ -40,13 +39,6 @@ function schedulePush(state, prev) {
   debounceTimer = setTimeout(async () => {
     const payload = serializeRoundState(state)
     const event = detectEvent(state, prev)
-    // #region agent log
-    debugLog('B', 'liveRoundSync.js:schedulePush', 'patch scheduled', {
-      liveRoundId,
-      eventType: event?.type ?? null,
-      hole: state.currentHole,
-    })
-    // #endregion
     const { error } = await patchLiveRound(
       liveRoundId,
       payload,
@@ -54,11 +46,6 @@ function schedulePush(state, prev) {
       event?.payload ?? {}
     )
     if (error) {
-      // #region agent log
-      debugLog('B', 'liveRoundSync.js:schedulePush', 'patch failed', {
-        errorMsg: (error?.message ?? String(error)).slice(0, 120),
-      })
-      // #endregion
       const msg = error?.message ?? String(error)
       useNotificationStore.getState().pushToast({
         kicker: 'LIVE SYNC',
@@ -118,12 +105,6 @@ export function subscribeToLiveRound(liveRoundId, onStateUpdate) {
         filter: `id=eq.${liveRoundId}`,
       },
       (payload) => {
-        // #region agent log
-        debugLog('C', 'liveRoundSync.js:subscribeToLiveRound', 'realtime update', {
-          hasState: !!payload.new?.state,
-          status: payload.new?.status ?? null,
-        })
-        // #endregion
         if (payload.new?.state) onStateUpdate(payload.new.state)
         if (payload.new?.status === 'complete') onStateUpdate(null, 'complete')
       }

@@ -8,7 +8,6 @@ import useLiveRoundStore from '../store/liveRoundStore'
 import { saveRound as dbSaveRound } from '../lib/db/rounds'
 import { completeLiveRound } from '../lib/db/liveRounds'
 import { teardownLiveSync } from '../lib/liveRoundSync'
-import { debugLog } from '../lib/debugLog'
 import { fetchCourseGhinMapping } from '../lib/db/courses'
 import { postRoundToGhin } from '../lib/ghin/client'
 import { canPostToGhin, isGhinConnected } from '../lib/ghin/eligibility'
@@ -605,13 +604,7 @@ export default function PayoutsPage() {
       await persistRound()
       const liveRoundId = useLiveRoundStore.getState().liveRoundId
       if (liveRoundId) {
-        const { error: liveErr } = await completeLiveRound(liveRoundId)
-        // #region agent log
-        debugLog('D', 'PayoutsPage.jsx:handleCompleteRound', liveErr ? 'complete failed' : 'complete ok', {
-          liveRoundId,
-          err: liveErr?.message?.slice(0, 120) ?? null,
-        })
-        // #endregion
+        await completeLiveRound(liveRoundId)
       }
     } finally {
       teardownLiveSync()
