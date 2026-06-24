@@ -17,6 +17,10 @@ dist-ssr
 .env.*
 !.env.example
 
+# Debug / scratch artifacts
+output/
+.cursor/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
