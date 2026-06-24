@@ -45,3 +45,18 @@ create table if not exists public.live_round_events (
 );
 
 create index if not exists live_events_round_idx on public.live_round_events (live_round_id, created_at desc);
+
+-- Per-slot identity keys (e:email / p:phone / n:name), kept OUT of live_rounds.state
+-- so contact info is never shipped to members via RLS select or Realtime. Only the
+-- SECURITY DEFINER RPCs read it (claim matching); RLS is on with no policy, so no
+-- client can read or write it directly. Deliberately NOT in the realtime publication.
+create table if not exists public.live_round_slots (
+  live_round_id   uuid not null references public.live_rounds (id) on delete cascade,
+  slot_id         uuid not null,
+  player_key      text not null,
+  primary key (live_round_id, slot_id)
+);
+
+create index if not exists live_round_slots_key_idx on public.live_round_slots (live_round_id, player_key);
+
+alter table public.live_round_slots enable row level security;

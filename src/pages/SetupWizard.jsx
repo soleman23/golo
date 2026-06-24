@@ -897,6 +897,7 @@ export default function SetupWizard() {
           const { data: res, error: liveErr } = await startLiveRound({
             roundId,
             state: serializeRoundState(rs),
+            roster: rs.players,
             courseName: course.name,
           })
           if (liveErr) {

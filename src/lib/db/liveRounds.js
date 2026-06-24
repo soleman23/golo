@@ -16,7 +16,14 @@ function normalizeRpcJsonb(data) {
 export function serializeRoundState(state) {
   return {
     round: state.round,
-    players: state.players,
+    // Strip contact PII — synced state reaches every member via RLS/Realtime.
+    // Claim matching uses the server-side live_round_slots key map, not these fields.
+    players: (state.players ?? []).map((p) => {
+      const clean = { ...p }
+      delete clean.email
+      delete clean.phone
+      return clean
+    }),
     scores: state.scores,
     bets: state.bets,
     teams: state.teams,
@@ -30,13 +37,16 @@ export function serializeRoundState(state) {
   }
 }
 
-export async function startLiveRound({ roundId, state, courseName }) {
+export async function startLiveRound({ roundId, state, roster, courseName }) {
   if (!isSupabaseConfigured || !roundId) {
     return { data: null, error: 'not configured' }
   }
   const { data, error } = await supabase.rpc('start_live_round', {
     p_round_id: roundId,
     p_state: state,
+    // Full roster (with contacts) → server derives slot keys into live_round_slots.
+    // Never stored in state; only the PII-free keys are persisted.
+    p_roster: roster ?? [],
     p_course_name: courseName ?? null,
   })
   if (error) {

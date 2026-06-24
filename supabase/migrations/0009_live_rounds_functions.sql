@@ -15,6 +15,7 @@ drop function if exists public.complete_live_round(uuid);
 drop function if exists public.patch_live_round(uuid, jsonb, text, jsonb);
 drop function if exists public.join_live_round(text, text);
 drop function if exists public.start_live_round(uuid, jsonb, text);
+drop function if exists public.start_live_round(uuid, jsonb, jsonb, text);
 drop function if exists public.is_live_member(uuid);
 drop function if exists public.is_live_scorer(uuid);
 
@@ -33,15 +34,22 @@ create or replace function public.gen_invite_code()
 returns text
 language plpgsql
 volatile
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
-  chars text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  chars text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';  -- 31 unambiguous chars
   result text := '';
+  b int;
   i int;
 begin
+  -- Cryptographically random codes via gen_random_bytes, with rejection sampling
+  -- (248 = 31*8, the largest multiple of 31 ≤ 256) to avoid modulo bias.
   for i in 1..6 loop
-    result := result || substr(chars, floor(random() * length(chars) + 1)::int, 1);
+    loop
+      b := get_byte(extensions.gen_random_bytes(1), 0);
+      exit when b < 248;
+    end loop;
+    result := result || substr(chars, (b % 31) + 1, 1);
   end loop;
   return result;
 end;
@@ -109,6 +117,7 @@ $$;
 create or replace function public.start_live_round(
   p_round_id uuid,
   p_state jsonb,
+  p_roster jsonb default '[]'::jsonb,
   p_course_name text default null
 )
 returns jsonb
@@ -150,6 +159,15 @@ begin
 
   insert into public.live_round_members (live_round_id, user_id, role)
   values (p_round_id, uid, 'scorer');
+
+  -- PII-free slot→key map for claim matching (p_roster carries contacts; only the
+  -- derived keys are stored here, never in live_rounds.state / Realtime).
+  insert into public.live_round_slots (live_round_id, slot_id, player_key)
+  select p_round_id, (elem->>'id')::uuid, public.player_key_from_player_json(elem)
+    from jsonb_array_elements(coalesce(p_roster, '[]'::jsonb)) elem
+   where nullif(elem->>'id', '') is not null
+     and public.player_key_from_player_json(elem) is not null
+  on conflict (live_round_id, slot_id) do nothing;
 
   insert into public.live_round_events (live_round_id, type, payload)
   values (p_round_id, 'round_started', jsonb_build_object('course_name', p_course_name));
@@ -226,10 +244,10 @@ begin
      where id = uid;
 
     if slot_key is not null then
-      select (elem->>'id')::uuid
+      select s.slot_id
         into slot_id
-        from jsonb_array_elements(lr_state->'players') elem
-       where public.player_key_from_player_json(elem) = slot_key
+        from public.live_round_slots s
+       where s.live_round_id = lr_id and s.player_key = slot_key
        limit 1;
 
       if slot_id is not null then
@@ -328,6 +346,7 @@ declare
   lr_state jsonb;
   lr_course text;
   my_key text;
+  my_slot_id uuid;
   redacted_players jsonb;
   my_slot jsonb;
 begin
@@ -358,13 +377,19 @@ begin
     into redacted_players
     from jsonb_array_elements(lr_state->'players') elem;
 
-  -- The caller's own slot (id + name only), if they're on the roster.
+  -- The caller's own slot (id + name only), matched via the PII-free key table.
   if my_key is not null then
-    select jsonb_build_object('id', elem->>'id', 'name', elem->>'name')
-      into my_slot
-      from jsonb_array_elements(lr_state->'players') elem
-     where public.player_key_from_player_json(elem) = my_key
+    select s.slot_id into my_slot_id
+      from public.live_round_slots s
+     where s.live_round_id = lr_id and s.player_key = my_key
      limit 1;
+    if my_slot_id is not null then
+      select jsonb_build_object('id', my_slot_id, 'name', elem->>'name')
+        into my_slot
+        from jsonb_array_elements(lr_state->'players') elem
+       where (elem->>'id')::uuid = my_slot_id
+       limit 1;
+    end if;
   end if;
 
   return jsonb_build_object(
@@ -427,12 +452,12 @@ begin
     'course_name', lr.course_name,
     'started_at', lr.started_at,
     'player_key', my_key,
-    'slot_player_id', (elem->>'id')
+    'slot_player_id', s.slot_id
   )
   from public.live_rounds lr
-  cross join lateral jsonb_array_elements(lr.state->'players') elem
+  join public.live_round_slots s on s.live_round_id = lr.id
   where lr.status = 'live'
-    and public.player_key_from_player_json(elem) = my_key
+    and s.player_key = my_key
     and not exists (
       select 1 from public.live_round_members m
       where m.live_round_id = lr.id and m.player_key = my_key
@@ -448,6 +473,9 @@ $$;
 alter table public.live_rounds enable row level security;
 alter table public.live_round_members enable row level security;
 alter table public.live_round_events enable row level security;
+-- live_round_slots: RLS on, NO policy by design — only the SECURITY DEFINER RPCs
+-- (table owner) touch it, so its keys/contacts are never client-readable.
+alter table public.live_round_slots enable row level security;
 
 drop policy if exists live_rounds_select_member on public.live_rounds;
 create policy live_rounds_select_member on public.live_rounds
@@ -493,7 +521,7 @@ begin
 exception when duplicate_object then null;
 end $$;
 
-grant execute on function public.start_live_round(uuid, jsonb, text) to authenticated;
+grant execute on function public.start_live_round(uuid, jsonb, jsonb, text) to authenticated;
 grant execute on function public.join_live_round(text, text) to authenticated;
 grant execute on function public.patch_live_round(uuid, jsonb, text, jsonb) to authenticated;
 grant execute on function public.complete_live_round(uuid) to authenticated;
