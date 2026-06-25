@@ -35,12 +35,15 @@ const TICKS = [
 
 const initial = (name) => (name || '').trim().charAt(0).toUpperCase() || '⛳'
 
-/** Parse handicap index for profile storage; blank or out-of-range → skip. */
+/**
+ * Parse handicap index for profile storage; blank or out-of-range → null.
+ * Allows plus-handicaps (entered as a negative index, e.g. "-2.4") down to -10.
+ */
 function parseHandicap(raw) {
   const s = String(raw ?? '').trim()
   if (!s) return null
   const n = Number(s)
-  if (!Number.isFinite(n) || n < 0 || n > 54) return null
+  if (!Number.isFinite(n) || n < -10 || n > 54) return null
   return Math.round(n * 10) / 10
 }
 
@@ -131,10 +134,11 @@ export default function OnboardingPage({ lockerOnly = false }) {
   const finish = () => {
     if (!hasContact(identity)) return
     setIdentity(identity)
-    const hdcp = parseHandicap(handicap)
-    if (hdcp != null) setHandicapIndex(hdcp)
-    if (homeClub.trim()) setHomeClub(homeClub)
-    if (venmo.trim()) setVenmo(venmo)
+    // Set unconditionally so clearing a prefilled field on edit actually
+    // persists — the store setters coerce blank/null to a cleared value.
+    setHandicapIndex(parseHandicap(handicap))
+    setHomeClub(homeClub)
+    setVenmo(venmo)
     completeOnboarding()
     navigate('/', { replace: true })
   }

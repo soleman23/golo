@@ -9,7 +9,7 @@ import useLiveRoundStore from '../store/liveRoundStore'
 import { calculateCourseHandicap } from '../engines/handicap'
 import { hasContact, displayName, playerKey } from '../lib/identity'
 import { fetchCourses } from '../lib/db/courses'
-import { searchVerifiedPlayers } from '../lib/db/players'
+import { searchVerifiedPlayers, fetchPlayerContact } from '../lib/db/players'
 import { getCourseImage } from '../lib/courseImages'
 import { defaultHomeCourse, sortCoursesHomeFirst } from '../lib/homeCourse'
 import { normalizeSkinsLdHole, resolveLdHoleNumber } from '../engines/skins'
@@ -242,11 +242,16 @@ function buildCrewRoster(rounds, inRound) {
   return Object.values(map).sort((a, b) => b.rounds - a.rounds)
 }
 
-/** Merge local history picks with server search hits; first wins per identity key. */
+/**
+ * Merge local history picks with server search hits; first wins per identity.
+ * Server search rows carry no raw contact, so they're deduped by `u:<userId>`
+ * (which `inRound` also includes for already-added account players); local
+ * history rows dedupe by their real e:/p: key.
+ */
 function mergePlayerPickers(local, remote, inRound) {
   const map = new Map()
   for (const a of [...local, ...remote]) {
-    const k = a.key ?? playerKey(a)
+    const k = a.userId ? `u:${a.userId}` : (a.key ?? playerKey(a))
     if (!k || inRound.has(k)) continue
     if (!map.has(k)) map.set(k, a)
   }
@@ -666,7 +671,7 @@ export default function SetupWizard() {
       const used = s.players.map((p) => p.color)
       const color = PALETTE.find((c) => !used.includes(c)) ?? PALETTE[s.players.length % PALETTE.length]
       const player = {
-        id, name: '', nickname: '', email: '', phone: '', hdcp: 12,
+        id, userId: null, name: '', nickname: '', email: '', phone: '', hdcp: 12,
         guest: false, inviteGuest: false, color, team: nextTeam(s.players), ...fields,
       }
       const players = [...s.players, player]
@@ -677,16 +682,38 @@ export default function SetupWizard() {
   }
   const addInviteGuest = () => addRoundPlayer({ guest: false, inviteGuest: true })
   const addGuest = () => addRoundPlayer({ guest: true, inviteGuest: false })
-  const addAccount = (acct) =>
+  const addAccount = async (acct) => {
+    // Search hits carry no raw contact — reveal it for just this one player at
+    // the moment we add them, so the round player gets a real e:/p: identity.
+    let { name, nickname, handicapIndex } = acct
+    let email = ''
+    let phone = ''
+    const contact = acct.userId ? await fetchPlayerContact(acct.userId) : null
+    if (contact) {
+      email = contact.email || ''
+      phone = contact.phone || ''
+      name = contact.name || name
+      nickname = contact.nickname || nickname
+      if (contact.handicapIndex != null) handicapIndex = contact.handicapIndex
+    }
+    // Don't add someone already in the round (e.g. added earlier from your crew
+    // and then found again via search).
+    const key = playerKey({ name, nickname, email, phone })
+    if (key && st.players.some((p) => playerKey(p) === key)) {
+      patch({ showAccountPicker: false })
+      return
+    }
     addRoundPlayer({
       guest: false,
       inviteGuest: false,
-      name: acct.name,
-      nickname: acct.nickname,
-      email: acct.email,
-      phone: acct.phone,
-      hdcp: acct.handicapIndex != null ? Number(acct.handicapIndex) : 12,
+      userId: acct.userId ?? null,
+      name,
+      nickname,
+      email,
+      phone,
+      hdcp: handicapIndex != null ? Number(handicapIndex) : 12,
     })
+  }
   const addCrewMember = (member) =>
     addRoundPlayer({
       guest: false,
@@ -1194,6 +1221,9 @@ export default function SetupWizard() {
 
   function renderPlayers() {
     const inRound = new Set(st.players.map(playerKey).filter(Boolean))
+    // Also track account userIds in the round so masked search hits (which have
+    // no contact to derive an e:/p: key from) drop out once they've been added.
+    st.players.forEach((p) => { if (p.userId) inRound.add(`u:${p.userId}`) })
     const accounts = buildAccountDirectory(historyRounds, inRound)
     const crew = buildCrewRoster(historyRounds, inRound)
     const full = st.players.length >= MAX_PLAYERS
@@ -1209,9 +1239,9 @@ export default function SetupWizard() {
         ) : (
           items.map((a) => (
             <button key={a.key} onClick={() => onPick(a)} disabled={full} style={accountRow}>
-              <span style={{ width: 32, height: 32, borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#fff', background: 'rgba(255,255,255,.18)' }}>{initial(a.name || a.email)}</span>
+              <span style={{ width: 32, height: 32, borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#fff', background: 'rgba(255,255,255,.18)' }}>{initial(a.name || a.email || a.emailMasked)}</span>
               <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-                <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name || a.email || a.phone}</span>
+                <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name || a.email || a.phone || a.emailMasked || a.phoneMasked}</span>
                 <span style={{ display: 'block', fontSize: 11.5, color: 'rgba(255,255,255,.5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{subFor(a)}</span>
               </span>
               <span style={{ color: ACCENT, fontSize: 18, fontWeight: 800, flex: '0 0 auto' }}>+</span>
@@ -1285,7 +1315,7 @@ export default function SetupWizard() {
                   : 'No saved players yet. Finish a round with someone who has an email or phone and they will show up here.',
                 addAccount,
                 (a) => {
-                  const contact = a.email || a.phone || ''
+                  const contact = a.emailMasked || a.phoneMasked || a.email || a.phone || ''
                   const hdcp = a.handicapIndex != null ? ` · Hdcp ${Number(a.handicapIndex).toFixed(1)}` : ''
                   return `${contact}${hdcp}`.trim() || displayName(a)
                 },
