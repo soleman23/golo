@@ -9,6 +9,7 @@ import useLiveRoundStore from '../store/liveRoundStore'
 import { calculateCourseHandicap } from '../engines/handicap'
 import { hasContact, displayName, playerKey } from '../lib/identity'
 import { fetchCourses } from '../lib/db/courses'
+import { searchVerifiedPlayers } from '../lib/db/players'
 import { getCourseImage } from '../lib/courseImages'
 import { defaultHomeCourse, sortCoursesHomeFirst } from '../lib/homeCourse'
 import { normalizeSkinsLdHole, resolveLdHoleNumber } from '../engines/skins'
@@ -239,6 +240,17 @@ function buildCrewRoster(rounds, inRound) {
     }
   }
   return Object.values(map).sort((a, b) => b.rounds - a.rounds)
+}
+
+/** Merge local history picks with server search hits; first wins per identity key. */
+function mergePlayerPickers(local, remote, inRound) {
+  const map = new Map()
+  for (const a of [...local, ...remote]) {
+    const k = a.key ?? playerKey(a)
+    if (!k || inRound.has(k)) continue
+    if (!map.has(k)) map.set(k, a)
+  }
+  return [...map.values()]
 }
 
 /** Default course card: par 4, stroke index = hole number (a valid permutation). */
@@ -541,6 +553,9 @@ export default function SetupWizard() {
   // courses remain as a fallback for any id the DB doesn't have.
   const [catalog, setCatalog] = useState(COURSES)
   const [coursesFromDb, setCoursesFromDb] = useState(false)
+  const [accountSearch, setAccountSearch] = useState('')
+  const [accountSearchResults, setAccountSearchResults] = useState([])
+  const [accountSearchLoading, setAccountSearchLoading] = useState(false)
   useEffect(() => {
     let active = true
     fetchCourses().then((rows) => {
@@ -552,6 +567,34 @@ export default function SetupWizard() {
     })
     return () => { active = false }
   }, [])
+
+  // Verified-player search for the "Add player" picker (signed-in + Supabase only).
+  useEffect(() => {
+    if (!st.showAccountPicker || !liveRoundsEnabled) {
+      setAccountSearchResults([])
+      setAccountSearchLoading(false)
+      return undefined
+    }
+    const q = accountSearch.trim()
+    if (q.length < 2) {
+      setAccountSearchResults([])
+      setAccountSearchLoading(false)
+      return undefined
+    }
+    let cancelled = false
+    setAccountSearchLoading(true)
+    const timer = setTimeout(() => {
+      searchVerifiedPlayers(q).then((rows) => {
+        if (cancelled) return
+        setAccountSearchResults(rows)
+        setAccountSearchLoading(false)
+      })
+    }, 300)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [st.showAccountPicker, accountSearch, liveRoundsEnabled])
 
   // When the DB catalogue loads, default to home course if it wasn't in the bundled list.
   useEffect(() => {
@@ -635,7 +678,15 @@ export default function SetupWizard() {
   const addInviteGuest = () => addRoundPlayer({ guest: false, inviteGuest: true })
   const addGuest = () => addRoundPlayer({ guest: true, inviteGuest: false })
   const addAccount = (acct) =>
-    addRoundPlayer({ guest: false, inviteGuest: false, name: acct.name, nickname: acct.nickname, email: acct.email, phone: acct.phone })
+    addRoundPlayer({
+      guest: false,
+      inviteGuest: false,
+      name: acct.name,
+      nickname: acct.nickname,
+      email: acct.email,
+      phone: acct.phone,
+      hdcp: acct.handicapIndex != null ? Number(acct.handicapIndex) : 12,
+    })
   const addCrewMember = (member) =>
     addRoundPlayer({
       guest: false,
@@ -1146,6 +1197,10 @@ export default function SetupWizard() {
     const accounts = buildAccountDirectory(historyRounds, inRound)
     const crew = buildCrewRoster(historyRounds, inRound)
     const full = st.players.length >= MAX_PLAYERS
+    const accountQuery = accountSearch.trim()
+    const accountDisplayList = accountQuery.length >= 2
+      ? mergePlayerPickers(accounts, accountSearchResults, inRound)
+      : accounts
 
     const renderPickerList = (items, emptyText, onPick, subFor) => (
       <div style={{ background: 'rgba(20,28,24,.5)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 14, padding: items.length ? 6 : 14 }}>
@@ -1174,19 +1229,68 @@ export default function SetupWizard() {
         {sectionLabel('ADD PLAYERS', { margin: '18px 0 10px' })}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           {/* 1 — existing account holder */}
-          <button onClick={() => !full && patch({ showAccountPicker: !st.showAccountPicker, showCrewPicker: false })} disabled={full} style={addOption(st.showAccountPicker, full)}>
+          <button
+            onClick={() => {
+              if (full) return
+              const opening = !st.showAccountPicker
+              if (!opening) {
+                setAccountSearch('')
+                setAccountSearchResults([])
+              }
+              patch({ showAccountPicker: opening, showCrewPicker: false })
+            }}
+            disabled={full}
+            style={addOption(st.showAccountPicker, full)}
+          >
             <span style={addOptionIcon}>👤</span>
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={addOptionTitle}>Add player</span>
-              <span style={addOptionSub}>Someone who already has an account</span>
+              <span style={addOptionSub}>
+                {liveRoundsEnabled
+                  ? 'Search verified GoLo players by name, handle, or email'
+                  : 'Someone who already has an account'}
+              </span>
             </span>
             <span style={{ color: ACCENT, fontSize: 22, fontWeight: 800, flex: '0 0 auto' }}>{st.showAccountPicker ? '×' : '+'}</span>
           </button>
-          {st.showAccountPicker && renderPickerList(
-            accounts,
-            'No saved players yet. Finish a round with someone who has an email or phone and they will show up here.',
-            addAccount,
-            (a) => a.email || a.phone,
+          {st.showAccountPicker && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {liveRoundsEnabled && (
+                <input
+                  value={accountSearch}
+                  onChange={(e) => setAccountSearch(e.target.value)}
+                  placeholder="Search players…"
+                  aria-label="Search verified players"
+                  autoComplete="off"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  style={{ ...playerField, width: '100%', marginTop: 0 }}
+                />
+              )}
+              {accountSearchLoading && (
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,.5)', padding: '0 4px' }}>
+                  Searching…
+                </div>
+              )}
+              {renderPickerList(
+                accountDisplayList,
+                liveRoundsEnabled
+                  ? accountQuery.length >= 2
+                    ? accountSearchLoading
+                      ? 'Searching…'
+                      : `No verified players match "${accountQuery}".`
+                    : accounts.length === 0
+                      ? 'Search by name, handle, or email to find verified players. People you\'ve played with before will also show up here.'
+                      : 'Type 2+ characters to search all verified players, or pick someone below.'
+                  : 'No saved players yet. Finish a round with someone who has an email or phone and they will show up here.',
+                addAccount,
+                (a) => {
+                  const contact = a.email || a.phone || ''
+                  const hdcp = a.handicapIndex != null ? ` · Hdcp ${Number(a.handicapIndex).toFixed(1)}` : ''
+                  return `${contact}${hdcp}`.trim() || displayName(a)
+                },
+              )}
+            </div>
           )}
 
           {/* 2 — crew roster */}

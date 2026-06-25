@@ -35,6 +35,15 @@ const TICKS = [
 
 const initial = (name) => (name || '').trim().charAt(0).toUpperCase() || '⛳'
 
+/** Parse handicap index for profile storage; blank or out-of-range → skip. */
+function parseHandicap(raw) {
+  const s = String(raw ?? '').trim()
+  if (!s) return null
+  const n = Number(s)
+  if (!Number.isFinite(n) || n < 0 || n > 54) return null
+  return Math.round(n * 10) / 10
+}
+
 /* ----------------------------------------------------------- provider icons */
 
 const AppleIcon = () => (
@@ -55,12 +64,18 @@ export default function OnboardingPage({ lockerOnly = false }) {
   const navigate = useNavigate()
   const setIdentity = useProfileStore((s) => s.setIdentity)
   const completeOnboarding = useProfileStore((s) => s.completeOnboarding)
+  const setHandicapIndex = useProfileStore((s) => s.setHandicapIndex)
+  const setHomeClub = useProfileStore((s) => s.setHomeClub)
+  const setVenmo = useProfileStore((s) => s.setVenmo)
   // Any identity already saved to the profile — used to prefill the locker so a
   // returning user confirms/edits instead of retyping.
   const profileName = useProfileStore((s) => s.name)
   const profileNick = useProfileStore((s) => s.nickname)
   const profileEmail = useProfileStore((s) => s.email)
   const profilePhone = useProfileStore((s) => s.phone)
+  const profileHandicap = useProfileStore((s) => s.handicapIndex)
+  const profileHomeClub = useProfileStore((s) => s.homeClub)
+  const profileVenmo = useProfileStore((s) => s.venmo)
   // When real auth is on, the user already signed up — skip the welcome/sign-in
   // screens and go straight to the locker, pre-filling the email they used.
   const authEmail = useAuthStore((s) => s.user?.email ?? null)
@@ -80,6 +95,13 @@ export default function OnboardingPage({ lockerOnly = false }) {
         phone: hasProfileContact ? (profilePhone ?? '') : '',
       }
     : { name: '', handle: '', email: '', phone: '' }
+  const seedOptional = lockerOnly
+    ? {
+        handicap: profileHandicap != null ? String(profileHandicap) : '',
+        homeClub: profileHomeClub ?? '',
+        venmo: profileVenmo ?? '',
+      }
+    : { handicap: '', homeClub: '', venmo: '' }
 
   const [step, setStep] = useState(lockerOnly ? 2 : 0) // 0 = welcome, 1 = sign in, 2 = locker
   const [authMode, setAuthMode] = useState('create') // create | signin (copy only)
@@ -87,6 +109,9 @@ export default function OnboardingPage({ lockerOnly = false }) {
   const [handle, setHandle] = useState(seed.handle)
   const [email, setEmail] = useState(seed.email)
   const [phone, setPhone] = useState(seed.phone)
+  const [handicap, setHandicapInput] = useState(seedOptional.handicap)
+  const [homeClub, setHomeClubInput] = useState(seedOptional.homeClub)
+  const [venmo, setVenmoInput] = useState(seedOptional.venmo)
   const isCreate = authMode === 'create'
 
   // Sanitised identity from the live form — the single source of truth for BOTH
@@ -106,6 +131,10 @@ export default function OnboardingPage({ lockerOnly = false }) {
   const finish = () => {
     if (!hasContact(identity)) return
     setIdentity(identity)
+    const hdcp = parseHandicap(handicap)
+    if (hdcp != null) setHandicapIndex(hdcp)
+    if (homeClub.trim()) setHomeClub(homeClub)
+    if (venmo.trim()) setVenmo(venmo)
     completeOnboarding()
     navigate('/', { replace: true })
   }
@@ -245,7 +274,7 @@ export default function OnboardingPage({ lockerOnly = false }) {
         <div style={S.scroll}>
           <h2 style={{ fontSize: 28, fontWeight: 800, letterSpacing: -0.5, margin: 0, color: '#fff', textShadow: '0 2px 12px rgba(0,0,0,.4)' }}>Set up your locker</h2>
           <p style={{ fontSize: 13.5, lineHeight: 1.5, color: 'rgba(255,255,255,.6)', margin: '8px 0 18px' }}>
-            Add your email or phone — that's how Golo knows which player is you across every round, the crew ledger, and settle-up. Name and handle are optional.
+            Add your email or phone — that's how Golo knows which player is you across every round, the crew ledger, and settle-up. Name and handle are optional. You can add handicap, home course, and Venmo now — or anytime on You.
           </p>
 
           <div style={S.lockerCard}>
@@ -303,6 +332,50 @@ export default function OnboardingPage({ lockerOnly = false }) {
             autoComplete="tel"
             style={S.lockerField}
           />
+
+          <div style={S.sectionKicker}>OPTIONAL</div>
+
+          <label htmlFor="onboard-handicap" style={S.fieldLabel}>HANDICAP INDEX</label>
+          <input
+            id="onboard-handicap"
+            value={handicap}
+            onChange={(e) => setHandicapInput(e.target.value)}
+            placeholder="e.g. 12.4"
+            aria-label="Handicap index"
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            style={S.lockerField}
+          />
+
+          <label htmlFor="onboard-home-club" style={S.fieldLabel}>HOME CLUB</label>
+          <input
+            id="onboard-home-club"
+            value={homeClub}
+            onChange={(e) => setHomeClubInput(e.target.value)}
+            placeholder="e.g. Tetherow"
+            aria-label="Home club"
+            autoComplete="off"
+            autoCapitalize="words"
+            style={S.lockerField}
+          />
+          <div style={S.fieldHint}>
+            Saved to your profile. Custom clubs won't appear in course setup until added to the catalogue.
+          </div>
+
+          <label htmlFor="onboard-venmo" style={S.fieldLabel}>VENMO</label>
+          <input
+            id="onboard-venmo"
+            value={venmo}
+            onChange={(e) => setVenmoInput(e.target.value)}
+            placeholder="@yourhandle"
+            aria-label="Venmo username"
+            autoComplete="off"
+            autoCapitalize="none"
+            autoCorrect="off"
+            style={S.lockerField}
+          />
+
           <div style={{ ...S.noteCard, marginTop: 14 }}>
             <span style={{ fontSize: 15 }}>🔒</span>
             <span style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,.8)', lineHeight: 1.45 }}>
@@ -355,6 +428,9 @@ const S = {
   lockerCard: { display: 'flex', alignItems: 'center', gap: 15, background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 20, padding: '15px 16px', marginBottom: 11, boxShadow: '0 8px 22px rgba(0,0,0,.26)' },
   nameInput: { display: 'block', width: '100%', marginTop: 2, background: 'transparent', border: 'none', outline: 'none', color: '#fff', fontSize: 22, fontWeight: 800, letterSpacing: -0.3, padding: 0 },
   lockerField: { width: '100%', boxSizing: 'border-box', marginTop: 10, minHeight: 50, borderRadius: 14, background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.14)', color: '#fff', fontSize: 15, fontWeight: 600, fontFamily: 'inherit', padding: '0 15px', outline: 'none' },
+  sectionKicker: { fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: ACCENT, marginTop: 22, marginBottom: 2 },
+  fieldLabel: { display: 'block', fontSize: 10, fontWeight: 800, letterSpacing: 0.8, color: 'rgba(255,255,255,.5)', marginTop: 12, marginBottom: 0 },
+  fieldHint: { fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,.4)', marginTop: 6, lineHeight: 1.4 },
   noteCard: { display: 'flex', alignItems: 'center', gap: 9, background: hexA(ACCENT, 0.08), border: `1px solid ${hexA(ACCENT, 0.32)}`, borderRadius: 13, padding: '11px 13px' },
 
   footer: { flex: '0 0 auto', padding: '6px 20px max(24px, env(safe-area-inset-bottom))', background: 'linear-gradient(180deg, rgba(3,10,7,0) 0%, rgba(3,10,7,.6) 50%)' },
