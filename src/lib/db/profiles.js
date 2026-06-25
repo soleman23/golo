@@ -12,24 +12,35 @@ const cleanHandicapIndex = (value) => {
   return Number.isFinite(n) ? n : null
 }
 
-const toDb = (f = {}) => ({
+/** Columns from 0001 + 0003 + 0006 — safe when 0004/0005 GHIN migrations aren't applied yet. */
+const coreToDb = (f = {}) => ({
   email: f.email ?? null,
   name: f.name ?? null,
   nickname: f.nickname ?? null,
   phone: f.phone ?? null,
-  handicap_index: cleanHandicapIndex(f.handicapIndex),
   avatar_url: f.avatarUrl ?? null,
   home_club: f.homeClub ?? null,
   venmo: f.venmo ?? null,
-  ghin_number: f.ghinNumber ?? null,
-  ghin_connected_at: f.ghinConnectedAt ?? null,
-  ghin_last_sync_at: f.ghinLastSyncAt ?? null,
   ghin_sync: !!f.ghinSync,
   notify_settle: f.notifySettle !== false,
   notify_live: f.notifyLive !== false,
   skins_default: f.skinsDefault ?? null,
   onboarded: !!f.onboarded,
 })
+
+/** Full profile row including 0004 handicap + 0005 GHIN metadata columns. */
+const toDb = (f = {}) => ({
+  ...coreToDb(f),
+  handicap_index: cleanHandicapIndex(f.handicapIndex),
+  ghin_number: f.ghinNumber ?? null,
+  ghin_connected_at: f.ghinConnectedAt ?? null,
+  ghin_last_sync_at: f.ghinLastSyncAt ?? null,
+})
+
+export function isMissingColumnError(error) {
+  const msg = error?.message ?? String(error ?? '')
+  return /column .* does not exist|PGRST204|schema cache/i.test(msg)
+}
 
 const fromDb = (r) =>
   r && {
@@ -65,10 +76,16 @@ export async function fetchProfile(userId) {
   return fromDb(data)
 }
 
-export async function upsertProfile(userId, fields) {
+export async function upsertProfile(userId, fields, { coreOnly = false } = {}) {
   if (!isSupabaseConfigured || !userId) return { error: null }
-  const row = { id: userId, ...toDb(fields) }
-  const { error } = await supabase.from('profiles').upsert(row)
+  const build = (extended) => ({ id: userId, ...(extended ? toDb(fields) : coreToDb(fields)) })
+  let row = build(!coreOnly)
+  let { error } = await supabase.from('profiles').upsert(row)
+  if (error && !coreOnly && isMissingColumnError(error)) {
+    console.warn('[db] upsertProfile: extended columns missing, retrying core only')
+    row = build(false)
+    ;({ error } = await supabase.from('profiles').upsert(row))
+  }
   if (error) console.error('[db] upsertProfile', error)
   return { error }
 }

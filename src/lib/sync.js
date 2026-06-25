@@ -3,7 +3,7 @@ import useProfileStore from '../store/profileStore'
 import useHistoryStore from '../store/historyStore'
 import useSyncStore from '../store/syncStore'
 import { isSupabaseConfigured } from './supabaseClient'
-import { fetchProfile, upsertProfile } from './db/profiles'
+import { fetchProfile, upsertProfile, isMissingColumnError } from './db/profiles'
 import { syncGhinHandicap, isGhinConfiguredResponse } from './ghin/client'
 import { isGhinConnected } from './ghin/eligibility'
 import { fetchRounds, saveRound as dbSaveRound } from './db/rounds'
@@ -85,7 +85,9 @@ export async function syncOnLogin(userId, { force = false } = {}) {
     const toPush = localRounds.filter((r) => r?.roundId && !remoteIds.has(r.roundId))
     for (const r of toPush) {
       const { error } = await dbSaveRound(r, userId)
-      if (error) throw error
+      if (error) {
+        console.warn('[sync] skipped local round migration', r?.roundId, error)
+      }
     }
     const finalRounds = toPush.length ? ((await fetchRounds()) ?? remoteRounds) : remoteRounds
     useHistoryStore.getState().setRounds(finalRounds)
@@ -112,8 +114,12 @@ export async function syncOnLogin(userId, { force = false } = {}) {
     setReady(true)
   } catch (err) {
     console.error('[sync] syncOnLogin', err)
+    const detail = err?.message ?? String(err ?? '')
+    const migrationHint = isMissingColumnError(err)
+      ? ' The database is missing migrations — run 0004_profile_handicap.sql and 0005_ghin.sql in the Supabase SQL editor, then retry.'
+      : ''
     setSyncError(
-      'Could not sync your profile and history. Check your connection, then tap Retry below or sign out and back in.'
+      `Could not sync your profile and history.${migrationHint || ' Check your connection, then tap Retry below or sign out and back in.'}`
     )
     setReady(false)
   } finally {
