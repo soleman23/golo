@@ -38,6 +38,10 @@ import useNotificationStore from '../store/notificationStore'
  * extras beyond the design's stroke-only mock: Scramble (team cards), Stableford
  * (points badges + board), Match Play (status + concede), and the Wolf / Bingo
  * Bango Bongo per-hole panels, plus CTP / Longest Drive winner pickers.
+ *
+ * Scorers start each hole showing that hole's par as the default; par only counts
+ * once they advance to the next hole (Next) or Finish — stepping back via Prev
+ * never commits. Viewers stay read-only until scores sync from the scorer.
  */
 
 /* ----------------------------------------------------------------- constants */
@@ -108,6 +112,17 @@ const playersInBet = (players, bet) =>
   bet?.playerIds?.length ? players.filter((p) => bet.playerIds.includes(p.id)) : players
 /** The lime "YOU" pill beside the signed-in player. */
 const youBadge = { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, color: ACCENT_DARK, background: ACCENT, padding: '2px 7px', borderRadius: 9999, flex: '0 0 auto' }
+
+/** Write par for every unscored entity on a hole (no-op when already entered). */
+function seedParForHole(hole, { entities, pars, totalHoles, updateScore }) {
+  if (!entities.length) return
+  const h = clampHole(hole, totalHoles)
+  const holePar = pars[h] ?? 4
+  entities.forEach((e) => {
+    const live = useRoundStore.getState().scores
+    if (scoreValue(live[e.id]?.[h]) == null) updateScore(e.id, h, holePar)
+  })
+}
 
 /* --------------------------------------------------------------- component */
 
@@ -242,10 +257,11 @@ export default function ScoringPage() {
     }
   }, [liveRoundId, liveRole, isLiveScorer, navigate])
 
-  // Scores start empty and stay empty until entered — a hole shows "–" for each
-  // player until tapped, so a fresh round (and every unplayed hole) carries no
-  // phantom par scores into the leaderboard, bets, or payout. Par is still the
-  // baseline the ± buttons step from (see scoreFor), so first tap moves off par.
+  // Scorer (local or live): each hole opens showing that hole's par as the default
+  // (the ± baseline — see showScoreFor), but par is only written to the store —
+  // and so only counts toward the leaderboard / bets / payout — once the scorer
+  // advances to the next hole (Next) or Finishes. Stepping back via Prev never
+  // commits. Viewers see a dash until a score syncs from the scorer.
 
   // Per-player handicap strokes by hole (individual formats; scramble plays gross).
   const playerAllocations = useMemo(
@@ -626,20 +642,34 @@ export default function ScoringPage() {
   }
 
   const scoreFor = (id) => scoreValue(scores[id]?.[currentHole]) ?? par
+  const parDefaultScoring = !readOnly
+  const showScoreFor = (id) => {
+    const stored = scoreValue(scores[id]?.[currentHole])
+    if (readOnly) return stored
+    return parDefaultScoring ? (stored ?? par) : stored
+  }
   const recordScore = (id, hole, value) => {
     const next = clampScore(value)
     if (!id || next == null) return
     updateScore(id, clampHole(hole, totalHoles), next)
   }
+  const commitParDefaults = (hole = currentHole) => {
+    if (readOnly) return
+    seedParForHole(hole, { entities, pars, totalHoles, updateScore })
+  }
   const adjust = (id, delta) => recordScore(id, currentHole, scoreFor(id) + delta)
   const goPrev = () => {
-    if (!atFirstHole) setCurrentHole(clampHole(currentHole - 1, totalHoles))
+    if (atFirstHole) return
+    setCurrentHole(clampHole(currentHole - 1, totalHoles))
   }
   const goNext = () => {
-    if (!isLastHole) setCurrentHole(clampHole(currentHole + 1, totalHoles))
+    if (isLastHole) return
+    commitParDefaults(currentHole)
+    setCurrentHole(clampHole(currentHole + 1, totalHoles))
   }
   const finishRound = () => {
     if (readOnly) return
+    commitParDefaults(currentHole)
     completeRound()
     navigate('/payouts')
   }
@@ -679,7 +709,7 @@ export default function ScoringPage() {
   /* --------------------------------------------------------------- entity card */
 
   const card = (e) => {
-    const gross = scoreValue(scores[e.id]?.[currentHole])
+    const gross = showScoreFor(e.id)
     const reduction = allocations[e.id]?.[currentHole] ?? 0
     const net = gross == null ? null : Math.max(0, gross - reduction)
     const pts = isStableford && gross != null ? calculateStablefordPoints(gross, par, reduction) : null
@@ -1342,7 +1372,7 @@ const S = {
   column: { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1, width: '100%', maxWidth: 480, margin: '0 auto', minHeight: 0, maxHeight: '100%', overflow: 'hidden' },
   header: { flex: '0 0 auto', padding: '2px 16px 8px', textShadow: '0 2px 12px rgba(0,0,0,.4)' },
   body: { flex: '1 1 0', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
-  holeNum: { fontSize: 'clamp(52px, 14vw, 74px)', fontWeight: 800, lineHeight: 0.98, color: '#fff' },
+  holeNum: { fontSize: 'clamp(52px, 14vw, 74px)', fontWeight: 800, lineHeight: 0.96, color: '#fff' },
   headerTop: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10 },
   iconBtn: { width: 46, height: 46, borderRadius: '50%', flex: '0 0 auto', background: 'rgba(255,255,255,.14)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', fontSize: 19, cursor: 'pointer' },
   coursePill: { display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,.13)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.16)', padding: '9px 16px', borderRadius: 9999, maxWidth: 220, minWidth: 0 },
