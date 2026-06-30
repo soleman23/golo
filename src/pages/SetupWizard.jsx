@@ -810,18 +810,16 @@ export default function SetupWizard() {
   }
 
   /* ---- validation ---- */
-  // Every player needs a name; live rounds also require email or phone per player.
+  // Every player needs a name. For live rounds, only invite-guests must also
+  // carry contact — that's how they receive a join link.
   const organizer = st.players[0]
   const isReady = (p) => {
     if (!p.name?.trim()) return false
     if (p.guest) return true
-    // Verified players (added from the directory or your crew — the VERIFIED
-    // badge) join live via their own account, so the organizer never enters
-    // their contact; they're ready on name alone. Only the organizer and
-    // invite-guests still need an email/phone for live rounds.
-    const isOrganizer = st.players[0]?.id === p.id
-    if (!isOrganizer && !p.inviteGuest) return true
-    if (liveRoundsEnabled && !hasContact(p)) return false
+    // Invite-guests are the only players who must carry contact: they get a join
+    // link by email or phone. You (the signed-in organizer) and verified players
+    // are identified by their own account, so a name alone is enough.
+    if (liveRoundsEnabled && p.inviteGuest && !hasContact(p)) return false
     return true
   }
   const readyPlayers = st.players.filter((p) => isReady(p))
@@ -852,7 +850,7 @@ export default function SetupWizard() {
   let hintText = ''
   if (!valid && st.step === 1) {
     if (!organizer || !organizer.name?.trim()) hintText = 'Add your name to continue.'
-    else if (liveRoundsEnabled && st.players.some((p, i) => p.name?.trim() && !p.guest && (i === 0 || p.inviteGuest) && !hasContact(p))) {
+    else if (liveRoundsEnabled && st.players.some((p) => p.name?.trim() && p.inviteGuest && !hasContact(p))) {
       hintText = 'Add email or phone for invited players so they can join live.'
     }
     else if (!everyoneReady) hintText = 'Add a name for every player.'
