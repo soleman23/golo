@@ -2,7 +2,6 @@ import { hexA } from '../lib/colors'
 import { useState } from 'react'
 import useAuthStore from '../store/authStore'
 import { GoloWordmark } from '../components/shared/Logo'
-import BackButton from '../components/shared/BackButton'
 
 /**
  * AuthPage — email/password sign in & create account, "glass-over-turf" to match
@@ -109,7 +108,6 @@ export default function AuthPage() {
 
       <div style={S.column}>
         <div style={S.header}>
-          <BackButton />
           <GoloWordmark variant="primary" fontPx={30} />
         </div>
 
@@ -231,7 +229,7 @@ const S = {
   backdrop: { position: 'absolute', inset: 0, backgroundSize: 'cover' },
   scrim: { position: 'absolute', inset: 0, pointerEvents: 'none', background: 'linear-gradient(180deg, rgba(6,14,9,.7) 0%, rgba(5,12,8,.86) 40%, rgba(3,10,7,.97) 100%)' },
   column: { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', width: '100%', maxWidth: 480, margin: '0 auto' },
-  header: { flex: '0 0 auto', padding: 'max(18px, env(safe-area-inset-top)) 26px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, filter: 'drop-shadow(0 2px 12px rgba(0,0,0,.5))' },
+  header: { flex: '0 0 auto', padding: 'max(18px, env(safe-area-inset-top)) 26px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, filter: 'drop-shadow(0 2px 12px rgba(0,0,0,.5))' },
   scroll: { flex: 1, overflowY: 'auto', padding: '14px 22px 18px' },
 
   fieldLabel: { display: 'block', fontSize: 10, fontWeight: 800, letterSpacing: 0.8, color: 'rgba(255,255,255,.5)', marginTop: 14, marginBottom: 7 },

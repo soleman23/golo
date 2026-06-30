@@ -6,7 +6,6 @@ import useAuthStore from '../store/authStore'
 import { hasContact } from '../lib/identity'
 import { GoloWordmark } from '../components/shared/Logo'
 import { CheckIcon } from '../components/shared/GoloIcons'
-import BackButton from '../components/shared/BackButton'
 
 /**
  * OnboardingPage — first-run flow, "glass-over-turf" (Golo Golf - Onboarding).
@@ -151,8 +150,7 @@ export default function OnboardingPage({ lockerOnly = false }) {
         <div style={{ ...S.scrim, background: 'linear-gradient(180deg, rgba(6,14,9,.42) 0%, rgba(6,14,9,.34) 30%, rgba(6,16,10,.72) 66%, rgba(3,10,7,.97) 100%)' }} />
 
         <div style={S.column}>
-          <div style={{ flex: '0 0 auto', padding: 'max(18px, env(safe-area-inset-top)) 26px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, filter: 'drop-shadow(0 2px 12px rgba(0,0,0,.5))' }}>
-            <BackButton />
+          <div style={{ flex: '0 0 auto', padding: 'max(18px, env(safe-area-inset-top)) 26px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, filter: 'drop-shadow(0 2px 12px rgba(0,0,0,.5))' }}>
             <GoloWordmark variant="primary" fontPx={34} />
           </div>
 
@@ -194,10 +192,8 @@ export default function OnboardingPage({ lockerOnly = false }) {
 
         <div style={S.column}>
           {/* nav */}
-          <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'max(14px, env(safe-area-inset-top)) 18px 0' }}>
-            <BackButton onClick={() => setStep(0)} />
+          <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'max(14px, env(safe-area-inset-top)) 18px 0' }}>
             <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.2, color: 'rgba(255,255,255,.55)' }}>STEP 1 OF 2</span>
-            <span style={{ width: 72 }} />
           </div>
 
           {/* body */}
@@ -260,11 +256,6 @@ export default function OnboardingPage({ lockerOnly = false }) {
         {/* nav + progress */}
         <div style={{ flex: '0 0 auto', padding: 'max(14px, env(safe-area-inset-top)) 22px 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            {lockerOnly ? (
-              <BackButton />
-            ) : (
-              <BackButton onClick={() => setStep(1)} />
-            )}
             <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.2, color: 'rgba(255,255,255,.55)' }}>{lockerOnly ? 'ONE LAST STEP' : 'STEP 2 OF 2'}</span>
             <span style={{ fontSize: 11, fontWeight: 700, color: ACCENT }}>almost there</span>
           </div>
