@@ -1,5 +1,9 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import useRoundStore from './roundStore'
+import { resolveLiveRoundRole } from '../lib/liveRoundRole'
+
+export { resolveLiveRoundRole }
 
 const useLiveRoundStore = create(
   persist(
@@ -30,8 +34,8 @@ const useLiveRoundStore = create(
 export function useLiveRoundRole() {
   const role = useLiveRoundStore((s) => s.role)
   const liveRoundId = useLiveRoundStore((s) => s.liveRoundId)
-  if (!liveRoundId || !role) return 'local-only'
-  return role
+  const roundId = useRoundStore((s) => s.round?.roundId ?? null)
+  return resolveLiveRoundRole(role, liveRoundId, roundId)
 }
 
 export default useLiveRoundStore

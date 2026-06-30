@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "verify:prod": "node scripts/verify-production.mjs",
+    "verify:live-role": "node scripts/verify-live-role.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

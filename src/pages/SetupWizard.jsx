@@ -1011,6 +1011,9 @@ export default function SetupWizard() {
             useLiveRoundStore.getState().clearSession()
           }
         }
+      } else {
+        teardownLiveSync()
+        useLiveRoundStore.getState().clearSession()
       }
       patch({ started: true })
     }
