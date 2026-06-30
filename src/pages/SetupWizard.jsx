@@ -815,6 +815,12 @@ export default function SetupWizard() {
   const isReady = (p) => {
     if (!p.name?.trim()) return false
     if (p.guest) return true
+    // Verified players (added from the directory or your crew — the VERIFIED
+    // badge) join live via their own account, so the organizer never enters
+    // their contact; they're ready on name alone. Only the organizer and
+    // invite-guests still need an email/phone for live rounds.
+    const isOrganizer = st.players[0]?.id === p.id
+    if (!isOrganizer && !p.inviteGuest) return true
     if (liveRoundsEnabled && !hasContact(p)) return false
     return true
   }
@@ -846,7 +852,7 @@ export default function SetupWizard() {
   let hintText = ''
   if (!valid && st.step === 1) {
     if (!organizer || !organizer.name?.trim()) hintText = 'Add your name to continue.'
-    else if (liveRoundsEnabled && st.players.some((p) => p.name?.trim() && !p.guest && !hasContact(p))) {
+    else if (liveRoundsEnabled && st.players.some((p, i) => p.name?.trim() && !p.guest && (i === 0 || p.inviteGuest) && !hasContact(p))) {
       hintText = 'Add email or phone for invited players so they can join live.'
     }
     else if (!everyoneReady) hintText = 'Add a name for every player.'
@@ -1366,6 +1372,15 @@ export default function SetupWizard() {
 
   function renderPlayerCard(p, idx) {
     const isOrganizer = idx === 0
+    // Verified players (the VERIFIED badge — directory adds + crew) get a slim
+    // read-only card: avatar, name, @handle and an editable handicap. No
+    // email/phone fields — their contact lives on their own account.
+    const isVerified = !isOrganizer && !p.guest && !p.inviteGuest
+    // Slim read-only card (you + verified players): name, @handle and the badge
+    // on a second line, an editable handicap, and no email/phone. Guests and
+    // invite-guests keep the full editable card.
+    const isSlim = isOrganizer || isVerified
+    const handle = p.nickname?.trim() ? `@${p.nickname.trim().replace(/^@+/, '')}` : ''
     const ready = isReady(p)
     const badge = isOrganizer
       ? { t: 'YOU', c: ACCENT }
@@ -1374,16 +1389,30 @@ export default function SetupWizard() {
         : p.inviteGuest
           ? { t: 'INVITE', c: ACCENT }
           : { t: 'VERIFIED', c: '#60a5fa' }
+    const pill = { fontSize: 9.5, fontWeight: 800, letterSpacing: 1, color: badge.c, border: `1px solid ${hexA(badge.c, 0.5)}`, background: hexA(badge.c, 0.14), borderRadius: 6, padding: '2px 6px', flex: '0 0 auto' }
     return (
       <div key={p.id} style={{ background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${ready ? 'rgba(255,255,255,.12)' : 'rgba(251,113,133,.6)'}`, borderRadius: 18, padding: 12, marginBottom: 11 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ width: 44, height: 44, borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 800, color: '#fff', background: p.color, boxShadow: '0 0 0 2px rgba(255,255,255,.2)' }}>{initial(p)}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <input value={p.name} onChange={(e) => updatePlayer(p.id, { name: e.target.value })} placeholder={isOrganizer ? 'Your name' : 'Player name'} style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: '#fff', fontSize: 17, fontWeight: 700, fontFamily: 'inherit', padding: 0 }} />
-              <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: 1, color: badge.c, border: `1px solid ${hexA(badge.c, 0.5)}`, background: hexA(badge.c, 0.14), borderRadius: 6, padding: '2px 6px', flex: '0 0 auto' }}>{badge.t}</span>
-            </div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,.5)', marginTop: 2 }}>Handicap index</div>
+            {isSlim ? (
+              <>
+                <div style={{ color: '#fff', fontSize: 17, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name?.trim() || displayName(p)}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3, minWidth: 0 }}>
+                  {handle && <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,.55)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{handle}</span>}
+                  {handle && <span style={{ color: 'rgba(255,255,255,.3)', fontSize: 12, flex: '0 0 auto' }}>·</span>}
+                  <span style={pill}>{badge.t}</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <input value={p.name} onChange={(e) => updatePlayer(p.id, { name: e.target.value })} placeholder={isOrganizer ? 'Your name' : 'Player name'} style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: '#fff', fontSize: 17, fontWeight: 700, fontFamily: 'inherit', padding: 0 }} />
+                  <span style={pill}>{badge.t}</span>
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,.5)', marginTop: 2 }}>Handicap index</div>
+              </>
+            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, flex: '0 0 auto' }}>
             <button onClick={() => incHdcp(p.id, -1)} style={stepBtn}>−</button>
@@ -1399,7 +1428,7 @@ export default function SetupWizard() {
           <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,.5)', marginTop: 10, lineHeight: 1.45 }}>
             Guest — scores and settles up in this round only. No email or phone needed.
           </div>
-        ) : (
+        ) : isSlim ? null : (
           <>
             {p.inviteGuest && liveRoundsEnabled && (
               <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,.55)', marginTop: 10, lineHeight: 1.45 }}>
