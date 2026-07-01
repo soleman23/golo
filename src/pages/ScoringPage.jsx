@@ -20,8 +20,10 @@ import { getCourseImage } from '../lib/courseImages'
 import AppHeader from '../components/shared/AppHeader'
 import { Icon } from '../components/shared/GoloIcons'
 import { fetchLiveRound } from '../lib/db/liveRounds'
-import { attachLiveSync, hydrateFromServer, subscribeToLiveRound, teardownLiveSync } from '../lib/liveRoundSync'
+import { attachLiveSync, detachLiveSync, hydrateFromServer, subscribeToLiveRound, teardownLiveSync } from '../lib/liveRoundSync'
 import useNotificationStore from '../store/notificationStore'
+import { getPressEligibility, findOverallPurseBet, MAX_ACTIVE_PRESSES } from '../engines/pressBets'
+import PressSheet from '../components/scoring/PressSheet'
 
 /**
  * ScoringPage — the live round, "Scoring (Immersive)".
@@ -134,6 +136,7 @@ export default function ScoringPage() {
   const teams = useRoundStore((s) => s.teams)
   const scores = useRoundStore((s) => s.scores)
   const bets = useRoundStore((s) => s.bets)
+  const pressBets = useRoundStore((s) => s.pressBets)
   const sideGameFlags = useRoundStore((s) => s.sideGameFlags)
   const wolfPicks = useRoundStore((s) => s.wolfPicks)
   const bbbFlags = useRoundStore((s) => s.bbbFlags)
@@ -154,8 +157,9 @@ export default function ScoringPage() {
   const concedeHole = useRoundStore((s) => s.concedeHole)
   const completeRound = useRoundStore((s) => s.completeRound)
   const getStrokeAllocations = useRoundStore((s) => s.getStrokeAllocations)
+  const createPressBet = useRoundStore((s) => s.createPressBet)
 
-  const [sheet, setSheet] = useState(null) // 'leaderboard' | 'bets' | 'finish' | null
+  const [sheet, setSheet] = useState(null) // 'leaderboard' | 'bets' | 'finish' | 'press' | null
   const [keypadFor, setKeypadFor] = useState(null) // entity id | null
   const [lbView, setLbView] = useState(() => (round?.scoring === 'gross' ? 'gross' : 'net')) // 'net' | 'gross' | 'money'
   const [copiedInvite, setCopiedInvite] = useState(false)
@@ -214,7 +218,9 @@ export default function ScoringPage() {
 
     if (isLiveScorer) {
       attachLiveSync()
-      return undefined
+      return () => {
+        detachLiveSync()
+      }
     }
 
     const finishLive = () => {
@@ -273,6 +279,42 @@ export default function ScoringPage() {
     () => (isScramble || useGrossScoring ? {} : playerAllocations),
     [isScramble, useGrossScoring, playerAllocations]
   )
+
+  const overallPurseBet = useMemo(() => findOverallPurseBet(bets), [bets])
+  const pressEligibility = useMemo(
+    () =>
+      getPressEligibility({
+        bets,
+        pressBets,
+        scores,
+        pars,
+        strokeAllocations: playerAllocations,
+        teams,
+        currentHole,
+        totalHoles,
+        status: roundStatus,
+      }),
+    [bets, pressBets, scores, pars, playerAllocations, teams, currentHole, totalHoles, roundStatus]
+  )
+  const activePressCount = useMemo(() => {
+    if (!overallPurseBet) return 0
+    return pressBets.filter((p) => p.parentBetId === overallPurseBet.id && p.status === 'active').length
+  }, [pressBets, overallPurseBet])
+  const activePresses = useMemo(() => {
+    if (!overallPurseBet) return []
+    return pressBets.filter((p) => p.parentBetId === overallPurseBet.id && p.status === 'active')
+  }, [pressBets, overallPurseBet])
+
+  const pressChipLabel = useMemo(() => {
+    if (!pressEligibility.allowed || pressEligibility.targets.length === 0) return 'Press'
+    const t = pressEligibility.targets[0]
+    if (t.label) return `Press · ${t.label}`
+    const down = t.targetTeamId
+      ? teams.find((x) => x.id === t.targetTeamId)?.name
+      : players.find((p) => p.id === t.targetPlayerId)?.name
+    return down ? `Press · ${down} ${t.margin} down` : 'Press'
+  }, [pressEligibility, players, teams])
+
   const hasAnyScore = useMemo(
     () => entities.some((e) => Object.values(scores[e.id] ?? {}).some((v) => scoreValue(v) != null)),
     [entities, scores]
@@ -296,15 +338,20 @@ export default function ScoringPage() {
 
   const leaderName = hasAnyScore ? (leaderboard[0]?.player?.name ?? DASH) : DASH
 
-  // Match Play standing (singles; first two players).
-  const matchInfo = useMemo(() => {
-    if (!isMatchplay || players.length < 2) return null
-    const side1 = players[0]
-    const side2 = players[1]
+  const matchHoleNumbers = useMemo(
+    () =>
+      Object.keys(pars)
+        .map(Number)
+        .sort((a, b) => a - b)
+        .filter((h) => h <= totalHoles),
+    [pars, totalHoles]
+  )
+
+  const buildMatchPair = (side1, side2) => {
     const a1 = allocations[side1.id] ?? {}
     const a2 = allocations[side2.id] ?? {}
     const results = []
-    for (let h = 1; h <= totalHoles; h++) {
+    for (const h of matchHoleNumbers) {
       const conceded = concededHoles[h]
       if (conceded) {
         results.push(conceded === side1.id ? 'p1' : 'p2')
@@ -318,7 +365,22 @@ export default function ScoringPage() {
       results.push(calculateHoleResult(n1, n2))
     }
     return { side1, side2, status: calculateMatchStatus(results, totalHoles) }
-  }, [isMatchplay, players, allocations, scores, concededHoles, totalHoles])
+  }
+
+  // Match Play standing — all head-to-head pairings (concessions only for 2-player).
+  const matchInfoList = useMemo(() => {
+    if (!isMatchplay || players.length < 2) return []
+    const pairs = []
+    for (let i = 0; i < players.length; i++) {
+      for (let j = i + 1; j < players.length; j++) {
+        pairs.push(buildMatchPair(players[i], players[j]))
+      }
+    }
+    return pairs
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMatchplay, players, allocations, scores, concededHoles, totalHoles, matchHoleNumbers])
+
+  const canConcedeMatch = isMatchplay && players.length === 2
 
   // Side games / panels active on *this* hole.
   const skinsBet = bets.find((b) => b.type === 'skins')
@@ -367,7 +429,7 @@ export default function ScoringPage() {
       players,
       scores,
       pars,
-      strokeAllocations: playerAllocations,
+      strokeAllocations: allocations,
       sideGameFlags,
       skinFlags,
       scoringType,
@@ -430,7 +492,7 @@ export default function ScoringPage() {
     }
     return [...standard, ...extra]
   }, [
-    bets, players, scores, pars, playerAllocations, sideGameFlags, skinFlags, scoringType, teams,
+    bets, players, scores, pars, allocations, sideGameFlags, skinFlags, scoringType, teams,
     wolfBet, bbbBet, wolfPicks, bbbFlags, totalHoles, isScramble,
   ])
 
@@ -486,8 +548,8 @@ export default function ScoringPage() {
       const per = {}
       players.forEach((p) => { per[p.id] = 0 })
       buildBetResults({
-        bets, players, scores: scoreSet, pars, strokeAllocations: playerAllocations,
-        sideGameFlags: sgf, skinFlags: sf, wolfPicks: wp, bbbFlags: bbb, scoringType, teams,
+        bets, players, scores: scoreSet, pars, strokeAllocations: allocations,
+        sideGameFlags: sgf, skinFlags: sf, wolfPicks: wp, bbbFlags: bbb, scoringType, teams, pressBets,
       }).forEach((r) => { for (const pid in (r.payouts ?? {})) per[pid] = (per[pid] ?? 0) + (r.payouts[pid] ?? 0) })
       const m = {}
       ents.forEach((e) => {
@@ -587,7 +649,7 @@ export default function ScoringPage() {
         unit: view === 'gross' ? 'GROSS' : view === 'money' ? 'NET WON' : isStableford ? 'POINTS' : 'TO PAR',
       },
     }
-  }, [sheet, lbView, isScramble, isStableford, useGrossScoring, teams, players, scores, pars, allocations, playerAllocations, bets, sideGameFlags, skinFlags, wolfPicks, bbbFlags, scoringType, totalHoles, meEntityId])
+  }, [sheet, lbView, isScramble, isStableford, useGrossScoring, teams, players, scores, pars, allocations, bets, pressBets, sideGameFlags, skinFlags, wolfPicks, bbbFlags, scoringType, totalHoles, meEntityId])
 
   // No round set up yet — bounce back to setup.
   if (!round) {
@@ -820,14 +882,20 @@ export default function ScoringPage() {
         {/* body: scrollable scores + pinned footer chrome -------------------- */}
         <div style={S.body}>
         <div className="golo-scroll" onScroll={onListScroll} style={S.scroll}>
-          {isMatchplay && matchInfo && !readOnly && (
+          {isMatchplay && matchInfoList.length > 0 && !readOnly && matchInfoList.map((info) => (
             <MatchPanel
-              info={matchInfo}
+              key={`${info.side1.id}-${info.side2.id}`}
+              info={info}
+              pairLabel={players.length > 2 ? `${info.side1.name} vs ${info.side2.name}` : null}
               hole={currentHole}
-              concededTo={concededHoles[currentHole] ?? null}
-              onConcede={(pid) => concedeHole(currentHole, pid)}
+              concededTo={canConcedeMatch ? concededHoles[currentHole] ?? null : null}
+              onConcede={
+                canConcedeMatch
+                  ? (pid) => concedeHole(currentHole, pid)
+                  : undefined
+              }
             />
-          )}
+          ))}
 
           {entities.map(card)}
 
@@ -877,9 +945,16 @@ export default function ScoringPage() {
         </div>
 
         {/* active bets ------------------------------------------------------- */}
-        {pills.length > 0 && (
+        {(pills.length > 0 || (overallPurseBet && !readOnly)) && (
           <div style={{ flex: '0 0 auto', padding: '8px 14px 0', boxSizing: 'border-box' }}>
-            <div style={S.activeLabel}>ACTIVE BETS</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0 2px 8px' }}>
+              <div style={S.activeLabel}>ACTIVE BETS</div>
+              {overallPurseBet && activePressCount > 0 && (
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.45)' }}>
+                  {activePressCount}/{MAX_ACTIVE_PRESSES} presses
+                </span>
+              )}
+            </div>
             <div className="no-scrollbar" style={S.betRow}>
               {pills.map((b) => (
                 <button key={b.id} type="button" onClick={() => setSheet('bets')} style={S.betChip}>
@@ -890,6 +965,23 @@ export default function ScoringPage() {
                   <span style={S.betChipStatus}>{b.status}</span>
                 </button>
               ))}
+              {overallPurseBet && !readOnly && pressEligibility.allowed && (
+                <button
+                  type="button"
+                  onClick={() => setSheet('press')}
+                  style={{
+                    ...S.betChip,
+                    border: `1px solid ${hexA(ACCENT, 0.55)}`,
+                    background: hexA(ACCENT, 0.1),
+                  }}
+                >
+                  <span style={{ ...S.betChipTitle, color: ACCENT }}>
+                    <Icon name="wager" size={16} color={ACCENT} />
+                    <span style={S.betChipTitleText}>Press</span>
+                  </span>
+                  <span style={{ ...S.betChipStatus, color: ACCENT }}>{pressChipLabel.replace(/^Press · /, '')}</span>
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -1081,7 +1173,9 @@ export default function ScoringPage() {
 
       {sheet === 'bets' && (
         <Sheet onClose={() => setSheet(null)} title="Active Bets">
-          {pills.length === 0 && <div style={{ padding: '14px 18px', color: 'rgba(255,255,255,.5)', fontSize: 14 }}>No games on — just keeping score.</div>}
+          {pills.length === 0 && activePresses.length === 0 && (
+            <div style={{ padding: '14px 18px', color: 'rgba(255,255,255,.5)', fontSize: 14 }}>No games on — just keeping score.</div>
+          )}
           {pills.map((b) => (
             <div key={b.id} style={{ padding: '14px 18px', borderTop: '1px solid rgba(255,255,255,.07)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
@@ -1100,7 +1194,87 @@ export default function ScoringPage() {
               )}
             </div>
           ))}
+          {activePresses.length > 0 && (
+            <>
+              <div style={{ padding: '12px 18px 6px', fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: 'rgba(255,255,255,.45)', borderTop: pills.length ? '1px solid rgba(255,255,255,.07)' : 'none' }}>
+                ACTIVE PRESSES
+              </div>
+              {activePresses.map((press) => {
+                const downName = press.targetTeamId
+                  ? teams.find((t) => t.id === press.targetTeamId)?.name
+                  : players.find((p) => p.id === press.targetPlayerId)?.name
+                const upName = press.opponentTeamId
+                  ? teams.find((t) => t.id === press.opponentTeamId)?.name
+                  : players.find((p) => p.id === press.opponentPlayerId)?.name
+                const origLine =
+                  press.originalBetAction === 'close'
+                    ? `Original closed thru hole ${press.startHole - 1}`
+                    : 'Original continued'
+                return (
+                  <div key={press.id} style={{ padding: '12px 18px', borderTop: '1px solid rgba(255,255,255,.07)' }}>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>
+                      Press x{press.multiplier} · ${press.pressStake} · from hole {press.startHole}
+                    </div>
+                    <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', marginTop: 4 }}>
+                      {downName} vs {upName}
+                    </div>
+                    <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.45)', marginTop: 2 }}>{origLine}</div>
+                  </div>
+                )
+              })}
+            </>
+          )}
+          {overallPurseBet && !readOnly && pressEligibility.allowed && (
+            <div style={{ padding: '14px 18px', borderTop: '1px solid rgba(255,255,255,.07)' }}>
+              <button
+                type="button"
+                onClick={() => setSheet('press')}
+                style={{
+                  width: '100%',
+                  minHeight: 48,
+                  borderRadius: 14,
+                  border: `1px solid ${hexA(ACCENT, 0.45)}`,
+                  background: hexA(ACCENT, 0.1),
+                  color: ACCENT,
+                  fontSize: 14,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                {pressChipLabel}
+              </button>
+            </div>
+          )}
         </Sheet>
+      )}
+
+      {sheet === 'press' && overallPurseBet && pressEligibility.allowed && (
+        <PressSheet
+          onClose={(created) => {
+            setSheet(null)
+            if (created?.startHole) {
+              useNotificationStore.getState().pushToast({
+                kicker: 'PRESS',
+                title: 'Press set',
+                body: `Starts hole ${created.startHole}`,
+                duration: 5000,
+              })
+            }
+          }}
+          targets={pressEligibility.targets}
+          originalStake={overallPurseBet.config?.stake ?? overallPurseBet.amount ?? 0}
+          currentHole={currentHole}
+          players={players}
+          teams={teams}
+          onConfirm={(input) =>
+            createPressBet({
+              ...input,
+              createdByPlayerId: meId,
+              createdByTeamId: isScramble ? meEntityId : null,
+            })
+          }
+        />
       )}
 
       {keypadFor && (
@@ -1181,8 +1355,8 @@ function Keypad({ entity, holeLabel, onPick, onClose }) {
   )
 }
 
-/** Match Play status + per-hole concession. */
-function MatchPanel({ info, hole, concededTo, onConcede }) {
+/** Match Play status + per-hole concession (2-player matches only). */
+function MatchPanel({ info, pairLabel, hole, concededTo, onConcede }) {
   const { side1, side2, status } = info
   const leaderName = status.leader === 'p1' ? side1.name : status.leader === 'p2' ? side2.name : null
   const complete = status.status === 'complete'
@@ -1195,8 +1369,13 @@ function MatchPanel({ info, hole, concededTo, onConcede }) {
       : `All Square · thru ${status.holesPlayed}`
   return (
     <div style={{ ...S.panel, marginBottom: 13 }}>
-      <div style={{ fontSize: 19, fontWeight: 800, color: '#fff' }}>{headline}</div>
-      {!complete && (
+      {pairLabel && (
+        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.2, color: 'rgba(255,255,255,.5)', marginBottom: 6 }}>
+          {pairLabel.toUpperCase()}
+        </div>
+      )}
+      <div style={{ fontSize: pairLabel ? 17 : 19, fontWeight: 800, color: '#fff' }}>{headline}</div>
+      {!complete && onConcede && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 11, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,.5)' }}>Concede hole {hole}:</span>
           {[side1, side2].map((s) => {

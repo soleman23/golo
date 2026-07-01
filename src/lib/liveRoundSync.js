@@ -12,6 +12,7 @@ let eventsChannel = null
 // this (not the previous store tick) so a change isn't dropped when several land
 // inside one debounce window.
 let lastPushed = null
+let hadSyncFailure = false
 
 function detectEvent(state, prev) {
   if (!prev) return null
@@ -31,6 +32,15 @@ function detectEvent(state, prev) {
   ) {
     return { type: 'side_game_flagged', payload: {} }
   }
+  if (
+    JSON.stringify(state.bets) !== JSON.stringify(prev.bets) ||
+    JSON.stringify(state.pressBets) !== JSON.stringify(prev.pressBets) ||
+    JSON.stringify(state.teams) !== JSON.stringify(prev.teams) ||
+    JSON.stringify(state.players) !== JSON.stringify(prev.players) ||
+    state.status !== prev.status
+  ) {
+    return { type: 'round_updated', payload: {} }
+  }
   return null
 }
 
@@ -41,7 +51,10 @@ function schedulePush(state) {
   clearTimeout(debounceTimer)
   debounceTimer = setTimeout(async () => {
     const payload = serializeRoundState(state)
-    const event = detectEvent(state, lastPushed)
+    let event = detectEvent(state, lastPushed)
+    if (!event && hadSyncFailure) {
+      event = { type: 'state_updated', payload: {} }
+    }
     const { error } = await patchLiveRound(
       liveRoundId,
       payload,
@@ -50,6 +63,7 @@ function schedulePush(state) {
     )
     if (error) {
       const msg = error?.message ?? String(error)
+      hadSyncFailure = true
       useNotificationStore.getState().pushToast({
         kicker: 'LIVE SYNC',
         title: 'Could not sync scores',
@@ -58,6 +72,7 @@ function schedulePush(state) {
       })
       return
     }
+    hadSyncFailure = false
     lastPushed = state
   }, 450)
 }
@@ -74,6 +89,7 @@ export function detachLiveSync() {
   clearTimeout(debounceTimer)
   debounceTimer = null
   lastPushed = null
+  hadSyncFailure = false
   if (storeUnsub) {
     storeUnsub()
     storeUnsub = null
@@ -82,6 +98,9 @@ export function detachLiveSync() {
 
 export function hydrateFromServer(liveState) {
   if (!liveState) return
+  const { role } = useLiveRoundStore.getState()
+  // Scorers own local state while scoring; never overwrite from server echoes.
+  if (role === 'scorer') return
   useRoundStore.getState().hydrateFromLiveState(liveState)
 }
 

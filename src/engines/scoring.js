@@ -130,7 +130,8 @@ export function buildLeaderboard(players, scores, strokeAllocations, pars, thruH
   entries.sort((a, b) => {
     if (a.thru === 0 && b.thru > 0) return 1
     if (b.thru === 0 && a.thru > 0) return -1
-    return a.net - b.net
+    if (a.net !== b.net) return a.net - b.net
+    return b.thru - a.thru
   })
 
   // Assign ranks, sharing a rank for equal net scores.

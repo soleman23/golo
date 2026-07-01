@@ -56,6 +56,24 @@ function addHeadToHeadPayout(players, payouts, winnerId, perPlayerAmount) {
   return amount * others.length
 }
 
+/** Split end-of-round carried skins among tied leaders (from each non-leader). */
+function settleCarriedSkins(players, payouts, leaderIds, carried, valuePerSkin) {
+  if (carried <= 0 || leaderIds.length === 0) return 0
+  const leaders = new Set(leaderIds)
+  const nonLeaders = players.filter((p) => !leaders.has(p.id))
+  if (nonLeaders.length === 0) return 0
+  const share = (carried * valuePerSkin) / leaderIds.length
+  let total = 0
+  for (const winnerId of leaderIds) {
+    for (const other of nonLeaders) {
+      payouts[winnerId] = (payouts[winnerId] ?? 0) + share
+      payouts[other.id] = (payouts[other.id] ?? 0) - share
+      total += share
+    }
+  }
+  return total
+}
+
 /**
  * Calculate Skins for a group.
  *
@@ -107,6 +125,26 @@ export function calculateSkins(players, scores, pars, strokeAllocations, betConf
       // Tie: skin carries (if enabled) — nobody is paid on this hole.
       skinsByHole.push({ hole, winner: null, value: 0, carryCount })
       carried = carryover ? carryCount : 0
+    }
+  }
+
+  // Settle carried skins when the round ends on a tie among a subset of the field.
+  if (carried > 0 && carryover && skinsByHole.length > 0) {
+    const lastEntry = skinsByHole[skinsByHole.length - 1]
+    if (lastEntry.winner == null && lastEntry.hole != null) {
+      const hole = lastEntry.hole
+      const scored = players
+        .map((p) => ({ id: p.id, score: holeScore(scores, strokeAllocations, p.id, hole, useNetScores) }))
+        .filter((s) => s.score != null)
+      if (scored.length === players.length) {
+        const lowest = Math.min(...scored.map((s) => s.score))
+        const leaderIds = scored.filter((s) => s.score === lowest).map((s) => s.id)
+        const value = settleCarriedSkins(players, payouts, leaderIds, carried, valuePerSkin)
+        if (value > 0) {
+          lastEntry.value = value
+          if (leaderIds.length === 1) lastEntry.winner = leaderIds[0]
+        }
+      }
     }
   }
 
@@ -167,7 +205,8 @@ export function calculateBonusSkins(players, scores, pars, config = {}) {
           lines.push(`Hole ${hole}: ${nameOf(eagles[0].id)} Eagle +$${value}${eagleCarry > 1 ? ` (${eagleCarry} skins)` : ''}`)
         }
         eagleCarry = 1
-      } else {
+      } else if (eagles.length > 1) {
+        // Sole eagle wins the carry; ties on eagle-or-better carry forward only.
         eagleCarry += 1
       }
     }

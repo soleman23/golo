@@ -99,9 +99,13 @@ export function allocateStrokes(courseHandicap, totalHoles = 18, holeHandicapRan
   let i = 0
   while (remaining > 0 && order.length > 0) {
     const hole = order[i]
-    allocation[hole] += 1
-    remaining -= 1
-    i = i >= order.length - 1 ? 0 : i + 1 // wrap for a 2nd (3rd...) pass
+    if (allocation[hole] < 2) {
+      allocation[hole] += 1
+      remaining -= 1
+    }
+    i = i >= order.length - 1 ? 0 : i + 1
+    // Excess strokes beyond 2/hole are dropped (MVP cap).
+    if (order.every((h) => allocation[h] >= 2)) break
   }
 
   return allocation

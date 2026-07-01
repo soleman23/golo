@@ -16,6 +16,7 @@
 
 import { calculateSkinsBet, skinsConfigForSettlement } from './skins'
 import { calculateNassau, calculateNassauGroup } from './nassau'
+import { calculateOverallPurse, teamPairStanding } from './overallPurse'
 import { buildLeaderboard } from './scoring'
 import { buildStablefordLeaderboard } from './stableford'
 
@@ -63,6 +64,40 @@ function pairStanding(p1, p2, scores, alloc, thru) {
   return up
 }
 
+/** Best head-to-head margin across pairings (meaningful for 3–4 player match bets). */
+function bestPairingLabel(inBet, scores, alloc, thru) {
+  let best = null
+  for (let i = 0; i < inBet.length; i++) {
+    for (let j = i + 1; j < inBet.length; j++) {
+      const up = pairStanding(inBet[i].id, inBet[j].id, scores, alloc, thru)
+      if (up === 0) continue
+      const margin = Math.abs(up)
+      if (!best || margin > best.margin) {
+        const leader = up > 0 ? inBet[i] : inBet[j]
+        const trailer = leader === inBet[i] ? inBet[j] : inBet[i]
+        best = { leader, trailer, margin }
+      }
+    }
+  }
+  if (!best) return 'All square'
+  return `${best.leader.name} ${best.margin} up vs ${best.trailer.name}`
+}
+
+function pairingDetailLines(inBet, scores, alloc, thru) {
+  const lines = []
+  for (let i = 0; i < inBet.length; i++) {
+    for (let j = i + 1; j < inBet.length; j++) {
+      const up = pairStanding(inBet[i].id, inBet[j].id, scores, alloc, thru)
+      const status =
+        up === 0
+          ? 'AS'
+          : `${up > 0 ? inBet[i].name : inBet[j].name} ${Math.abs(up)} up`
+      lines.push(`${inBet[i].name} vs ${inBet[j].name}: ${status}`)
+    }
+  }
+  return lines
+}
+
 /** Nassau pill — current overall standing; detail lines from the engine. */
 function nassauPill(bet, players, scores, pars, alloc) {
   const inBet = participants(bet, players)
@@ -87,20 +122,8 @@ function nassauPill(bet, players, scores, pars, alloc) {
     return { label, detailLines: lines }
   }
 
-  // 3–4 players: aggregate signed holes-up across every pairing to find who's
-  // leading the Nassau overall.
-  const totals = Object.fromEntries(inBet.map((p) => [p.id, 0]))
-  for (let i = 0; i < inBet.length; i++) {
-    for (let j = i + 1; j < inBet.length; j++) {
-      const up = pairStanding(inBet[i].id, inBet[j].id, scores, alloc, thru)
-      totals[inBet[i].id] += up
-      totals[inBet[j].id] -= up
-    }
-  }
-  const ranked = [...inBet].sort((a, b) => totals[b.id] - totals[a.id])
-  const top = ranked[0]
-  const allEven = ranked.every((p) => totals[p.id] === totals[top.id])
-  const label = allEven ? 'All square' : `${top.name} leads`
+  // 3–4 players: show the strongest head-to-head margin; details list every pairing.
+  const label = bestPairingLabel(inBet, scores, alloc, thru)
   const detailLines = calculateNassauGroup(
     inBet,
     scores,
@@ -108,6 +131,42 @@ function nassauPill(bet, players, scores, pars, alloc) {
     alloc,
     bet.config
   ).flatMap((r) => r.lines)
+  return { label, detailLines }
+}
+
+/** Overall Purse pill — match-play standing over the full round. */
+function overallPursePill(bet, players, scores, pars, alloc, scoringType, teams) {
+  const inBet = participants(bet, players)
+  if (inBet.length < 2) {
+    return { label: '—', detailLines: ['Need at least two players.'] }
+  }
+
+  const thru = Object.keys(pars).length
+
+  if (scoringType === 'scramble' && teams.length === 2) {
+    const [tA, tB] = teams
+    const up = teamPairStanding(tA.id, tB.id, scores, pars, thru)
+    const leader = up > 0 ? tA : up < 0 ? tB : null
+    const label = leader ? `${leader.name} ${Math.abs(up)} up` : 'All square'
+    return {
+      label,
+      detailLines: [`${tA.name} vs ${tB.name}`, label],
+    }
+  }
+
+  if (inBet.length === 2) {
+    const up = pairStanding(inBet[0].id, inBet[1].id, scores, alloc, thru)
+    const leader = up > 0 ? inBet[0] : up < 0 ? inBet[1] : null
+    const label = leader ? `${leader.name} ${Math.abs(up)} up` : 'All square'
+    const result = calculateOverallPurse(inBet[0], inBet[1], scores, pars, alloc, bet.config)
+    const line = result.winner
+      ? `${inBet.find((p) => p.id === result.winner)?.name ?? result.winner} leads $${bet.config?.stake ?? 0}`
+      : 'All square'
+    return { label, detailLines: [line] }
+  }
+
+  const label = bestPairingLabel(inBet, scores, alloc, thru)
+  const detailLines = pairingDetailLines(inBet, scores, alloc, thru)
   return { label, detailLines }
 }
 
@@ -228,6 +287,7 @@ const NAMES = {
   nassau: 'Nassau',
   skins: 'Skins',
   strokePurse: 'Purse',
+  overallPurse: 'O. Purse',
   ctp: 'CTP',
   longestDrive: 'LD',
 }
@@ -277,6 +337,9 @@ export function summarizeBets({
           scoringType,
           teams
         )
+        break
+      case 'overallPurse':
+        result = overallPursePill(bet, players, scores, pars, strokeAllocations, scoringType, teams)
         break
       case 'ctp':
         result = ctpPill(bet, players, sideGameFlags)

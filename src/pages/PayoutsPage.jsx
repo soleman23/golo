@@ -131,6 +131,7 @@ export default function PayoutsPage() {
   const players = useRoundStore((s) => s.players)
   const scores = useRoundStore((s) => s.scores)
   const bets = useRoundStore((s) => s.bets)
+  const pressBets = useRoundStore((s) => s.pressBets)
   const sideGameFlags = useRoundStore((s) => s.sideGameFlags)
   const wolfPicks = useRoundStore((s) => s.wolfPicks)
   const bbbFlags = useRoundStore((s) => s.bbbFlags)
@@ -225,15 +226,16 @@ export default function PayoutsPage() {
         players,
         scores,
         pars,
-        strokeAllocations,
+        strokeAllocations: scoringAllocations,
         sideGameFlags,
         skinFlags,
         wolfPicks,
         bbbFlags,
         scoringType: round?.scoringType,
         teams,
+        pressBets,
       }),
-    [bets, players, scores, pars, strokeAllocations, sideGameFlags, skinFlags, wolfPicks, bbbFlags, round?.scoringType, teams]
+    [bets, players, scores, pars, scoringAllocations, sideGameFlags, skinFlags, wolfPicks, bbbFlags, round?.scoringType, teams, pressBets]
   )
 
   const netPayouts = useMemo(() => aggregatePayouts(betResults.map((b) => b.payouts)), [betResults])

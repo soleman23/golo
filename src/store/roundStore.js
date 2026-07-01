@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { buildStrokeAllocations } from '../engines/handicap'
+import { buildPressBet } from '../engines/pressBets'
 
 const useRoundStore = create(
   persist(
@@ -9,6 +10,7 @@ const useRoundStore = create(
       players: [],
       scores: {},
       bets: [],
+      pressBets: [],
       sideGameFlags: {
         closestToPin: {},
         longestDrive: {},
@@ -41,6 +43,7 @@ const useRoundStore = create(
           players: [],
           scores: {},
           bets: [],
+          pressBets: [],
           sideGameFlags: { closestToPin: {}, longestDrive: {} },
           teams: [],
           wolfPicks: {},
@@ -165,6 +168,32 @@ const useRoundStore = create(
       // Round so navigating back and forth doesn't append duplicates).
       setBets: (bets) => set({ bets }),
 
+      createPressBet: (input) => {
+        const state = get()
+        const result = buildPressBet({
+          ...input,
+          bets: state.bets,
+          pressBets: state.pressBets,
+          scores: state.scores,
+          pars: state.round?.pars ?? {},
+          strokeAllocations: state.getStrokeAllocations(),
+          teams: state.teams,
+          currentHole: state.currentHole,
+          totalHoles: state.round?.holes ?? 18,
+          roundId: state.round?.roundId ?? '',
+          status: state.status,
+        })
+        if (!result.ok) return result
+        const { pressBet, parentBetPatch } = result
+        set((s) => ({
+          pressBets: [...s.pressBets, pressBet],
+          bets: parentBetPatch
+            ? s.bets.map((b) => (b.id === parentBetPatch.id ? parentBetPatch : b))
+            : s.bets,
+        }))
+        return { ok: true, pressBet }
+      },
+
       flagCTP: (hole, playerId) =>
         set((state) => ({
           sideGameFlags: {
@@ -201,6 +230,7 @@ const useRoundStore = create(
           players: [],
           scores: {},
           bets: [],
+          pressBets: [],
           sideGameFlags: { closestToPin: {}, longestDrive: {} },
           teams: [],
           wolfPicks: {},
@@ -287,6 +317,7 @@ const useRoundStore = create(
           players: liveState.players ?? [],
           scores: liveState.scores ?? {},
           bets: liveState.bets ?? [],
+          pressBets: liveState.pressBets ?? [],
           teams: liveState.teams ?? [],
           sideGameFlags: liveState.sideGameFlags ?? { closestToPin: {}, longestDrive: {} },
           wolfPicks: liveState.wolfPicks ?? {},

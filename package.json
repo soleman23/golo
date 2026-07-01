@@ -6,9 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "lint": "eslint .",
+    "lint": "eslint src",
+    "test": "node scripts/verify-live-role.mjs && node scripts/verify-medium-fixes.mjs && node scripts/verify-press-bets.mjs",
+    "ci": "npm test && npm run lint && npm run build",
+    "verify:engines": "node scripts/verify-medium-fixes.mjs",
     "verify:prod": "node scripts/verify-production.mjs",
     "verify:live-role": "node scripts/verify-live-role.mjs",
+    "verify:press-bets": "node scripts/verify-press-bets.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

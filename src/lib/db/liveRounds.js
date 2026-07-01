@@ -26,6 +26,7 @@ export function serializeRoundState(state) {
     }),
     scores: state.scores,
     bets: state.bets,
+    pressBets: state.pressBets ?? [],
     teams: state.teams,
     sideGameFlags: state.sideGameFlags,
     wolfPicks: state.wolfPicks,

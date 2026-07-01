@@ -58,7 +58,12 @@ export function calculateWolfResult(holeScores, wolfId, partnerId, betAmount = 1
   const wolfScores = wolfSide.map((id) => holeScores[id]).filter((s) => s != null)
   const oppScores = opponents.map((id) => holeScores[id]).filter((s) => s != null)
 
-  // Need at least one score on each side to settle.
+  // Wait until every player has posted — same guard as skins settlement.
+  const allScored = ids.every((id) => holeScores[id] != null)
+  if (!allScored) {
+    return { wolfId, partnerId: lone ? null : partnerId, lone, result: 'push', payouts }
+  }
+
   if (wolfScores.length === 0 || oppScores.length === 0) {
     return { wolfId, partnerId: lone ? null : partnerId, lone, result: 'push', payouts }
   }

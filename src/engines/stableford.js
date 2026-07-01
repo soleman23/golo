@@ -26,8 +26,9 @@
  */
 export function calculateStablefordPoints(grossScore, par, strokeReduction = 0) {
   if (grossScore == null) return 0
-  const net = grossScore - strokeReduction
-  const diff = net - par
+  const net = Math.max(0, grossScore - strokeReduction)
+  // Can't score better than gross relative to par (prevents inflated points when strokes > gross).
+  const diff = Math.max(net - par, grossScore - par)
   if (diff <= -3) return 5 // albatross or better
   if (diff === -2) return 4 // eagle
   if (diff === -1) return 3 // birdie
@@ -77,7 +78,8 @@ export function buildStablefordLeaderboard(players, scores, pars, strokeAllocati
   entries.sort((a, b) => {
     if (a.thru === 0 && b.thru > 0) return 1
     if (b.thru === 0 && a.thru > 0) return -1
-    return b.points - a.points
+    if (b.points !== a.points) return b.points - a.points
+    return b.thru - a.thru
   })
 
   // Assign ranks, sharing a rank for equal point totals.

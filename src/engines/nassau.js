@@ -27,7 +27,7 @@
  * @param {number} hole
  * @returns {number | null} Net strokes, or null if the hole isn't scored.
  */
-function netForHole(scores, strokeAllocations, playerId, hole) {
+export function netForHole(scores, strokeAllocations, playerId, hole) {
   const gross = scores[playerId]?.[hole]
   if (gross == null) return null
   const reduction = strokeAllocations[playerId]?.[hole] ?? 0
@@ -45,15 +45,25 @@ function netForHole(scores, strokeAllocations, playerId, hole) {
  * @param {number} amount - Payout for winning the segment.
  * @returns {{ winner: string|null, amount: number, holesUp: number }} holesUp is p1's net hole lead.
  */
-function scoreSegment(p1, p2, scores, strokeAllocations, holes, amount) {
+export function scoreSegment(p1, p2, scores, strokeAllocations, holes, amount) {
   let holesUp = 0 // positive = p1 ahead, negative = p2 ahead
+  let unplayed = 0
   for (const hole of holes) {
     const n1 = netForHole(scores, strokeAllocations, p1, hole)
     const n2 = netForHole(scores, strokeAllocations, p2, hole)
     // Only count holes both players have completed.
-    if (n1 == null || n2 == null) continue
+    if (n1 == null || n2 == null) {
+      unplayed += 1
+      continue
+    }
     if (n1 < n2) holesUp += 1
     else if (n2 < n1) holesUp -= 1
+  }
+
+  const complete = unplayed === 0
+  const clinched = Math.abs(holesUp) > unplayed
+  if (!complete && !clinched) {
+    return { winner: null, amount: 0, holesUp }
   }
 
   if (holesUp > 0) return { winner: p1, amount, holesUp }
@@ -71,15 +81,20 @@ function scoreSegmentStroke(p1, p2, scores, strokeAllocations, holes, amount) {
   let t1 = 0
   let t2 = 0
   let counted = 0
+  let unplayed = 0
   for (const hole of holes) {
     const n1 = netForHole(scores, strokeAllocations, p1, hole)
     const n2 = netForHole(scores, strokeAllocations, p2, hole)
-    if (n1 == null || n2 == null) continue
+    if (n1 == null || n2 == null) {
+      unplayed += 1
+      continue
+    }
     t1 += n1
     t2 += n2
     counted += 1
   }
   if (counted === 0) return { winner: null, amount: 0, diff: 0 }
+  if (unplayed > 0) return { winner: null, amount: 0, diff: Math.abs(t1 - t2) }
   if (t1 < t2) return { winner: p1, amount, diff: t2 - t1 }
   if (t2 < t1) return { winner: p2, amount, diff: t1 - t2 }
   return { winner: null, amount: 0, diff: 0 }
@@ -119,7 +134,16 @@ function computePresses(p1, p2, scores, strokeAllocations, holes, amount) {
   const presses = []
   for (let m = 1; m < starts.length; m++) {
     const d = diffs[m]
-    const winner = d > 0 ? p1 : d < 0 ? p2 : null
+    const startIdx = starts[m]
+    let unplayed = 0
+    for (let hi = startIdx; hi < holes.length; hi++) {
+      const n1 = netForHole(scores, strokeAllocations, p1, holes[hi])
+      const n2 = netForHole(scores, strokeAllocations, p2, holes[hi])
+      if (n1 == null || n2 == null) unplayed += 1
+    }
+    const complete = unplayed === 0
+    const clinched = Math.abs(d) > unplayed
+    const winner = complete || clinched ? (d > 0 ? p1 : d < 0 ? p2 : null) : null
     presses.push({ winner, amount: winner ? amount : 0, holesUp: d, startHole: holes[starts[m]] })
   }
   return presses

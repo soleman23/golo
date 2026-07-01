@@ -18,6 +18,8 @@
 
 import { calculateSkinsBet, skinsConfigForSettlement } from './skins'
 import { calculateNassauPayouts } from './nassau'
+import { calculateOverallPursePayouts } from './overallPurse'
+import { calculatePressPayouts } from './pressBets'
 import { calculateStrokePurse, calculateScramblePurse } from './strokePurse'
 import { calculateCTP } from './ctp'
 import { calculateLongestDrive } from './longestDrive'
@@ -28,6 +30,7 @@ const META = {
   nassau: { name: 'Nassau', icon: '🏆', glyph: 'nassau' },
   skins: { name: 'Skins', icon: '🎯', glyph: 'skins' },
   strokePurse: { name: 'Stroke Purse', icon: '💰', glyph: 'purse' },
+  overallPurse: { name: 'Overall Purse', icon: '💰', glyph: 'purse' },
   ctp: { name: 'Closest to Pin', icon: '📍', glyph: 'closestToPin' },
   longestDrive: { name: 'Longest Drive', icon: '🚀', glyph: 'longestDrive' },
   wolf: { name: 'Wolf', icon: '🐺', glyph: 'wolf' },
@@ -89,6 +92,7 @@ function headlineFor(players, payouts) {
  * @param {Object} [args.bbbFlags] - Per-hole BBB winners { [hole]: { bingo, bango, bongo } }.
  * @param {string} [args.scoringType] - Round format; drives Stroke Purse metric (stableford / scramble teams).
  * @param {Array<{ id: string, name: string, playerIds: string[] }>} [args.teams] - Scramble teams.
+ * @param {Array<object>} [args.pressBets] - Manual press bets.
  * @returns {BetResult[]}
  */
 export function buildBetResults({
@@ -103,8 +107,9 @@ export function buildBetResults({
   bbbFlags = {},
   scoringType = 'stroke',
   teams = [],
+  pressBets = [],
 }) {
-  return bets.map((bet) => {
+  const results = bets.map((bet) => {
     const inBet = bet.playerIds?.length
       ? players.filter((p) => bet.playerIds.includes(p.id))
       : players
@@ -141,6 +146,19 @@ export function buildBetResults({
             metric,
           })
         }
+        payouts = r.payouts
+        lines = r.lines
+        break
+      }
+      case 'overallPurse': {
+        const r = calculateOverallPursePayouts(
+          inBet,
+          scores,
+          pars,
+          strokeAllocations,
+          bet.config,
+          { teams: scoringType === 'scramble' ? teams : [] }
+        )
         payouts = r.payouts
         lines = r.lines
         break
@@ -216,9 +234,34 @@ export function buildBetResults({
       icon: meta.icon,
       payouts,
       lines,
-      headline: headlineFor(players, payouts),
+      headline: headlineFor(inBet, payouts),
     }
   })
+
+  if (pressBets.length > 0) {
+    const pressOut = calculatePressPayouts(
+      pressBets,
+      players,
+      scores,
+      pars,
+      strokeAllocations,
+      teams
+    )
+    const hasPayout = Object.values(pressOut.payouts).some((v) => Math.abs(v) > 0.005)
+    if (hasPayout || pressOut.lines.length > 0) {
+      results.push({
+        id: 'press-bets',
+        type: 'press',
+        name: 'Press',
+        icon: '📣',
+        payouts: pressOut.payouts,
+        lines: pressOut.lines,
+        headline: headlineFor(players, pressOut.payouts),
+      })
+    }
+  }
+
+  return results
 }
 
 /**

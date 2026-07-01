@@ -114,7 +114,6 @@ export async function syncOnLogin(userId, { force = false } = {}) {
     setReady(true)
   } catch (err) {
     console.error('[sync] syncOnLogin', err)
-    const detail = err?.message ?? String(err ?? '')
     const migrationHint = isMissingColumnError(err)
       ? ' The database is missing migrations — run 0004_profile_handicap.sql and 0005_ghin.sql in the Supabase SQL editor, then retry.'
       : ''

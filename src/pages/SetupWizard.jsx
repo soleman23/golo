@@ -294,11 +294,13 @@ const SKIN_TYPES = [
   { key: 'sandie', name: 'Sandie', tag: 'Sand save', desc: 'Flag players who were in a bunker; each par-or-better sand save wins a flat skin.', base: false },
   { key: 'closestToPin', name: 'Closest to Pin', tag: 'Par 3s', desc: 'Nearest the flag on par 3s. Flag one winner per hole live during scoring; pays the base value head-to-head. Cannot combine with Greenie.', base: false },
   { key: 'longestDrive', name: 'Longest Drive', tag: 'Par 5', desc: 'Longest drive in the fairway on a par 5. Flag the winner live during scoring; pays the base value head-to-head.', base: false },
+  { key: 'overallPurse', name: 'Overall Purse', tag: 'Match play', desc: 'Head-to-head match over the full round. Supports live presses when a side goes 2+ down.', base: false },
 ]
 
 /** Fresh Skins selection (the wizard-side shape held in st.bets.skins). */
 const defaultSkinsSelection = () => ({
   baseSkinValue: 1,
+  overallPurseStake: 1,
   basePreset: '1', // '1' | '2' | '5' | '10' | 'custom'
   scoring: 'net', // 'net' | 'gross'
   savedAsDefault: false,
@@ -313,6 +315,7 @@ const defaultSkinsSelection = () => ({
     sandie: false,
     closestToPin: false,
     longestDrive: false,
+    overallPurse: false,
     custom1: { enabled: false, name: '', value: 1, mode: 'dollar' }, // legacy persisted defaults only
     custom2: { enabled: false, name: '', value: 1, mode: 'dollar' },
   },
@@ -327,12 +330,13 @@ const perHoleSkinValue = (sel, base) =>
 /** Any payable skin type selected (carryover alone is not valid — it's a modifier). */
 const anySkinSelected = (sel) =>
   sel.standardSkin || sel.birdieBonusSkin || sel.eagleBonusSkin ||
-  sel.greenie || sel.sandie || sel.closestToPin || sel.longestDrive
+  sel.greenie || sel.sandie || sel.closestToPin || sel.longestDrive || sel.overallPurse
 
 /** Wizard skins state → the persisted SkinsConfig (data schema #1). */
 const skinsConfigOf = (b) => ({
   enabled: true,
   baseSkinValue: b.baseSkinValue,
+  overallPurseStake: b.overallPurseStake ?? b.baseSkinValue,
   scoring: b.scoring,
   ctpHoles: b.ctpHoles ?? 0,
   ldHole: b.ldHole ?? null,
@@ -345,6 +349,7 @@ const skinsConfigOf = (b) => ({
     sandie: !!b.selectedSkins.sandie,
     closestToPin: !!b.selectedSkins.closestToPin,
     longestDrive: !!b.selectedSkins.longestDrive,
+    overallPurse: !!b.selectedSkins.overallPurse,
     custom1: { ...b.selectedSkins.custom1 },
     custom2: { ...b.selectedSkins.custom2 },
   },
@@ -375,6 +380,7 @@ const skinsSelectionFrom = (c) => {
   const closestToPin = !!s.closestToPin && !greenie
   return {
     baseSkinValue: c.baseSkinValue ?? base.baseSkinValue,
+    overallPurseStake: c.overallPurseStake ?? c.baseSkinValue ?? base.overallPurseStake,
     basePreset: SKIN_PRESETS.includes(c.baseSkinValue) ? String(c.baseSkinValue) : 'custom',
     scoring: c.scoring ?? base.scoring,
     savedAsDefault: !!c.savedAsDefault,
@@ -389,6 +395,7 @@ const skinsSelectionFrom = (c) => {
       sandie: !!s.sandie,
       closestToPin,
       longestDrive: !!s.longestDrive,
+      overallPurse: !!s.overallPurse,
       custom1: { ...base.selectedSkins.custom1, ...(s.custom1 ?? {}) },
       custom2: { ...base.selectedSkins.custom2, ...(s.custom2 ?? {}) },
     },
@@ -755,6 +762,9 @@ export default function SetupWizard() {
     if (k === 'greenie' && v) nextSel.closestToPin = false
     if (k === 'closestToPin' && v) nextSel.greenie = false
     const next = { selectedSkins: nextSel }
+    if (k === 'overallPurse' && v) {
+      next.overallPurseStake = skins.overallPurseStake || skins.baseSkinValue
+    }
     if (k === 'longestDrive' && v && par5Holes.length) {
       next.ldHole = normalizeSkinsLdHole(skins.ldHole, st.pars)
     }
@@ -766,6 +776,11 @@ export default function SetupWizard() {
       : setBet('skins', { basePreset: String(preset), baseSkinValue: preset })
   const setSkinBaseValue = (raw) =>
     setBet('skins', { baseSkinValue: Math.max(1, Math.min(500, Math.round(Number(raw) || 0))) })
+  const stepOverallPurseStake = (dir) => {
+    const cur = skins.overallPurseStake ?? skins.baseSkinValue
+    const next = dir > 0 ? (cur < 15 ? cur + 1 : cur + 5) : (cur <= 15 ? cur - 1 : cur - 5)
+    setBet('skins', { overallPurseStake: Math.max(1, Math.min(500, next)) })
+  }
 
   /* ---- course selection ---- */
   // Switching course loads its real card (pars + stroke index) and resets the
@@ -930,7 +945,19 @@ export default function SetupWizard() {
         config: d.toConfig(b, who, ctx),
       }
     })
+    if (skins.on && skins.selectedSkins?.overallPurse) {
+      const who = skins.who.filter((x) => ids.includes(x))
+      const stake = skins.overallPurseStake ?? skins.baseSkinValue
+      bets.push({
+        id: crypto.randomUUID(),
+        type: 'overallPurse',
+        playerIds: who,
+        amount: stake,
+        config: { stake, style: 'match' },
+      })
+    }
     setBets(bets)
+    useRoundStore.setState({ pressBets: [] })
 
     // Persist (or clear) the player's saved Skins default for future rounds.
     if (skins.on) useProfileStore.getState().setSkinsDefault(skins.savedAsDefault ? skinsConfigOf(skins) : null)
@@ -1766,6 +1793,18 @@ export default function SetupWizard() {
             })}
           </div>
         </div>
+
+        {sel.overallPurse && (
+          <div>
+            <div style={skinSectionLabel}>OVERALL PURSE STAKE</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button type="button" onClick={() => stepOverallPurseStake(-1)} aria-label="Decrease Overall Purse stake" style={{ width: 44, height: 44, borderRadius: 12, border: '1px solid rgba(255,255,255,.18)', background: 'rgba(255,255,255,.08)', color: '#fff', fontSize: 20, fontWeight: 800, cursor: 'pointer' }}>−</button>
+              <span style={{ fontSize: 22, fontWeight: 800, color: ACCENT, minWidth: 72, textAlign: 'center' }}>${skins.overallPurseStake ?? skins.baseSkinValue}</span>
+              <button type="button" onClick={() => stepOverallPurseStake(1)} aria-label="Increase Overall Purse stake" style={{ width: 44, height: 44, borderRadius: 12, border: '1px solid rgba(255,255,255,.18)', background: 'rgba(255,255,255,.08)', color: '#fff', fontSize: 20, fontWeight: 800, cursor: 'pointer' }}>+</button>
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,.5)' }}>per match</span>
+            </div>
+          </div>
+        )}
 
         {/* who's in */}
         <div>
