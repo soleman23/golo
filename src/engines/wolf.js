@@ -19,6 +19,11 @@
  * @property {{ [playerId: string]: number }} payouts - Net units×amount per player (sums to 0).
  */
 
+/** Wolf requires exactly four players in the field. */
+export function isWolfField(players) {
+  return Array.isArray(players) && players.length === 4
+}
+
 /**
  * The Wolf for a given hole. Rotation follows the player order, wrapping each
  * cycle (4 players => same Wolf every 4 holes).

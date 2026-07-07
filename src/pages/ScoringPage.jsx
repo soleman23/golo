@@ -8,7 +8,7 @@ import {
   buildStablefordLeaderboard,
   calculateStablefordPoints,
 } from '../engines/stableford'
-import { calculateHoleResult, calculateMatchStatus } from '../engines/matchplay'
+import { buildMatchPairings } from '../engines/matchplay'
 import { getWolfOrder, calculateWolfResult, calculateWolfTotals } from '../engines/wolf'
 import { calculateBBBPayouts } from '../engines/bingobangobongo'
 import { summarizeBets } from '../engines/betStatus'
@@ -171,7 +171,7 @@ export default function ScoringPage() {
   const liveRoundId = useLiveRoundStore((s) => s.liveRoundId)
   const inviteCode = useLiveRoundStore((s) => s.inviteCode)
   const scorerName = useLiveRoundStore((s) => s.scorerName)
-  const readOnly = liveRole === 'player' || liveRole === 'viewer'
+  const readOnly = liveRole === 'player' || liveRole === 'viewer' || roundStatus === 'complete'
   const isLiveScorer = liveRole === 'scorer'
 
   // "You" detection for the YOU badge — profile identity, else the organizer.
@@ -205,7 +205,7 @@ export default function ScoringPage() {
 
   // Flip the round into scoring mode the first time this screen mounts.
   useEffect(() => {
-    if (round && roundStatus !== 'in_progress' && !readOnly) startScoring()
+    if (round && roundStatus === 'setup' && !readOnly) startScoring()
   }, [round, roundStatus, startScoring, readOnly])
 
   // Live round sync: scorer pushes patches; viewers subscribe to server state.
@@ -216,7 +216,7 @@ export default function ScoringPage() {
   useEffect(() => {
     if (!liveRoundId || liveRole === 'local-only') return undefined
 
-    if (isLiveScorer) {
+    if (isLiveScorer && roundStatus !== 'complete') {
       attachLiveSync()
       return () => {
         detachLiveSync()
@@ -261,7 +261,7 @@ export default function ScoringPage() {
       cancelled = true
       unsub()
     }
-  }, [liveRoundId, liveRole, isLiveScorer, navigate])
+  }, [liveRoundId, liveRole, isLiveScorer, roundStatus, navigate])
 
   // Scorer (local or live): each hole opens showing that hole's par as the default
   // (the ± baseline — see showScoreFor), but par is only written to the store —
@@ -338,47 +338,10 @@ export default function ScoringPage() {
 
   const leaderName = hasAnyScore ? (leaderboard[0]?.player?.name ?? DASH) : DASH
 
-  const matchHoleNumbers = useMemo(
-    () =>
-      Object.keys(pars)
-        .map(Number)
-        .sort((a, b) => a - b)
-        .filter((h) => h <= totalHoles),
-    [pars, totalHoles]
-  )
-
-  const buildMatchPair = (side1, side2) => {
-    const a1 = allocations[side1.id] ?? {}
-    const a2 = allocations[side2.id] ?? {}
-    const results = []
-    for (const h of matchHoleNumbers) {
-      const conceded = concededHoles[h]
-      if (conceded) {
-        results.push(conceded === side1.id ? 'p1' : 'p2')
-        continue
-      }
-      const s1 = scoreValue(scores[side1.id]?.[h])
-      const s2 = scoreValue(scores[side2.id]?.[h])
-      if (s1 == null || s2 == null) continue
-      const n1 = Math.max(0, s1 - (a1[h] ?? 0))
-      const n2 = Math.max(0, s2 - (a2[h] ?? 0))
-      results.push(calculateHoleResult(n1, n2))
-    }
-    return { side1, side2, status: calculateMatchStatus(results, totalHoles) }
-  }
-
-  // Match Play standing — all head-to-head pairings (concessions only for 2-player).
   const matchInfoList = useMemo(() => {
     if (!isMatchplay || players.length < 2) return []
-    const pairs = []
-    for (let i = 0; i < players.length; i++) {
-      for (let j = i + 1; j < players.length; j++) {
-        pairs.push(buildMatchPair(players[i], players[j]))
-      }
-    }
-    return pairs
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMatchplay, players, allocations, scores, concededHoles, totalHoles, matchHoleNumbers])
+    return buildMatchPairings(players, scores, allocations, concededHoles, pars, totalHoles)
+  }, [isMatchplay, players, allocations, scores, concededHoles, pars, totalHoles])
 
   const canConcedeMatch = isMatchplay && players.length === 2
 
@@ -650,6 +613,11 @@ export default function ScoringPage() {
       },
     }
   }, [sheet, lbView, isScramble, isStableford, useGrossScoring, teams, players, scores, pars, allocations, bets, pressBets, sideGameFlags, skinFlags, wolfPicks, bbbFlags, scoringType, totalHoles, meEntityId])
+
+  // Completed rounds belong on Payouts, not an editable scorecard.
+  if (round && roundStatus === 'complete') {
+    return <Navigate to="/payouts" replace />
+  }
 
   // No round set up yet — bounce back to setup.
   if (!round) {

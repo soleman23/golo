@@ -7,7 +7,7 @@ import useProfileStore from '../store/profileStore'
 import useAuthStore from '../store/authStore'
 import useLiveRoundStore from '../store/liveRoundStore'
 import { saveRound as dbSaveRound } from '../lib/db/rounds'
-import { completeLiveRound } from '../lib/db/liveRounds'
+import { completeLiveRound, liveRoundUserMessage } from '../lib/db/liveRounds'
 import { teardownLiveSync } from '../lib/liveRoundSync'
 import { fetchCourseGhinMapping } from '../lib/db/courses'
 import { postRoundToGhin } from '../lib/ghin/client'
@@ -15,6 +15,7 @@ import { canPostToGhin, isGhinConnected } from '../lib/ghin/eligibility'
 import { getCourseImage } from '../lib/courseImages'
 import { buildLeaderboard } from '../engines/scoring'
 import { buildStablefordLeaderboard } from '../engines/stableford'
+import { buildMatchPairings, buildMatchplayLeaderboard } from '../engines/matchplay'
 import { buildBetResults, formatRoundSummary, betGlyphName } from '../engines/betResults'
 import { aggregatePayouts, calculateSettlements } from '../engines/payouts'
 import { playerKey, autoKey, hasContact } from '../lib/identity'
@@ -136,6 +137,7 @@ export default function PayoutsPage() {
   const wolfPicks = useRoundStore((s) => s.wolfPicks)
   const bbbFlags = useRoundStore((s) => s.bbbFlags)
   const skinFlags = useRoundStore((s) => s.skinFlags)
+  const concededHoles = useRoundStore((s) => s.concededHoles)
   const teams = useRoundStore((s) => s.teams)
   const getStrokeAllocations = useRoundStore((s) => s.getStrokeAllocations)
   const completeRound = useRoundStore((s) => s.completeRound)
@@ -172,6 +174,7 @@ export default function PayoutsPage() {
   const scoringType = round?.scoringType ?? 'stroke'
   const isScramble = scoringType === 'scramble'
   const isStableford = scoringType === 'stableford'
+  const isMatchplay = scoringType === 'matchplay'
   const useGrossScoring = round?.scoring === 'gross'
 
   const strokeAllocations = useMemo(
@@ -184,8 +187,12 @@ export default function PayoutsPage() {
     [isScramble, useGrossScoring, strokeAllocations]
   )
 
-  // Entity-level board mirrors the round format (team gross / points / net).
+  // Entity-level board mirrors the round format (team gross / points / net / match).
   const leaderboard = useMemo(() => {
+    if (isMatchplay) {
+      const pairings = buildMatchPairings(players, scores, scoringAllocations, concededHoles, pars, totalHoles)
+      return buildMatchplayLeaderboard(players, pairings)
+    }
     if (isStableford) {
       return buildStablefordLeaderboard(players, scores, pars, scoringAllocations).map((e) => ({
         rank: e.rank,
@@ -201,12 +208,17 @@ export default function PayoutsPage() {
       return buildLeaderboard(teams, scores, {}, pars, totalHoles)
     }
     return buildLeaderboard(players, scores, scoringAllocations, pars, totalHoles)
-  }, [isStableford, isScramble, teams, players, scores, scoringAllocations, pars, totalHoles])
+  }, [isMatchplay, isStableford, isScramble, teams, players, scores, scoringAllocations, pars, totalHoles, concededHoles])
 
   // Per-player gross/net (for hero + standings sub-lines). In scramble the
   // individuals have no own scores, so these come out zero and we fall back to
   // the player's team name instead.
   const playerStats = useMemo(() => {
+    if (isMatchplay) {
+      return Object.fromEntries(
+        leaderboard.map((e) => [e.player.id, { gross: 0, net: e.holesUp ?? 0, thru: e.thru, toPar: 0, result: e.result }])
+      )
+    }
     if (isStableford) {
       const lb = buildStablefordLeaderboard(players, scores, pars, scoringAllocations)
       return Object.fromEntries(
@@ -217,7 +229,7 @@ export default function PayoutsPage() {
     return Object.fromEntries(
       lb.map((e) => [e.player.id, { gross: e.gross, net: e.net, thru: e.thru, toPar: e.toPar }])
     )
-  }, [isStableford, players, scores, pars, scoringAllocations, totalHoles])
+  }, [isMatchplay, isStableford, players, scores, pars, scoringAllocations, totalHoles, leaderboard])
 
   const betResults = useMemo(
     () =>
@@ -407,8 +419,8 @@ export default function PayoutsPage() {
         handicapIndex: p.handicapIndex ?? null,
         courseHandicap: p.courseHandicap ?? null,
         color: p.color ?? null,
-        guest: false,
-        loggedIn: true,
+        guest: !!p.guest,
+        loggedIn: !p.guest,
         verified: hasContact(p),
       })),
       teams,
@@ -472,6 +484,7 @@ export default function PayoutsPage() {
 
   const subFor = (pid) => {
     const st = playerStats[pid]
+    if (isMatchplay) return st?.result ?? 'All Square'
     if (isStableford) return `${st?.points ?? 0} pts`
     if (isScramble) return teamNameOf(pid) ?? 'No team'
     return `${st?.gross || 0} gross · ${st?.net || 0} net`
@@ -529,7 +542,9 @@ export default function PayoutsPage() {
   const entities = isScramble && teams.length > 0 ? teams : players
   const winners = leaderboard.filter((e) => e.rank === 1 && e.thru > 0)
   const champName = winners.map((w) => w.player.name).join(' & ') || '—'
-  const champSub = isStableford
+  const champSub = isMatchplay
+    ? (leaderboard[0]?.result ?? '—')
+    : isStableford
     ? `${leaderboard[0]?.points ?? 0} pts`
     : leaderboard[0]
     ? `Net ${leaderboard[0].net} · ${vpl(leaderboard[0].toPar)}`
@@ -597,13 +612,20 @@ export default function PayoutsPage() {
       await persistRound()
       const liveRoundId = useLiveRoundStore.getState().liveRoundId
       if (liveRoundId) {
-        await completeLiveRound(liveRoundId)
+        const { error } = await completeLiveRound(liveRoundId)
+        if (error) {
+          setToast(liveRoundUserMessage(error?.message ?? String(error)))
+          clearTimeout(toastTimer.current)
+          toastTimer.current = setTimeout(() => setToast(null), 6000)
+          return
+        }
       }
-    } finally {
       teardownLiveSync()
       useLiveRoundStore.getState().clearSession()
       resetRound()
       navigate('/you', { replace: true })
+    } finally {
+      setCompleting(false)
     }
   }
 
@@ -622,7 +644,7 @@ export default function PayoutsPage() {
       <div style={S.scrim} />
 
       <div style={S.column}>
-        <AppHeader accent={ACCENT} backTo="/scoring" logo="wordmark" rightAction="pin" kicker={scoringLabel} title="Settle Up" contextPill={round.course || 'Round'} />
+        <AppHeader accent={ACCENT} backTo="/" logo="wordmark" rightAction="pin" kicker={scoringLabel} title="Settle Up" contextPill={round.course || 'Round'} />
         <div style={S.headerDetail}>{headerDetail}</div>
 
         {/* scroll body ---------------------------------------------------- */}

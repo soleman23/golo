@@ -23,7 +23,7 @@ import { calculatePressPayouts } from './pressBets'
 import { calculateStrokePurse, calculateScramblePurse } from './strokePurse'
 import { calculateCTP } from './ctp'
 import { calculateLongestDrive } from './longestDrive'
-import { getWolfOrder, calculateWolfResult, calculateWolfTotals } from './wolf'
+import { getWolfOrder, calculateWolfResult, calculateWolfTotals, isWolfField } from './wolf'
 import { calculateBBBPayouts } from './bingobangobongo'
 
 const META = {
@@ -176,6 +176,11 @@ export function buildBetResults({
         break
       }
       case 'wolf': {
+        if (!isWolfField(inBet)) {
+          lines.push('Wolf requires exactly 4 players')
+          payouts = Object.fromEntries(inBet.map((p) => [p.id, 0]))
+          break
+        }
         const holes = Object.keys(pars)
           .map(Number)
           .sort((a, b) => a - b)
@@ -293,7 +298,9 @@ export function formatRoundSummary({
 
   lines.push('Final Standings:')
   leaderboard.forEach((e) => {
-    if (scoringType === 'stableford') {
+    if (scoringType === 'matchplay') {
+      lines.push(`${e.rank}. ${e.player.name} — ${e.result ?? 'All Square'}`)
+    } else if (scoringType === 'stableford') {
       lines.push(`${e.rank}. ${e.player.name} — ${e.points ?? e.net} pts`)
     } else {
       lines.push(`${e.rank}. ${e.player.name} — ${scoring === 'gross' ? 'Gross' : 'Net'} ${e.net} (${fmtToPar(e.toPar)})`)

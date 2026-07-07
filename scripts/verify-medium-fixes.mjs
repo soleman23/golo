@@ -5,6 +5,8 @@ import { calculateStablefordPoints } from '../src/engines/stableford.js'
 import { allocateStrokes } from '../src/engines/handicap.js'
 import { buildLeaderboard } from '../src/engines/scoring.js'
 import { getPressEligibility } from '../src/engines/pressBets.js'
+import { buildMatchPairings, buildMatchplayLeaderboard } from '../src/engines/matchplay.js'
+import { isWolfField } from '../src/engines/wolf.js'
 
 let passed = 0
 let failed = 0
@@ -81,6 +83,30 @@ const back9Elig = getPressEligibility({
   status: 'in_progress',
 })
 assert('press blocked on last hole of back-9 card', !back9Elig.allowed)
+
+// startScoring must not reopen a completed round (mirrors roundStore guard)
+const canStartScoring = (status) => status === 'setup'
+assert('startScoring blocked when complete', !canStartScoring('complete'))
+assert('startScoring blocked when in_progress', !canStartScoring('in_progress'))
+assert('startScoring allowed from setup', canStartScoring('setup'))
+
+// match play: 2-up standing on payouts board
+{
+  const mpPlayers = [{ id: 'a', name: 'Ann' }, { id: 'b', name: 'Bob' }]
+  const mpScores = {
+    a: { 1: 3, 2: 3, 3: 3 },
+    b: { 1: 5, 2: 5, 3: 5 },
+  }
+  const mpPars = { 1: 4, 2: 4, 3: 4 }
+  const pairings = buildMatchPairings(mpPlayers, mpScores, {}, {}, mpPars, 3)
+  const mpBoard = buildMatchplayLeaderboard(mpPlayers, pairings)
+  assert('matchplay 2-player leaderboard ranks winner first', mpBoard[0].player.id === 'a')
+  assert('matchplay standing uses result string', mpBoard[0].result === '3 Up')
+}
+
+// wolf guard: fewer than 4 players is not a valid field
+assert('wolf field rejects 3 players', !isWolfField([{ id: 'a' }, { id: 'b' }, { id: 'c' }]))
+assert('wolf field accepts 4 players', isWolfField([{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }]))
 
 console.log(`\nverify-medium-fixes: ${passed} passed, ${failed} failed`)
 process.exit(failed > 0 ? 1 : 0)

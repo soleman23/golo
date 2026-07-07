@@ -147,17 +147,17 @@ const useRoundStore = create(
         })),
 
       // Flip the round into scoring mode the first time the scoring screen opens.
+      // Only setup → in_progress; never reopen a completed round.
       startScoring: () =>
-        set((state) =>
-          state.status === 'in_progress'
-            ? {}
-            : {
-                status: 'in_progress',
-                round: state.round
-                  ? { ...state.round, status: 'in_progress' }
-                  : state.round,
-              }
-        ),
+        set((state) => {
+          if (state.status !== 'setup') return {}
+          return {
+            status: 'in_progress',
+            round: state.round
+              ? { ...state.round, status: 'in_progress' }
+              : state.round,
+          }
+        }),
 
       addBet: (bet) =>
         set((state) => ({

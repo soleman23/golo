@@ -6,8 +6,8 @@ import { serializeRoundState, patchLiveRound, liveRoundUserMessage } from './db/
 
 let debounceTimer = null
 let storeUnsub = null
-let roundChannel = null
-let eventsChannel = null
+const roundChannels = new Map()
+const eventChannels = new Map()
 // The last state we actually pushed to the server. Events are detected against
 // this (not the previous store tick) so a change isn't dropped when several land
 // inside one debounce window.
@@ -104,15 +104,28 @@ export function hydrateFromServer(liveState) {
   useRoundStore.getState().hydrateFromLiveState(liveState)
 }
 
+function removeRoundChannel(liveRoundId) {
+  const ch = roundChannels.get(liveRoundId)
+  if (ch) {
+    supabase.removeChannel(ch)
+    roundChannels.delete(liveRoundId)
+  }
+}
+
+function removeEventChannel(liveRoundId) {
+  const ch = eventChannels.get(liveRoundId)
+  if (ch) {
+    supabase.removeChannel(ch)
+    eventChannels.delete(liveRoundId)
+  }
+}
+
 export function subscribeToLiveRound(liveRoundId, onStateUpdate) {
   if (!isSupabaseConfigured || !liveRoundId) return () => {}
 
-  if (roundChannel) {
-    supabase.removeChannel(roundChannel)
-    roundChannel = null
-  }
+  removeRoundChannel(liveRoundId)
 
-  roundChannel = supabase
+  const channel = supabase
     .channel(`live-round-${liveRoundId}`)
     .on(
       'postgres_changes',
@@ -129,23 +142,19 @@ export function subscribeToLiveRound(liveRoundId, onStateUpdate) {
     )
     .subscribe()
 
+  roundChannels.set(liveRoundId, channel)
+
   return () => {
-    if (roundChannel) {
-      supabase.removeChannel(roundChannel)
-      roundChannel = null
-    }
+    removeRoundChannel(liveRoundId)
   }
 }
 
 export function subscribeToLiveEvents(liveRoundId, onEvent) {
   if (!isSupabaseConfigured || !liveRoundId) return () => {}
 
-  if (eventsChannel) {
-    supabase.removeChannel(eventsChannel)
-    eventsChannel = null
-  }
+  removeEventChannel(liveRoundId)
 
-  eventsChannel = supabase
+  const channel = supabase
     .channel(`live-events-${liveRoundId}`)
     .on(
       'postgres_changes',
@@ -161,22 +170,22 @@ export function subscribeToLiveEvents(liveRoundId, onEvent) {
     )
     .subscribe()
 
+  eventChannels.set(liveRoundId, channel)
+
   return () => {
-    if (eventsChannel) {
-      supabase.removeChannel(eventsChannel)
-      eventsChannel = null
-    }
+    removeEventChannel(liveRoundId)
   }
 }
 
+/** Stop scorer push + the current session's round-state channel only. */
 export function teardownLiveSync() {
   detachLiveSync()
-  if (roundChannel) {
-    supabase.removeChannel(roundChannel)
-    roundChannel = null
-  }
-  if (eventsChannel) {
-    supabase.removeChannel(eventsChannel)
-    eventsChannel = null
-  }
+  const { liveRoundId } = useLiveRoundStore.getState()
+  if (liveRoundId) removeRoundChannel(liveRoundId)
+}
+
+/** Remove every live round + event channel (e.g. starting a fresh local round). */
+export function teardownAllLiveChannels() {
+  for (const id of [...roundChannels.keys()]) removeRoundChannel(id)
+  for (const id of [...eventChannels.keys()]) removeEventChannel(id)
 }

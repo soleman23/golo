@@ -452,7 +452,7 @@ function initState() {
       email: p.email ?? '',
       phone: p.phone ?? '',
       hdcp: p.handicapIndex ?? 12,
-      guest: false,
+      guest: !!p.guest,
       color: p.color?.startsWith?.('#') ? p.color : PALETTE[i % PALETTE.length],
       team: storedTeams?.length ? teamOf(p.id) : i % 2 === 0 ? 'A' : 'B',
     }))
