@@ -65,6 +65,13 @@ const useRoundStore = create(
           return { round: { ...state.round, ...roundData } }
         }),
 
+      /** New UUID when the server still has a completed live row for the old id. */
+      remintRoundId: () =>
+        set((state) => {
+          if (!state.round) return {}
+          return { round: { ...state.round, roundId: crypto.randomUUID() } }
+        }),
+
       addPlayer: (player) =>
         set((state) => ({
           players: [...state.players, player],

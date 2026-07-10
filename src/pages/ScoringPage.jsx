@@ -1,4 +1,5 @@
 import { hexA } from '../lib/colors'
+import { initial, vpl, ncd, youBadge } from '../lib/scoreDisplay'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import useRoundStore from '../store/roundStore'
@@ -19,11 +20,12 @@ import { playerKey } from '../lib/identity'
 import { getCourseImage } from '../lib/courseImages'
 import AppHeader from '../components/shared/AppHeader'
 import { Icon } from '../components/shared/GoloIcons'
-import { fetchLiveRound } from '../lib/db/liveRounds'
+import { fetchLiveRound, ensureLiveScorerAccess, liveRoundUserMessage, serializeRoundState } from '../lib/db/liveRounds'
 import { attachLiveSync, detachLiveSync, hydrateFromServer, subscribeToLiveRound, teardownLiveSync } from '../lib/liveRoundSync'
 import useNotificationStore from '../store/notificationStore'
 import { getPressEligibility, findOverallPurseBet, MAX_ACTIVE_PRESSES } from '../engines/pressBets'
 import PressSheet from '../components/scoring/PressSheet'
+import PlayerScoreRow from '../components/scoring/PlayerScoreRow'
 
 /**
  * ScoringPage — the live round, "Scoring (Immersive)".
@@ -70,11 +72,6 @@ function BetGlyph({ bet, size = 18, color = ACCENT }) {
 
 /* ------------------------------------------------------------------- helpers */
 
-const initial = (name) => (name || '').trim().charAt(0).toUpperCase() || '?'
-/** Format net-to-par the golf way: E, +2, -1. */
-const vpl = (n) => (n === 0 ? 'E' : n > 0 ? `+${n}` : `${n}`)
-/** Colour a to-par number: green under, red over, neutral at level. */
-const ncd = (n) => (n < 0 ? '#bef264' : n > 0 ? '#fb7185' : 'rgba(255,255,255,.72)')
 /** Money the golf-bet way: +$5, −$3, $0 (rounded to the dollar for display). */
 const fmtMoney = (n) => { const r = Number.isFinite(Number(n)) ? Math.round(Number(n)) : 0; return r > 0 ? `+$${r}` : r < 0 ? `−$${-r}` : '$0' }
 const moneyColor = (n) => (n > 0.5 ? '#bef264' : n < -0.5 ? '#fb7185' : 'rgba(255,255,255,.72)')
@@ -112,8 +109,6 @@ const limitHoleKeys = (obj, k) => {
 }
 const playersInBet = (players, bet) =>
   bet?.playerIds?.length ? players.filter((p) => bet.playerIds.includes(p.id)) : players
-/** The lime "YOU" pill beside the signed-in player. */
-const youBadge = { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, color: ACCENT_DARK, background: ACCENT, padding: '2px 7px', borderRadius: 9999, flex: '0 0 auto' }
 
 /** Write par for every unscored entity on a hole (no-op when already entered). */
 function seedParForHole(hole, { entities, pars, totalHoles, updateScore }) {
@@ -164,7 +159,7 @@ export default function ScoringPage() {
   const [lbView, setLbView] = useState(() => (round?.scoring === 'gross' ? 'gross' : 'net')) // 'net' | 'gross' | 'money'
   const [copiedInvite, setCopiedInvite] = useState(false)
   const [liveLoading, setLiveLoading] = useState(false)
-  const [headerCollapsed, setHeaderCollapsed] = useState(false)
+  const [headerCollapsed, setHeaderCollapsed] = useState(() => players.length >= 4)
   const liveEndedHandled = useRef(false)
 
   const liveRole = useLiveRoundRole()
@@ -217,8 +212,40 @@ export default function ScoringPage() {
     if (!liveRoundId || liveRole === 'local-only') return undefined
 
     if (isLiveScorer && roundStatus !== 'complete') {
-      attachLiveSync()
+      let cancelled = false
+      ;(async () => {
+        const rs = useRoundStore.getState()
+        const ensured = await ensureLiveScorerAccess({
+          roundId: liveRoundId,
+          state: serializeRoundState(rs),
+          roster: rs.players,
+          courseName: round?.course ?? '',
+        })
+        if (cancelled) return
+        if (!ensured.ok) {
+          teardownLiveSync()
+          useLiveRoundStore.getState().clearSession()
+          useNotificationStore.getState().pushToast({
+            kicker: 'LIVE SYNC',
+            title: 'Live sync unavailable',
+            body: liveRoundUserMessage(ensured.reason),
+            duration: 10000,
+          })
+          return
+        }
+        if (ensured.inviteCode) {
+          const live = useLiveRoundStore.getState()
+          useLiveRoundStore.getState().setSession({
+            liveRoundId,
+            inviteCode: ensured.inviteCode,
+            role: 'scorer',
+            scorerName: live.scorerName,
+          })
+        }
+        attachLiveSync()
+      })()
       return () => {
+        cancelled = true
         detachLiveSync()
       }
     }
@@ -261,7 +288,7 @@ export default function ScoringPage() {
       cancelled = true
       unsub()
     }
-  }, [liveRoundId, liveRole, isLiveScorer, roundStatus, navigate])
+  }, [liveRoundId, liveRole, isLiveScorer, roundStatus, navigate, round?.roundId, round?.course])
 
   // Scorer (local or live): each hole opens showing that hole's par as the default
   // (the ± baseline — see showScoreFor), but par is only written to the store —
@@ -730,6 +757,16 @@ export default function ScoringPage() {
     round?.holeYards?.[currentHole] ? `${round.holeYards[currentHole]}y` : null,
   ].filter(Boolean).join(' · ')
 
+  const useCompactRows = entities.length >= 3
+  const useFoursomeDense = entities.length >= 4
+  const hasFoursomeSidePanels =
+    (isMatchplay && matchInfoList.length > 0 && !readOnly) ||
+    (wolfActive && !readOnly) ||
+    (bbbActive && !readOnly) ||
+    (ctpBet && !readOnly) ||
+    (ldBet && !readOnly) ||
+    (skinsActive && !readOnly)
+
   // Collapse the header title row as the score list scrolls (hysteresis avoids flicker).
   const onListScroll = (e) => {
     const y = e.currentTarget.scrollTop
@@ -738,7 +775,7 @@ export default function ScoringPage() {
 
   /* --------------------------------------------------------------- entity card */
 
-  const card = (e) => {
+  const entityMeta = (e) => {
     const gross = showScoreFor(e.id)
     const reduction = allocations[e.id]?.[currentHole] ?? 0
     const net = gross == null ? null : Math.max(0, gross - reduction)
@@ -749,7 +786,38 @@ export default function ScoringPage() {
       ? 'Best ball'
       : useGrossScoring
         ? 'Gross scoring'
-      : `Hdcp ${e.courseHandicap ?? e.handicapIndex ?? 0}`
+        : `Hdcp ${e.courseHandicap ?? e.handicapIndex ?? 0}`
+    return { gross, net, toPar, pts, isWolf, subtitle }
+  }
+
+  const compactRow = (e) => {
+    const { gross, net, toPar, pts, isWolf, subtitle } = entityMeta(e)
+    return (
+      <PlayerScoreRow
+        key={e.id}
+        entity={e}
+        gross={gross}
+        net={net}
+        toPar={toPar}
+        points={pts}
+        subtitle={subtitle}
+        isMe={e.id === meEntityId}
+        isWolf={isWolf}
+        readOnly={readOnly}
+        isStableford={isStableford}
+        useGrossScoring={useGrossScoring}
+        isScramble={isScramble}
+        dense={useFoursomeDense}
+        onMinus={() => adjust(e.id, -1)}
+        onPlus={() => adjust(e.id, +1)}
+        onScoreTap={() => setKeypadFor(e.id)}
+      />
+    )
+  }
+
+  const card = (e) => {
+    const { gross, net, toPar, pts, isWolf, subtitle } = entityMeta(e)
+    const isMe = e.id === meEntityId
 
     return (
       <div key={e.id} style={S.cardWrap}>
@@ -760,6 +828,7 @@ export default function ScoringPage() {
             <div style={{ minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                 <span style={S.cardName}>{e.name}</span>
+                {isMe && <span style={youBadge}>YOU</span>}
                 {isWolf && <span style={{ ...S.wolfTag, display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="wolf" size={12} color={ACCENT_DARK} /> Wolf</span>}
               </div>
               <div style={S.cardSub}>{subtitle}</div>
@@ -814,33 +883,59 @@ export default function ScoringPage() {
         )}
 
         {isLiveScorer && inviteUrl && (
-          <div style={{ flex: '0 0 auto', margin: '0 18px 2px', padding: '6px 10px', borderRadius: 9999, background: 'rgba(20,28,24,.5)', border: `1px solid ${hexA(ACCENT, 0.25)}`, display: 'flex', alignItems: 'center', gap: 8, boxSizing: 'border-box' }}>
-            <div style={{ flex: 1, minWidth: 0, fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.72)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              Invite · /join/{inviteCode}
-            </div>
-            <button type="button" onClick={copyInvite} style={{ flex: '0 0 auto', border: 'none', borderRadius: 9999, padding: '6px 10px', background: ACCENT, color: ACCENT_DARK, fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>
-              {copiedInvite ? 'Copied' : 'Copy'}
+          <div style={{ flex: '0 0 auto', margin: '0 18px 2px', display: 'flex', justifyContent: useCompactRows ? 'flex-end' : 'stretch' }}>
+            <button
+              type="button"
+              onClick={copyInvite}
+              style={{
+                flex: useCompactRows ? '0 0 auto' : 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                border: `1px solid ${hexA(ACCENT, 0.35)}`,
+                borderRadius: 9999,
+                padding: useCompactRows ? '6px 12px' : '6px 10px',
+                background: copiedInvite ? ACCENT : 'rgba(20,28,24,.5)',
+                color: copiedInvite ? ACCENT_DARK : ACCENT,
+                fontSize: 11,
+                fontWeight: 800,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                boxSizing: 'border-box',
+              }}
+            >
+              {copiedInvite ? 'Copied' : useCompactRows ? 'Invite' : `Invite · /join/${inviteCode}`}
             </button>
           </div>
         )}
 
         {/* header ------------------------------------------------------------ */}
-        <div style={S.header}>
+        <div style={{ ...S.header, paddingBottom: useFoursomeDense ? 2 : useCompactRows ? 4 : 8 }}>
           {/* hole block */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
-            <button onClick={goPrev} disabled={atFirstHole} aria-label="Previous hole" style={{ ...S.navCircle, opacity: atFirstHole ? 0.4 : 1, cursor: atFirstHole ? 'not-allowed' : 'pointer' }}>‹</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: useFoursomeDense ? 8 : 10, marginTop: useFoursomeDense ? 2 : useCompactRows ? 4 : 8 }}>
+            <button onClick={goPrev} disabled={atFirstHole} aria-label="Previous hole" style={{ ...(useFoursomeDense ? S.navCircleDense : S.navCircle), opacity: atFirstHole ? 0.4 : 1, cursor: atFirstHole ? 'not-allowed' : 'pointer' }}>‹</button>
             <div style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
-              <div style={{ fontSize: 11, letterSpacing: 3, color: 'rgba(255,255,255,.7)', fontWeight: 800 }}>HOLE</div>
-              <div style={S.holeNum}>{currentHole}</div>
+              {useFoursomeDense ? (
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 11, letterSpacing: 2.5, color: 'rgba(255,255,255,.7)', fontWeight: 800 }}>HOLE</span>
+                  <span style={{ fontSize: 40, fontWeight: 800, lineHeight: 1, color: '#fff' }}>{currentHole}</span>
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 11, letterSpacing: 3, color: 'rgba(255,255,255,.7)', fontWeight: 800 }}>HOLE</div>
+                  <div style={useCompactRows ? S.holeNumCompact : S.holeNum}>{currentHole}</div>
+                </>
+              )}
               <div style={{ maxWidth: '100%', overflow: 'hidden' }}>
-                <div style={S.detailLine}>{holeDetail}</div>
+                <div style={{ ...S.detailLine, marginTop: useFoursomeDense ? 3 : useCompactRows ? 4 : 8, padding: useFoursomeDense ? '4px 10px' : useCompactRows ? '5px 12px' : '6px 14px', fontSize: useFoursomeDense ? 11 : useCompactRows ? 12 : 13 }}>{holeDetail}</div>
               </div>
             </div>
-            <button onClick={goNext} disabled={isLastHole} aria-label="Next hole" style={{ ...S.navCircle, opacity: isLastHole ? 0.4 : 1, cursor: isLastHole ? 'not-allowed' : 'pointer' }}>›</button>
+            <button onClick={goNext} disabled={isLastHole} aria-label="Next hole" style={{ ...(useFoursomeDense ? S.navCircleDense : S.navCircle), opacity: isLastHole ? 0.4 : 1, cursor: isLastHole ? 'not-allowed' : 'pointer' }}>›</button>
           </div>
 
           {/* dots */}
-          <div style={{ display: 'flex', gap: 5, alignItems: 'center', justifyContent: 'center', marginTop: 10 }}>
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'center', marginTop: useFoursomeDense ? 4 : useCompactRows ? 6 : 10 }}>
             {dots.map((d, i) => (
               <span key={i} style={{ height: 7, borderRadius: 9999, flex: '0 0 auto', background: d.bg, width: d.w }} />
             ))}
@@ -849,6 +944,72 @@ export default function ScoringPage() {
 
         {/* body: scrollable scores + pinned footer chrome -------------------- */}
         <div style={S.body}>
+        {useFoursomeDense ? (
+          <>
+            <div style={{ flex: '0 0 auto', padding: '4px 14px 0', boxSizing: 'border-box' }}>
+              {entities.map(compactRow)}
+            </div>
+            {hasFoursomeSidePanels && (
+              <div className="golo-scroll" onScroll={onListScroll} style={S.scroll}>
+                {isMatchplay && matchInfoList.length > 0 && !readOnly && matchInfoList.map((info) => (
+                  <MatchPanel
+                    key={`${info.side1.id}-${info.side2.id}`}
+                    info={info}
+                    pairLabel={players.length > 2 ? `${info.side1.name} vs ${info.side2.name}` : null}
+                    hole={currentHole}
+                    concededTo={canConcedeMatch ? concededHoles[currentHole] ?? null : null}
+                    onConcede={
+                      canConcedeMatch
+                        ? (pid) => concedeHole(currentHole, pid)
+                        : undefined
+                    }
+                  />
+                ))}
+                {wolfActive && !readOnly && (
+                  <WolfPanel
+                    players={wolfPlayers}
+                    wolfId={wolfId}
+                    pick={wolfPicks[currentHole]}
+                    onPick={(d) => setWolfPick(currentHole, d)}
+                    onClear={() => clearWolfPick(currentHole)}
+                  />
+                )}
+                {bbbActive && !readOnly && (
+                  <BBBPanel
+                    players={bbbPlayers}
+                    flags={bbbFlags[currentHole]}
+                    onFlag={(type, pid) => flagBBB(currentHole, type, pid)}
+                  />
+                )}
+                {ctpBet && !readOnly && (
+                  <PickerPanel
+                    title={`📍 Closest to pin · Hole ${currentHole}`}
+                    players={ctpPlayers}
+                    selectedId={sideGameFlags.closestToPin[currentHole]}
+                    onSelect={(pid) => flagCTP(currentHole, pid)}
+                  />
+                )}
+                {ldBet && !readOnly && (
+                  <PickerPanel
+                    title={`🚀 Longest drive · Hole ${currentHole}`}
+                    players={ldPlayers}
+                    selectedId={sideGameFlags.longestDrive[currentHole]}
+                    onSelect={(pid) => flagLD(currentHole, pid)}
+                  />
+                )}
+                {skinsActive && !readOnly && (
+                  <SkinsPanel
+                    types={manualSkinTypes}
+                    players={skinPlayers}
+                    flags={skinFlags[currentHole]}
+                    value={baseSkinValue}
+                    onToggle={(type, pid) => toggleSkinFlag(currentHole, type, pid)}
+                  />
+                )}
+              </div>
+            )}
+          </>
+        ) : (
         <div className="golo-scroll" onScroll={onListScroll} style={S.scroll}>
           {isMatchplay && matchInfoList.length > 0 && !readOnly && matchInfoList.map((info) => (
             <MatchPanel
@@ -865,7 +1026,7 @@ export default function ScoringPage() {
             />
           ))}
 
-          {entities.map(card)}
+          {entities.map(useCompactRows ? compactRow : card)}
 
           {wolfActive && !readOnly && (
             <WolfPanel
@@ -911,11 +1072,12 @@ export default function ScoringPage() {
             />
           )}
         </div>
+        )}
 
         {/* active bets ------------------------------------------------------- */}
         {(pills.length > 0 || (overallPurseBet && !readOnly)) && (
-          <div style={{ flex: '0 0 auto', padding: '8px 14px 0', boxSizing: 'border-box' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0 2px 8px' }}>
+          <div style={{ flex: '0 0 auto', padding: useFoursomeDense ? '4px 14px 0' : '8px 14px 0', boxSizing: 'border-box' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: useFoursomeDense ? '0 2px 4px' : '0 2px 8px' }}>
               <div style={S.activeLabel}>ACTIVE BETS</div>
               {overallPurseBet && activePressCount > 0 && (
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.45)' }}>
@@ -955,7 +1117,7 @@ export default function ScoringPage() {
         )}
 
         {/* bottom nav -------------------------------------------------------- */}
-        <div style={{ flex: '0 0 auto', padding: '8px 14px max(14px, env(safe-area-inset-bottom))' }}>
+        <div style={{ flex: '0 0 auto', padding: useFoursomeDense ? '6px 14px max(10px, env(safe-area-inset-bottom))' : '8px 14px max(14px, env(safe-area-inset-bottom))' }}>
           <div style={S.navBar}>
             <button
               type="button"
@@ -1520,10 +1682,12 @@ const S = {
   header: { flex: '0 0 auto', padding: '2px 16px 8px', textShadow: '0 2px 12px rgba(0,0,0,.4)' },
   body: { flex: '1 1 0', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
   holeNum: { fontSize: 'clamp(52px, 14vw, 74px)', fontWeight: 800, lineHeight: 0.96, color: '#fff' },
+  holeNumCompact: { fontSize: 'clamp(40px, 10vw, 56px)', fontWeight: 800, lineHeight: 0.96, color: '#fff' },
   headerTop: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10 },
   iconBtn: { width: 46, height: 46, borderRadius: '50%', flex: '0 0 auto', background: 'rgba(255,255,255,.14)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', fontSize: 19, cursor: 'pointer' },
   coursePill: { display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,.13)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.16)', padding: '9px 16px', borderRadius: 9999, maxWidth: 220, minWidth: 0 },
   navCircle: { width: 54, height: 54, borderRadius: '50%', flex: '0 0 auto', background: 'rgba(255,255,255,.14)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', fontSize: 24, fontWeight: 800, cursor: 'pointer' },
+  navCircleDense: { width: 46, height: 46, borderRadius: '50%', flex: '0 0 auto', background: 'rgba(255,255,255,.14)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', fontSize: 22, fontWeight: 800, cursor: 'pointer' },
   detailLine: { display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 8, maxWidth: '100%', background: 'rgba(255,255,255,.13)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.16)', padding: '6px 14px', borderRadius: 9999, fontSize: 13, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   scroll: { flex: '1 1 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', padding: '4px 14px 8px', boxSizing: 'border-box', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' },
 

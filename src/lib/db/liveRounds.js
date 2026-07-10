@@ -38,9 +38,23 @@ export function serializeRoundState(state) {
   }
 }
 
+/** Ensure the Supabase client has a user JWT before SECURITY DEFINER RPCs. */
+async function requireAuthSession() {
+  if (!supabase) return null
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session?.access_token) return session
+  const { data: refreshed, error } = await supabase.auth.refreshSession()
+  if (error) return null
+  return refreshed.session ?? null
+}
+
 export async function startLiveRound({ roundId, state, roster, courseName }) {
   if (!isSupabaseConfigured || !roundId) {
     return { data: null, error: 'not configured' }
+  }
+  const session = await requireAuthSession()
+  if (!session?.access_token) {
+    return { data: null, error: 'not authenticated' }
   }
   const { data, error } = await supabase.rpc('start_live_round', {
     p_round_id: roundId,
@@ -57,8 +71,18 @@ export async function startLiveRound({ roundId, state, roster, courseName }) {
       /duplicate key|already exists/i.test(error.message ?? '')
     if (dup) {
       const existing = await fetchLiveRound(roundId)
-      if (existing?.invite_code) {
+      const { data: auth } = await supabase.auth.getUser()
+      const uid = auth?.user?.id ?? null
+      if (
+        existing?.invite_code &&
+        uid &&
+        existing.status === 'live' &&
+        (existing.scorer_user_id === uid || existing.owner_id === uid)
+      ) {
         return { data: { id: roundId, invite_code: existing.invite_code }, error: null }
+      }
+      if (existing?.invite_code) {
+        return { data: null, error: 'not authorized to patch live round' }
       }
     }
     return { data: null, error: error.message }
@@ -81,6 +105,10 @@ export async function joinLiveRound(inviteCode, claimPlayerKey = null) {
 
 export async function patchLiveRound(roundId, state, eventType = null, eventPayload = {}) {
   if (!isSupabaseConfigured || !roundId) return { error: null }
+  const session = await requireAuthSession()
+  if (!session?.access_token) {
+    return { error: { message: 'not authenticated' } }
+  }
   const { error } = await supabase.rpc('patch_live_round', {
     p_id: roundId,
     p_state: state,
@@ -124,7 +152,7 @@ export async function fetchLiveRound(roundId) {
   if (!isSupabaseConfigured || !roundId) return null
   const { data, error } = await supabase
     .from('live_rounds')
-    .select('id, invite_code, status, state, course_name, owner_id, updated_at')
+    .select('id, invite_code, status, state, course_name, owner_id, scorer_user_id, updated_at')
     .eq('id', roundId)
     .maybeSingle()
   if (error) {
@@ -132,6 +160,68 @@ export async function fetchLiveRound(roundId) {
     return null
   }
   return data
+}
+
+/** True when the signed-in user is the live scorer for an in-progress round. */
+export async function assertLiveScorer(roundId) {
+  if (!isSupabaseConfigured || !roundId) return { ok: false, reason: 'not configured' }
+  const { data: auth, error: authErr } = await supabase.auth.getUser()
+  if (authErr || !auth?.user) return { ok: false, reason: 'not authenticated' }
+  const row = await fetchLiveRound(roundId)
+  if (!row) return { ok: false, reason: 'round not found' }
+  if (row.status !== 'live') return { ok: false, reason: 'round not live' }
+  const uid = auth.user.id
+  if (row.scorer_user_id !== uid && row.owner_id !== uid) {
+    return { ok: false, reason: 'not scorer', ownerId: row.owner_id, scorerUserId: row.scorer_user_id, uid }
+  }
+  return { ok: true, uid, inviteCode: row.invite_code }
+}
+
+/** Calls patch_live_round — the same gate used during scoring sync. */
+export async function probeLivePatch(roundId, state) {
+  if (!isSupabaseConfigured || !roundId || !state) return { ok: false, reason: 'not configured' }
+  const { error } = await patchLiveRound(roundId, state, null, {})
+  if (error) {
+    const msg = error?.message ?? String(error)
+    return { ok: false, reason: msg }
+  }
+  return { ok: true }
+}
+
+/**
+ * Verify patch access; if missing, re-run start_live_round for this round id.
+ * Returns invite code when the server accepts patches.
+ */
+export async function ensureLiveScorerAccess({ roundId, state, roster, courseName }) {
+  if (!isSupabaseConfigured || !roundId) return { ok: false, reason: 'not configured' }
+  const { data: auth } = await supabase.auth.getUser()
+  const uid = auth?.user?.id ?? null
+  if (!uid) return { ok: false, reason: 'not authenticated' }
+
+  const row = await fetchLiveRound(roundId)
+  if (row?.status === 'live' && (row.scorer_user_id === uid || row.owner_id === uid)) {
+    const probe = await probeLivePatch(roundId, state)
+    if (probe.ok) {
+      return { ok: true, inviteCode: row.invite_code, uid }
+    }
+  }
+
+  const { data: res, error: liveErr } = await startLiveRound({ roundId, state, roster, courseName })
+  if (liveErr || !res?.invite_code) {
+    const staleComplete =
+      /live round already exists/i.test(String(liveErr ?? '')) &&
+      (await fetchLiveRound(roundId))?.status === 'complete'
+    if (staleComplete) {
+      return { ok: false, reason: 'live round complete on server', needsNewRoundId: true }
+    }
+    return { ok: false, reason: liveErr ?? 'start failed' }
+  }
+
+  const probe = await probeLivePatch(roundId, state)
+  if (!probe.ok) {
+    return { ok: false, reason: probe.reason, inviteCode: res.invite_code }
+  }
+  return { ok: true, inviteCode: res.invite_code, reRegistered: true, uid }
 }
 
 /** Active live rounds the signed-in user belongs to. */
@@ -192,7 +282,7 @@ export function liveRoundUserMessage(err) {
     return 'Your session expired. Sign in again, then retry.'
   }
   if (/permission denied|not authorized/i.test(s)) {
-    return 'Not authorized for this live round.'
+    return 'Not authorized for this live round. Sign out, start a fresh round from Setup, and re-run supabase/migrations/0009_live_rounds_functions.sql if this keeps happening.'
   }
   return s
 }

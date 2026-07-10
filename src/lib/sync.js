@@ -1,4 +1,7 @@
+import useRoundStore from '../store/roundStore'
 import useAuthStore from '../store/authStore'
+import useLiveRoundStore from '../store/liveRoundStore'
+import { teardownLiveSync } from './liveRoundSync'
 import useProfileStore from '../store/profileStore'
 import useHistoryStore from '../store/historyStore'
 import useSyncStore from '../store/syncStore'
@@ -7,6 +10,7 @@ import { fetchProfile, upsertProfile, isMissingColumnError } from './db/profiles
 import { syncGhinHandicap, isGhinConfiguredResponse } from './ghin/client'
 import { isGhinConnected } from './ghin/eligibility'
 import { fetchRounds, saveRound as dbSaveRound } from './db/rounds'
+import { assertLiveScorer, probeLivePatch, serializeRoundState } from './db/liveRounds'
 
 /**
  * Bridges the local Zustand stores with Supabase on login/logout.
@@ -111,6 +115,33 @@ export async function syncOnLogin(userId, { force = false } = {}) {
 
     startProfileSync(userId)
     currentUserId = userId
+
+    const live = useLiveRoundStore.getState()
+    if (live.liveRoundId && live.role === 'scorer') {
+      const rs = useRoundStore.getState()
+      if (rs.round?.roundId === live.liveRoundId) {
+        // Only drop the live session on a *definitive* denial: the server says
+        // this account is no longer the scorer, or the round is over. Transient
+        // failures (auth refresh, a network blip, or a failed fetch that surfaces
+        // as "round not found") must NOT kill an otherwise-valid session —
+        // schedulePush/ensureLiveScorerAccess re-verify when scoring resumes.
+        const check = await assertLiveScorer(live.liveRoundId)
+        let denied = check.reason === 'not scorer' || check.reason === 'round not live'
+        if (check.ok) {
+          const probe = await probeLivePatch(live.liveRoundId, serializeRoundState(rs))
+          if (!probe.ok && /not authorized/i.test(probe.reason ?? '')) denied = true
+        }
+        if (denied) {
+          teardownLiveSync()
+          useLiveRoundStore.getState().clearSession()
+        }
+      } else {
+        // Persisted session points at a different local round — always stale.
+        teardownLiveSync()
+        useLiveRoundStore.getState().clearSession()
+      }
+    }
+
     setReady(true)
   } catch (err) {
     console.error('[sync] syncOnLogin', err)
@@ -135,6 +166,8 @@ export async function retrySyncOnLogin(userId) {
 export function syncOnLogout() {
   currentUserId = null
   stopProfileSync()
+  teardownLiveSync()
+  useLiveRoundStore.getState().clearSession()
   const { clearSyncError, setReady } = useSyncStore.getState()
   clearSyncError()
   setReady(false)

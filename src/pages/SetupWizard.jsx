@@ -14,8 +14,8 @@ import { getCourseImage } from '../lib/courseImages'
 import { defaultHomeCourse, sortCoursesHomeFirst } from '../lib/homeCourse'
 import { normalizeSkinsLdHole, resolveLdHoleNumber } from '../engines/skins'
 import { isSupabaseConfigured } from '../lib/supabaseClient'
-import { serializeRoundState, startLiveRound, liveRoundUserMessage } from '../lib/db/liveRounds'
-import { attachLiveSync, teardownLiveSync } from '../lib/liveRoundSync'
+import { serializeRoundState, ensureLiveScorerAccess, liveRoundUserMessage } from '../lib/db/liveRounds'
+import { teardownLiveSync } from '../lib/liveRoundSync'
 import useNotificationStore from '../store/notificationStore'
 import AppHeader from '../components/shared/AppHeader'
 import { Icon } from '../components/shared/GoloIcons'
@@ -542,6 +542,7 @@ function initState() {
 export default function SetupWizard() {
   const navigate = useNavigate()
   const createRound = useRoundStore((s) => s.createRound)
+  const remintRoundId = useRoundStore((s) => s.remintRoundId)
   const updateRoundSetup = useRoundStore((s) => s.updateRoundSetup)
   const setCourseConfig = useRoundStore((s) => s.setCourseConfig)
   const setPlayers = useRoundStore((s) => s.setPlayers)
@@ -1003,30 +1004,55 @@ export default function SetupWizard() {
             teardownLiveSync()
             useLiveRoundStore.getState().clearSession()
           }
-          const { data: res, error: liveErr } = await startLiveRound({
+          const ensured = await ensureLiveScorerAccess({
             roundId,
             state: serializeRoundState(rs),
             roster: rs.players,
             courseName: course.name,
           })
-          if (liveErr) {
+          if (!ensured.ok && ensured.needsNewRoundId) {
+            remintRoundId()
+            teardownLiveSync()
+            useLiveRoundStore.getState().clearSession()
+            const fresh = useRoundStore.getState()
+            const retryRoundId = fresh.round?.roundId
+            if (retryRoundId) {
+              const retried = await ensureLiveScorerAccess({
+                roundId: retryRoundId,
+                state: serializeRoundState(fresh),
+                roster: fresh.players,
+                courseName: course.name,
+              })
+              if (retried.ok && retried.inviteCode) {
+                const me = readyPlayers[0]
+                useLiveRoundStore.getState().setSession({
+                  liveRoundId: retryRoundId,
+                  inviteCode: retried.inviteCode,
+                  role: 'scorer',
+                  scorerName: me?.name?.trim() || displayName(me) || 'Scorer',
+                })
+                patch({ started: true })
+                return
+              }
+            }
+          }
+          if (!ensured.ok) {
             teardownLiveSync()
             useLiveRoundStore.getState().clearSession()
             useNotificationStore.getState().pushToast({
               kicker: 'LIVE ROUND',
               title: 'Could not start live sync',
-              body: liveRoundUserMessage(liveErr),
+              body: liveRoundUserMessage(ensured.reason),
               duration: 10000,
             })
-          } else if (res?.invite_code) {
+          } else if (ensured.inviteCode) {
             const me = readyPlayers[0]
             useLiveRoundStore.getState().setSession({
               liveRoundId: roundId,
-              inviteCode: res.invite_code,
+              inviteCode: ensured.inviteCode,
               role: 'scorer',
               scorerName: me?.name?.trim() || displayName(me) || 'Scorer',
             })
-            attachLiveSync()
           } else {
             useNotificationStore.getState().pushToast({
               kicker: 'LIVE ROUND',

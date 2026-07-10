@@ -2,7 +2,8 @@ import { supabase, isSupabaseConfigured } from './supabaseClient'
 import useRoundStore from '../store/roundStore'
 import useLiveRoundStore from '../store/liveRoundStore'
 import useNotificationStore from '../store/notificationStore'
-import { serializeRoundState, patchLiveRound, liveRoundUserMessage } from './db/liveRounds'
+import { resolveLiveRoundRole } from './liveRoundRole'
+import { serializeRoundState, patchLiveRound, ensureLiveScorerAccess, liveRoundUserMessage } from './db/liveRounds'
 
 let debounceTimer = null
 let storeUnsub = null
@@ -45,7 +46,9 @@ function detectEvent(state, prev) {
 }
 
 function schedulePush(state) {
-  const { liveRoundId, role } = useLiveRoundStore.getState()
+  const { liveRoundId, role: storedRole } = useLiveRoundStore.getState()
+  const roundId = useRoundStore.getState().round?.roundId ?? null
+  const role = resolveLiveRoundRole(storedRole, liveRoundId, roundId)
   if (role !== 'scorer' || !liveRoundId) return
 
   clearTimeout(debounceTimer)
@@ -55,20 +58,48 @@ function schedulePush(state) {
     if (!event && hadSyncFailure) {
       event = { type: 'state_updated', payload: {} }
     }
-    const { error } = await patchLiveRound(
-      liveRoundId,
-      payload,
-      event?.type ?? null,
-      event?.payload ?? {}
-    )
+    const pushOnce = () =>
+      patchLiveRound(liveRoundId, payload, event?.type ?? null, event?.payload ?? {})
+
+    let { error } = await pushOnce()
+    if (error && /not authorized/i.test(error?.message ?? '')) {
+      const rs = useRoundStore.getState()
+      const ensured = await ensureLiveScorerAccess({
+        roundId: liveRoundId,
+        state: serializeRoundState(rs),
+        roster: rs.players,
+        courseName: rs.round?.course ?? '',
+      })
+      if (ensured.ok) {
+        if (ensured.inviteCode) {
+          const live = useLiveRoundStore.getState()
+          useLiveRoundStore.getState().setSession({
+            liveRoundId,
+            inviteCode: ensured.inviteCode,
+            role: 'scorer',
+            scorerName: live.scorerName,
+          })
+        }
+        ;({ error } = await pushOnce())
+      }
+    }
+
     if (error) {
       const msg = error?.message ?? String(error)
       hadSyncFailure = true
+      if (/not authorized/i.test(msg)) {
+        detachLiveSync()
+        useLiveRoundStore.getState().clearSession()
+      }
       useNotificationStore.getState().pushToast({
         kicker: 'LIVE SYNC',
         title: 'Could not sync scores',
-        body: liveRoundUserMessage(msg),
-        duration: 6000,
+        body: /not authenticated/i.test(msg)
+          ? 'Your session expired. Sign in again, then start a fresh round to sync.'
+          : /not authorized/i.test(msg)
+            ? 'This account is not the scorer for this live round. Scoring continues locally — start a new round to sync again.'
+            : liveRoundUserMessage(msg),
+        duration: 8000,
       })
       return
     }
