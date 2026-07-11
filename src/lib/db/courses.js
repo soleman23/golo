@@ -6,12 +6,16 @@ import { supabase, isSupabaseConfigured } from '../supabaseClient'
  * are stored as JSONB, matching the constants the SetupWizard used to hardcode.
  */
 
-const fromDb = (r) => ({
+export const courseFromDb = (r) => ({
   id: r.id,
   name: r.name,
   loc: r.location ?? '',
   holes: r.holes ?? 18,
   bg: r.bg ?? null,
+  isPublic: r.is_public ?? true,
+  visibleInSetup: r.visible_in_setup ?? false,
+  setupReady: r.setup_ready ?? undefined,
+  createdAt: r.created_at ?? null,
   ...(r.pars ? { pars: r.pars } : {}),
   ...(r.stroke_index ? { strokeIndex: r.stroke_index } : {}),
   ...(r.tees ? { tees: r.tees } : {}),
@@ -44,14 +48,16 @@ export async function fetchCourseGhinMapping(courseId) {
   return ghinMappingFromCourse(data)
 }
 
-export async function fetchCourses() {
+export async function fetchCourses({ visibleOnly = true } = {}) {
   if (!isSupabaseConfigured) return null
-  const { data, error } = await supabase.from('courses').select('*').order('name')
+  let query = supabase.from('courses').select('*').order('name')
+  if (visibleOnly) query = query.eq('visible_in_setup', true)
+  const { data, error } = await query
   if (error) {
     console.error('[db] fetchCourses', error)
     return null
   }
-  return data.map(fromDb)
+  return data.map(courseFromDb)
 }
 
 export async function upsertCourse(course, userId) {
@@ -66,7 +72,12 @@ export async function upsertCourse(course, userId) {
     stroke_index: course.strokeIndex ?? null,
     tees: course.tees ?? null,
     is_public: course.isPublic ?? true,
+    // Publishing into setup is admin-only (admin_upsert_course / admin_set_course_visibility).
+    visible_in_setup: false,
     created_by: userId ?? null,
+    ghin_facility_id: course.ghinFacilityId ?? null,
+    ghin_course_id: course.ghinCourseId ?? null,
+    ghin_tee_sets: course.ghinTeeSets ?? null,
   }
   const { error } = await supabase.from('courses').upsert(row)
   if (error) console.error('[db] upsertCourse', error)

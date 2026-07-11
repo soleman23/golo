@@ -562,20 +562,31 @@ export default function SetupWizard() {
   const userPickedCourse = useRef(false)
 
   // Course catalogue: starts with the bundled fallback list, then swaps in the
-  // backend catalogue once it loads (when Supabase is configured). The hardcoded
-  // courses remain as a fallback for any id the DB doesn't have.
+  // backend's visible setup catalogue once it loads (when Supabase is configured).
+  // Local-only mode keeps the curated hardcoded subset below.
   const [catalog, setCatalog] = useState(COURSES)
   const [coursesFromDb, setCoursesFromDb] = useState(false)
   const [accountSearch, setAccountSearch] = useState('')
   const [accountSearchResults, setAccountSearchResults] = useState([])
   const [accountSearchLoading, setAccountSearchLoading] = useState(false)
+  const courseIdRef = useRef(st.courseId)
+  courseIdRef.current = st.courseId
   useEffect(() => {
     let active = true
     fetchCourses().then((rows) => {
       if (!active || !rows || rows.length === 0) return
-      const byId = new Map(COURSES.map((c) => [c.id, c]))
-      for (const r of rows) byId.set(r.id, r)
-      setCatalog([...byId.values()])
+      const fallbackById = new Map(COURSES.map((c) => [c.id, c]))
+      const next = rows.map((r) => ({ ...(fallbackById.get(r.id) ?? {}), ...r }))
+      const selectedId = courseIdRef.current
+      // If the current selection was filtered out of the visible catalogue,
+      // keep it in the in-memory list so scoring does not silently switch.
+      if (selectedId && !next.some((c) => c.id === selectedId)) {
+        const preserved =
+          fallbackById.get(selectedId) ??
+          COURSES.find((c) => c.id === selectedId)
+        if (preserved) next.push({ ...preserved })
+      }
+      setCatalog(next)
       setCoursesFromDb(true)
     })
     return () => { active = false }
@@ -643,7 +654,10 @@ export default function SetupWizard() {
   useEffect(() => { bodyRef.current?.scrollTo(0, 0) }, [st.step])
 
   /* ---- derived ---- */
-  const course = catalog.find((c) => c.id === st.courseId) ?? catalog[0]
+  const course =
+    catalog.find((c) => c.id === st.courseId) ??
+    COURSES.find((c) => c.id === st.courseId) ??
+    catalog[0]
   // Per-course tees when defined, else the global fallback set.
   const tees = course.tees ?? TEES
   const tee = tees[Math.min(st.teeIdx, tees.length - 1)]
@@ -789,7 +803,10 @@ export default function SetupWizard() {
   const selectCourse = (id) => {
     if (id === st.courseId) return
     userPickedCourse.current = true
-    const c = catalog.find((x) => x.id === id) ?? catalog[0]
+    const c =
+      catalog.find((x) => x.id === id) ??
+      COURSES.find((x) => x.id === id)
+    if (!c) return
     const card =
       c.pars && c.strokeIndex
         ? { pars: { ...c.pars }, strokeIndex: { ...c.strokeIndex } }
@@ -1167,8 +1184,8 @@ export default function SetupWizard() {
 
   function renderCourse() {
     const q = st.courseQuery.trim().toLowerCase()
-    // From the backend, show the whole catalogue; in local-only mode keep the
-    // curated visible subset that used to be hardcoded.
+    // From the backend, `catalog` is already filtered to visible setup courses;
+    // in local-only mode keep the curated visible subset that used to be hardcoded.
     const visible = coursesFromDb
       ? catalog
       : VISIBLE_COURSE_IDS.map((id) => catalog.find((c) => c.id === id)).filter(Boolean)

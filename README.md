@@ -26,6 +26,7 @@ shared database:
    - `supabase/migrations/0003_avatars.sql` - profile photos + `avatars` storage bucket.
    - `supabase/migrations/0004_profile_handicap.sql` - `handicap_index` on profiles.
    - `supabase/migrations/0005_ghin.sql` - GHIN connection, course mapping, score post status.
+   - `supabase/migrations/0011_admin_course_management.sql` - admin-only course catalogue management.
 
    Verify a linked project with `node scripts/verify-production.mjs` (reads
    `.env.local`). See [docs/LAUNCH.md](docs/LAUNCH.md) for the full crew launch checklist.
@@ -36,6 +37,13 @@ shared database:
 5. Restart `npm run dev`. The app now gates on a real session, syncs profile and
    round history to Supabase, and loads courses from the database. Existing
    local data is migrated to your account on first login.
+
+To manage courses at `/admin/courses`, bootstrap your owner account once in the
+Supabase SQL editor:
+
+```
+update public.profiles set is_admin = true where email = 'YOUR_EMAIL@example.com';
+```
 
 When the env vars are absent the app silently falls back to the original
 local-only behaviour (no login wall, data stays in `localStorage`).

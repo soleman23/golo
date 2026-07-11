@@ -85,6 +85,13 @@ await check('courses GHIN mapping columns (0005)', async () => {
   if (error) throw error
 })
 
+await check('admin course columns (0011)', async () => {
+  const { error: profileErr } = await supabase.from('profiles').select('is_admin').limit(0)
+  if (profileErr) throw profileErr
+  const { error: courseErr } = await supabase.from('courses').select('visible_in_setup').limit(0)
+  if (courseErr) throw courseErr
+})
+
 await check('rounds GHIN post columns (0005)', async () => {
   const { error } = await supabase.from('rounds').select('ghin_posted_at, ghin_post_id, ghin_post_error').limit(0)
   if (error) throw error
@@ -116,7 +123,7 @@ await check('rounds + round_participants readable', async () => {
 const failed = checks.filter((c) => !c.ok)
 console.log('')
 if (failed.length) {
-  console.error(`${failed.length} check(s) failed. Apply missing migrations in supabase/migrations/ (0001–0006).`)
+  console.error(`${failed.length} check(s) failed. Apply missing migrations in supabase/migrations/.`)
   process.exit(1)
 }
 console.log('All Supabase production checks passed.')

@@ -19,6 +19,7 @@ const HistoryPage = lazy(() => import('./pages/HistoryPage'))
 const HistoryDetailPage = lazy(() => import('./pages/HistoryDetailPage'))
 const ContactPage = lazy(() => import('./pages/ContactPage'))
 const JoinRoundPage = lazy(() => import('./pages/JoinRoundPage'))
+const CourseAdminPage = lazy(() => import('./pages/admin/CourseAdminPage'))
 
 /** The signed-in app's full route tree. */
 function MainRoutes() {
@@ -39,6 +40,8 @@ function MainRoutes() {
           <Route path="/history/:roundId" element={<HistoryDetailPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/join/:code" element={<JoinRoundPage />} />
+          <Route path="/admin" element={<Navigate to="/admin/courses" replace />} />
+          <Route path="/admin/courses" element={<CourseAdminPage />} />
         </Routes>
         <LiveToast />
         <LiveNotifications />

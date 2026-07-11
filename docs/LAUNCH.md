@@ -20,7 +20,7 @@ After connecting the repo in Netlify, copy your site URL from **Site configurati
 3. **Site configuration → General → Site details** — pick a readable name (`YOUR-SITE.netlify.app`).
 4. Confirm continuous deployment from `main` is on.
 
-### Supabase migrations (0001 → 0005)
+### Supabase migrations
 
 Run in order in **SQL Editor** (or Supabase CLI), if not already applied:
 
@@ -31,6 +31,7 @@ Run in order in **SQL Editor** (or Supabase CLI), if not already applied:
 | `supabase/migrations/0003_avatars.sql` | Profile photos + storage bucket |
 | `supabase/migrations/0004_profile_handicap.sql` | Handicap on profile |
 | `supabase/migrations/0005_ghin.sql` | GHIN OAuth tokens, course mapping, post status |
+| `supabase/migrations/0011_admin_course_management.sql` | Admin course catalogue management |
 
 Verify locally:
 
@@ -131,7 +132,7 @@ After `npm run build && npm run preview`, open `http://localhost:4173` and confi
 ## Printable production checklist
 
 - [ ] Netlify build green with env vars (Supabase URL in JS bundle)
-- [ ] `npm run verify:prod` passes (all five migrations)
+- [ ] `npm run verify:prod` passes after all migrations are applied
 - [ ] Supabase Site URL + Redirect URLs match `https://YOUR-SITE.netlify.app`
 - [ ] Email confirm OFF for crew week (or tested ON flow)
 - [ ] Sign up / sign in / sign out on phone
