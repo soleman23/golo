@@ -32,6 +32,7 @@ Run in order in **SQL Editor** (or Supabase CLI), if not already applied:
 | `supabase/migrations/0004_profile_handicap.sql` | Handicap on profile |
 | `supabase/migrations/0005_ghin.sql` | GHIN OAuth tokens, course mapping, post status |
 | `supabase/migrations/0011_admin_course_management.sql` | Admin course catalogue management |
+| `supabase/migrations/0012_complete_live_round_any_member.sql` | Any live member can end a live round |
 
 Verify locally:
 

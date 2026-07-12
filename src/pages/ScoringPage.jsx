@@ -203,7 +203,8 @@ export default function ScoringPage() {
     if (round && roundStatus === 'setup' && !readOnly) startScoring()
   }, [round, roundStatus, startScoring, readOnly])
 
-  // Live round sync: scorer pushes patches; viewers subscribe to server state.
+  // Live round sync: scorer pushes patches; everyone (including scorer) listens
+  // for remote completion so Home "End for everyone" tears down Scoring.
   useEffect(() => {
     liveEndedHandled.current = false
   }, [liveRoundId])
@@ -211,8 +212,26 @@ export default function ScoringPage() {
   useEffect(() => {
     if (!liveRoundId || liveRole === 'local-only') return undefined
 
+    let cancelled = false
+    let unsubComplete = () => {}
+
+    const finishLive = (source = 'remote') => {
+      if (liveEndedHandled.current) return
+      liveEndedHandled.current = true
+      teardownLiveSync()
+      useLiveRoundStore.getState().clearSession()
+      useNotificationStore.getState().pushToast({
+        kicker: 'LIVE ROUND',
+        title: 'Round finished',
+        body: source === 'remote' && isLiveScorer
+          ? 'Someone ended this live round.'
+          : 'This live round has ended.',
+        duration: 6000,
+      })
+      navigate('/', { replace: true })
+    }
+
     if (isLiveScorer && roundStatus !== 'complete') {
-      let cancelled = false
       ;(async () => {
         const rs = useRoundStore.getState()
         const ensured = await ensureLiveScorerAccess({
@@ -244,41 +263,33 @@ export default function ScoringPage() {
         }
         attachLiveSync()
       })()
+
+      // Scorer must also watch for remote end (player/viewer ending from Home).
+      unsubComplete = subscribeToLiveRound(liveRoundId, (_state, status) => {
+        if (status === 'complete') finishLive('remote')
+      })
+
       return () => {
         cancelled = true
         detachLiveSync()
+        unsubComplete()
       }
     }
 
-    const finishLive = () => {
-      if (liveEndedHandled.current) return
-      liveEndedHandled.current = true
-      teardownLiveSync()
-      useLiveRoundStore.getState().clearSession()
-      useNotificationStore.getState().pushToast({
-        kicker: 'LIVE ROUND',
-        title: 'Round finished',
-        body: 'The scorer finished this round.',
-        duration: 6000,
-      })
-      navigate('/', { replace: true })
-    }
-
     setLiveLoading(true)
-    let cancelled = false
     fetchLiveRound(liveRoundId).then((row) => {
       if (cancelled) return
       if (row?.status === 'complete') {
-        finishLive()
+        finishLive('remote')
         return
       }
       if (row?.state) hydrateFromServer(row.state)
       setLiveLoading(false)
     })
 
-    const unsub = subscribeToLiveRound(liveRoundId, (state, status) => {
+    unsubComplete = subscribeToLiveRound(liveRoundId, (state, status) => {
       if (status === 'complete') {
-        finishLive()
+        finishLive('remote')
         return
       }
       if (state) hydrateFromServer(state)
@@ -286,7 +297,7 @@ export default function ScoringPage() {
 
     return () => {
       cancelled = true
-      unsub()
+      unsubComplete()
     }
   }, [liveRoundId, liveRole, isLiveScorer, roundStatus, navigate, round?.roundId, round?.course])
 

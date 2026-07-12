@@ -38,12 +38,15 @@ shared database:
    round history to Supabase, and loads courses from the database. Existing
    local data is migrated to your account on first login.
 
-To manage courses at `/admin/courses`, bootstrap your owner account once in the
-Supabase SQL editor:
+To manage courses, bootstrap your owner account once in the Supabase SQL
+editor (after applying `0011_admin_course_management.sql`):
 
 ```
 update public.profiles set is_admin = true where email = 'YOUR_EMAIL@example.com';
 ```
+
+Clients cannot self-grant `is_admin`. After bootstrap, open **You → Course admin**
+(or go to `/admin/courses`) to edit the catalogue and setup visibility.
 
 When the env vars are absent the app silently falls back to the original
 local-only behaviour (no login wall, data stays in `localStorage`).

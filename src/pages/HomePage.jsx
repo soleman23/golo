@@ -10,9 +10,9 @@ import useLiveRoundStore from '../store/liveRoundStore'
 import { retrySyncOnLogin } from '../lib/sync'
 import { getCourseImage } from '../lib/courseImages'
 import { isSupabaseConfigured } from '../lib/supabaseClient'
-import { fetchClaimableLiveRounds, fetchMyActiveLiveRounds, joinLiveRound, liveRoundUserMessage } from '../lib/db/liveRounds'
+import { fetchClaimableLiveRounds, fetchMyActiveLiveRounds, joinLiveRound, completeLiveRound, liveRoundUserMessage } from '../lib/db/liveRounds'
 import useNotificationStore from '../store/notificationStore'
-import { hydrateFromServer } from '../lib/liveRoundSync'
+import { hydrateFromServer, teardownLiveSync } from '../lib/liveRoundSync'
 import { GoloBall } from '../components/shared/Logo'
 import AppHeader from '../components/shared/AppHeader'
 import {
@@ -103,6 +103,9 @@ export default function HomePage() {
   const [claimable, setClaimable] = useState([])
   const [liveWatching, setLiveWatching] = useState([])
   const [claiming, setClaiming] = useState(false)
+  const [endingLive, setEndingLive] = useState(false)
+  const [endLiveConfirm, setEndLiveConfirm] = useState(null) // { mode:'one', row } | { mode:'all', rows }
+  const [endLiveError, setEndLiveError] = useState(null)
   const safeLivePlayers = asArray(livePlayers)
   const savedRounds = asArray(rounds)
 
@@ -146,7 +149,11 @@ export default function HomePage() {
       ])
       if (cancelled) return
       setClaimable(Array.isArray(claims) ? claims : [])
-      setLiveWatching((active ?? []).filter((r) => r.role === 'player' || r.role === 'viewer'))
+      // Include scorers when there is no local resume card, so orphaned live
+      // sessions can still be opened or ended from Home.
+      setLiveWatching((active ?? []).filter((r) => (
+        r.role === 'player' || r.role === 'viewer' || r.role === 'scorer'
+      )))
     })()
     return () => { cancelled = true }
   }, [authUserId])
@@ -188,6 +195,80 @@ export default function HomePage() {
     })
     if (row.state) hydrateFromServer(row.state)
     navigate('/scoring')
+  }
+
+  const requestEndLive = (row, e) => {
+    e?.stopPropagation?.()
+    e?.preventDefault?.()
+    setEndLiveError(null)
+    setEndLiveConfirm({ mode: 'one', row })
+  }
+
+  const requestEndAllLive = (e) => {
+    e?.stopPropagation?.()
+    e?.preventDefault?.()
+    if (!liveWatching.length) return
+    setEndLiveError(null)
+    setEndLiveConfirm({ mode: 'all', rows: [...liveWatching] })
+  }
+
+  const confirmEndLive = async () => {
+    const confirm = endLiveConfirm
+    if (!confirm || endingLive) return
+    const targets = confirm.mode === 'all'
+      ? (confirm.rows ?? []).filter((r) => r?.id)
+      : confirm.row?.id
+        ? [confirm.row]
+        : []
+    if (!targets.length) return
+
+    setEndingLive(true)
+    setEndLiveError(null)
+    try {
+      const endedIds = []
+      let lastError = null
+      for (const row of targets) {
+        const { error } = await completeLiveRound(row.id)
+        if (error) {
+          lastError = error
+          break
+        }
+        endedIds.push(row.id)
+      }
+
+      if (!endedIds.length && lastError) {
+        setEndLiveError(liveRoundUserMessage(lastError?.message ?? String(lastError)))
+        return
+      }
+
+      const endedSet = new Set(endedIds)
+      const live = useLiveRoundStore.getState()
+      if (live.liveRoundId && endedSet.has(live.liveRoundId)) {
+        teardownLiveSync()
+        live.clearSession()
+        if (endedSet.has(round?.roundId) || status === 'in_progress') resetRound()
+      }
+
+      setLiveWatching((rows) => rows.filter((r) => !endedSet.has(r.id)))
+      setClaimable((rows) => rows.filter((r) => !endedSet.has(r.live_round_id) && !endedSet.has(r.id)))
+
+      if (lastError) {
+        setEndLiveError(liveRoundUserMessage(lastError?.message ?? String(lastError)))
+        return
+      }
+
+      setEndLiveConfirm(null)
+      useNotificationStore.getState().pushToast({
+        kicker: 'LIVE ROUND',
+        title: endedIds.length > 1 ? 'Live rounds ended' : 'Round ended',
+        body: endedIds.length > 1
+          ? `${endedIds.length} live rounds were ended for everyone.`
+          : (targets[0]?.course_name ? `${targets[0].course_name} is no longer live.` : 'The live round was ended for everyone.'),
+        duration: 4000,
+      })
+    } finally {
+      setEndingLive(false)
+    }
   }
 
   const model = useMemo(() => {
@@ -330,23 +411,56 @@ export default function HomePage() {
           )}
 
           {liveWatching.length > 0 && !resume && (
-            <button
-              type="button"
-              onClick={() => openLiveWatch(liveWatching[0])}
-              style={{ ...S.resumeCard, borderColor: hexA(ACCENT, 0.35) }}
-            >
-              <span style={{ ...S.resumeThumb, background: COURSE_FALLBACK_BG }}>
-                <span style={S.resumeDot}>▸</span>
-              </span>
-              <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.2, color: ACCENT }}>LIVE ROUND</div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {liveWatching[0].course_name || 'In progress'}
+            <div style={{ display: 'grid', gap: 6, marginBottom: 6 }}>
+              {liveWatching.length > 1 && (
+                <div style={S.liveWatchHeader}>
+                  <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.2, color: 'rgba(255,255,255,.55)' }}>
+                    {liveWatching.length} LIVE ROUNDS
+                  </span>
+                  <button
+                    type="button"
+                    onClick={requestEndAllLive}
+                    disabled={endingLive}
+                    style={S.endAllBtn}
+                  >
+                    End all
+                  </button>
                 </div>
-                <div style={{ fontSize: 12, color: 'rgba(255,255,255,.55)', marginTop: 1 }}>Tap to open the live board.</div>
-              </div>
-              <span style={{ fontSize: 20, color: 'rgba(255,255,255,.5)', flex: '0 0 auto' }}>›</span>
-            </button>
+              )}
+              {liveWatching.map((row) => (
+                <div key={row.id} style={{ ...S.liveWatchCard, borderColor: hexA(ACCENT, 0.35), marginBottom: 0 }}>
+                  <button
+                    type="button"
+                    onClick={() => openLiveWatch(row)}
+                    style={S.resumeCardMain}
+                  >
+                    <span style={{ ...S.resumeThumb, background: COURSE_FALLBACK_BG }}>
+                      <span style={S.resumeDot}>▸</span>
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.2, color: ACCENT }}>LIVE ROUND</div>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {row.course_name || 'In progress'}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'rgba(255,255,255,.55)', marginTop: 1 }}>
+                        {row.role === 'scorer' ? 'You’re scoring · tap to open' : 'Tap to open the live board.'}
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 20, color: 'rgba(255,255,255,.5)', flex: '0 0 auto' }}>›</span>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="End live round for everyone"
+                    title="End live round"
+                    onClick={(e) => requestEndLive(row, e)}
+                    disabled={endingLive}
+                    style={S.endLiveBtn}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
           )}
 
           {/* PRIMARY · new round */}
@@ -488,6 +602,46 @@ export default function HomePage() {
             <Tab icon="👤" label="You" onClick={() => navigate('/you')} />
           </div>
         </div>
+
+        {endLiveConfirm && (
+          <div style={S.sheetLayer} role="dialog" aria-modal="true" aria-labelledby="end-live-title">
+            <button
+              type="button"
+              aria-label="Cancel"
+              onClick={() => !endingLive && setEndLiveConfirm(null)}
+              disabled={endingLive}
+              style={S.sheetScrim}
+            />
+            <div style={S.actionSheet}>
+              <div style={S.grab} />
+              <div id="end-live-title" style={S.sheetTitle}>
+                {endLiveConfirm.mode === 'all' ? `End ${endLiveConfirm.rows?.length ?? 0} live rounds?` : 'End live round?'}
+              </div>
+              <div style={S.sheetBody}>
+                {endLiveConfirm.mode === 'all'
+                  ? 'This ends every live round you’re in for everyone on those boards.'
+                  : `This ends ${endLiveConfirm.row?.course_name || 'the round'} for everyone. Scorers and followers will lose the live board.`}
+              </div>
+              {endLiveError && <div style={S.sheetError}>{endLiveError}</div>}
+              <button
+                type="button"
+                onClick={confirmEndLive}
+                disabled={endingLive}
+                style={{ ...S.sheetPrimary, opacity: endingLive ? 0.72 : 1 }}
+              >
+                {endingLive ? 'Ending…' : endLiveConfirm.mode === 'all' ? 'End all for everyone' : 'End for everyone'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setEndLiveConfirm(null)}
+                disabled={endingLive}
+                style={S.sheetSecondary}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -539,8 +693,40 @@ const S = {
   ctaPlus: { width: 46, height: 46, borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 800, color: ACCENT, background: ACCENT_DARK },
 
   resumeCard: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', boxSizing: 'border-box', border: '1px solid', cursor: 'pointer', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderRadius: 18, padding: '13px 14px', marginBottom: 6, boxShadow: '0 8px 22px rgba(0,0,0,.26)' },
+  liveWatchCard: { display: 'flex', alignItems: 'center', gap: 4, width: '100%', boxSizing: 'border-box', border: '1px solid', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderRadius: 18, padding: '8px 8px 8px 14px', marginBottom: 6, boxShadow: '0 8px 22px rgba(0,0,0,.26)' },
+  liveWatchHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '0 2px 2px' },
+  endAllBtn: {
+    border: '1px solid rgba(251,113,133,.35)', borderRadius: 9999, padding: '6px 12px',
+    background: 'rgba(127,29,29,.28)', color: '#fecdd3', fontSize: 11, fontWeight: 800, cursor: 'pointer',
+  },
+  resumeCardMain: { display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, border: 'none', background: 'transparent', color: 'inherit', font: 'inherit', cursor: 'pointer', padding: '5px 6px 5px 0', textAlign: 'left' },
+  endLiveBtn: {
+    width: 40, height: 40, flex: '0 0 auto', borderRadius: 12, border: '1px solid rgba(255,255,255,.16)',
+    background: 'rgba(255,255,255,.08)', color: 'rgba(255,255,255,.78)', fontSize: 22, fontWeight: 700,
+    lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
   resumeThumb: { width: 44, height: 44, borderRadius: 13, flex: '0 0 auto', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)', position: 'relative' },
   resumeDot: { position: 'absolute', right: -4, bottom: -4, width: 18, height: 18, borderRadius: '50%', background: ACCENT, border: '2px solid #14201a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: ACCENT_DARK },
+
+  sheetLayer: { position: 'absolute', inset: 0, zIndex: 40, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' },
+  sheetScrim: { position: 'absolute', inset: 0, border: 'none', background: 'rgba(0,0,0,.55)', cursor: 'pointer' },
+  actionSheet: {
+    position: 'relative', borderRadius: '24px 24px 0 0', padding: '10px 18px 28px',
+    background: 'rgba(14,20,16,.94)', backdropFilter: 'blur(26px)', WebkitBackdropFilter: 'blur(26px)',
+    border: '1px solid rgba(255,255,255,.14)', borderBottom: 'none',
+  },
+  grab: { width: 42, height: 4, borderRadius: 9999, background: 'rgba(255,255,255,.22)', margin: '4px auto 16px' },
+  sheetTitle: { fontSize: 20, fontWeight: 800, letterSpacing: '-0.2px', marginBottom: 8 },
+  sheetBody: { fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,.62)', lineHeight: 1.45, marginBottom: 16 },
+  sheetError: { fontSize: 13, fontWeight: 700, color: '#fecdd3', marginBottom: 12 },
+  sheetPrimary: {
+    width: '100%', minHeight: 48, border: 'none', borderRadius: 14, marginBottom: 8,
+    background: '#fb7185', color: '#fff', fontSize: 15, fontWeight: 800, cursor: 'pointer',
+  },
+  sheetSecondary: {
+    width: '100%', minHeight: 44, border: '1px solid rgba(255,255,255,.16)', borderRadius: 14,
+    background: 'rgba(255,255,255,.06)', color: '#fff', fontSize: 14, fontWeight: 800, cursor: 'pointer',
+  },
 
   glassCard: { background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 24, padding: '20px 18px', marginBottom: 12, boxShadow: '0 12px 32px rgba(0,0,0,.32)' },
   ledgerGlow: { position: 'absolute', right: -30, top: -30, width: 150, height: 150, borderRadius: '50%', filter: 'blur(36px)', pointerEvents: 'none' },
