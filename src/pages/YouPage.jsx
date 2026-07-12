@@ -7,7 +7,7 @@ import useProfileStore from '../store/profileStore'
 import useAuthStore from '../store/authStore'
 import { uploadAvatar, removeAvatar } from '../lib/db/avatars'
 import { fetchProfile } from '../lib/db/profiles'
-import { adminMe } from '../lib/db/admin'
+import useAdmin from '../hooks/useAdmin'
 import { startGhinConnect, syncGhinHandicap, isGhinConfiguredResponse } from '../lib/ghin/client'
 import { isGhinConnected } from '../lib/ghin/eligibility'
 import { GoloWordmark, GoloBall } from '../components/shared/Logo'
@@ -139,7 +139,7 @@ export default function YouPage() {
   const [venmoDraft, setVenmoDraft] = useState('')
   const [copiedVenmo, setCopiedVenmo] = useState(false)
   const [view, setView] = useState('season')
-  const [isAdmin, setIsAdmin] = useState(false)
+  const { isAdmin } = useAdmin()
   const fileInputRef = useRef(null)
   const venmoToastTimer = useRef(null)
   // Registered = backend on AND signed in; only they can upload to Storage.
@@ -193,19 +193,6 @@ export default function YouPage() {
     const t = setTimeout(() => setGhinToast(null), 2600)
     return () => clearTimeout(t)
   }, [ghinToast])
-
-  useEffect(() => {
-    let active = true
-    if (!authEnabled || !authUserId) {
-      setIsAdmin(false)
-      return undefined
-    }
-    adminMe().then((res) => {
-      if (!active) return
-      setIsAdmin(!!res.isAdmin)
-    })
-    return () => { active = false }
-  }, [authEnabled, authUserId])
 
   const openGhin = () => {
     setGhinError(null)
@@ -978,9 +965,9 @@ export default function YouPage() {
             {isAdmin && (
               <SettingRow
                 icon="⛳"
-                title="Course admin"
-                sub="Catalogue, scorecards & setup visibility"
-                onClick={() => navigate('/admin/courses')}
+                title="Commissioner's Desk"
+                sub="Players, courses & games"
+                onClick={() => navigate('/admin')}
                 divider
               />
             )}

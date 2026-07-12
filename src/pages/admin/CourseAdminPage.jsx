@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Navigate } from 'react-router-dom'
-import { adminListCourses, adminMe, adminSetCourseVisibility, adminUpsertCourse } from '../../lib/db/admin'
+import { adminListCourses, adminSetCourseVisibility, adminUpsertCourse } from '../../lib/db/admin'
 import { getCourseImage } from '../../lib/courseImages'
 import {
   COURSE_HOLES,
@@ -9,10 +8,10 @@ import {
   slugifyCourseName,
   validateCourseForSetup,
 } from '../../lib/courseValidation'
+import useAdminDesk from './useAdminDesk'
 
 const ACCENT = '#d4f23a'
 const DARK_TEXT = '#13250a'
-const BG = "url('/courses/sunset.png')"
 
 const emptyScorecard = () => Object.fromEntries(COURSE_HOLES.map((h) => [h, '']))
 
@@ -77,9 +76,9 @@ function Stat({ label, value }) {
 }
 
 export default function CourseAdminPage() {
-  const [guard, setGuard] = useState({ loading: true, isAdmin: false })
+  const { refreshKey } = useAdminDesk()
   const [courses, setCourses] = useState([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(null)
   const [query, setQuery] = useState('')
   const [draft, setDraft] = useState(() => blankCourse())
@@ -90,13 +89,6 @@ export default function CourseAdminPage() {
   useEffect(() => {
     let active = true
     async function boot() {
-      const me = await adminMe()
-      if (!active) return
-      if (!me.isAdmin) {
-        setGuard({ loading: false, isAdmin: false })
-        return
-      }
-      setGuard({ loading: false, isAdmin: true })
       setLoading(true)
       const res = await adminListCourses()
       if (!active) return
@@ -108,7 +100,7 @@ export default function CourseAdminPage() {
     return () => {
       active = false
     }
-  }, [])
+  }, [refreshKey])
 
   const validationErrors = useMemo(() => validateCourseForSetup(draft), [draft])
   const ready = validationErrors.length === 0
@@ -237,22 +229,17 @@ export default function CourseAdminPage() {
     setNotice(nextVisible ? 'Course is now visible in setup.' : 'Course is hidden from setup.')
   }
 
-  if (guard.loading) return <AdminSplash />
-  if (!guard.isAdmin) return <Navigate to="/" replace />
-
   return (
-    <div style={S.page}>
-      <div style={S.backdrop} />
-      <main style={S.shell}>
-        <header style={S.header}>
+    <div style={S.embed}>
+        <div style={S.sectionHeadRow}>
           <div>
-            <div style={S.kicker}>ADMIN</div>
-            <h1 style={S.title}>Course Catalogue</h1>
+            <div style={S.kicker}>COURSES</div>
+            <h1 style={S.title}>Catalogue</h1>
           </div>
           <button type="button" onClick={refreshCourses} disabled={loading} style={S.ghostButton}>
             {loading ? 'Refreshing...' : 'Refresh'}
           </button>
-        </header>
+        </div>
 
         <section style={S.stats}>
           <Stat label="Courses" value={courses.length} />
@@ -476,15 +463,6 @@ export default function CourseAdminPage() {
             </div>
           </section>
         </div>
-      </main>
-    </div>
-  )
-}
-
-function AdminSplash() {
-  return (
-    <div style={S.page}>
-      <div style={S.backdrop} />
     </div>
   )
 }
@@ -504,20 +482,17 @@ const baseInput = {
 }
 
 const S = {
-  page: {
-    minHeight: '100vh',
-    position: 'relative',
-    overflowX: 'hidden',
+  embed: {
     color: '#fff',
     fontFamily: "system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",
-    background: '#08170f',
+    paddingBottom: 8,
   },
-  backdrop: {
-    position: 'fixed',
-    inset: 0,
-    backgroundImage: `linear-gradient(180deg, rgba(7,17,12,.54), rgba(7,17,12,.95)), ${BG}`,
-    backgroundSize: 'cover',
-    backgroundPosition: '50% 38%',
+  sectionHeadRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 16,
+    marginBottom: 14,
   },
   shell: {
     position: 'relative',
@@ -540,19 +515,20 @@ const S = {
   },
   title: {
     margin: '4px 0 0',
-    fontSize: 'clamp(30px, 4vw, 48px)',
+    fontSize: 'clamp(24px, 3.5vw, 36px)',
     lineHeight: 1,
     letterSpacing: 0,
+    fontWeight: 800,
   },
   stats: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
     gap: 10,
     marginBottom: 14,
   },
   stat: {
     border: '1px solid rgba(255,255,255,.15)',
-    borderRadius: 8,
+    borderRadius: 14,
     padding: 14,
     background: 'rgba(20,28,24,.58)',
     backdropFilter: 'blur(18px)',
@@ -561,7 +537,7 @@ const S = {
   statLabel: { marginTop: 5, fontSize: 12, color: 'rgba(255,255,255,.62)', fontWeight: 750 },
   banner: {
     border: '1px solid rgba(212,242,58,.34)',
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 12,
     marginBottom: 14,
     color: '#f8ffd2',
@@ -582,7 +558,7 @@ const S = {
   },
   listPane: {
     border: '1px solid rgba(255,255,255,.15)',
-    borderRadius: 8,
+    borderRadius: 16,
     background: 'rgba(20,28,24,.62)',
     backdropFilter: 'blur(20px)',
     padding: 12,
@@ -590,7 +566,7 @@ const S = {
   },
   editorPane: {
     border: '1px solid rgba(255,255,255,.15)',
-    borderRadius: 8,
+    borderRadius: 16,
     background: 'rgba(20,28,24,.72)',
     backdropFilter: 'blur(22px)',
     padding: 16,

@@ -570,7 +570,9 @@ export default function SetupWizard() {
   const [accountSearchResults, setAccountSearchResults] = useState([])
   const [accountSearchLoading, setAccountSearchLoading] = useState(false)
   const courseIdRef = useRef(st.courseId)
-  courseIdRef.current = st.courseId
+  useEffect(() => {
+    courseIdRef.current = st.courseId
+  }, [st.courseId])
   useEffect(() => {
     let active = true
     fetchCourses().then((rows) => {

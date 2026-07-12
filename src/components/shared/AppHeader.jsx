@@ -60,6 +60,7 @@ export default function AppHeader({
   backTo = '/',
   logo = 'wordmark',
   rightAction = 'pin',
+  onRightAction,
   kicker = '',
   title = '',
   contextPill = '',
@@ -127,6 +128,19 @@ export default function AppHeader({
               <PinMark accent={accent} width={28} height={29} style={{ filter: 'drop-shadow(0 3px 9px rgba(0,0,0,.5))' }} />
             </button>
           )}
+          {rightAction === 'refresh' && (
+            <button
+              type="button"
+              onClick={() => onRightAction?.()}
+              aria-label="Refresh"
+              style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4))' }} aria-hidden="true">
+                <path d="M20 12a8 8 0 1 1-2.2-5.5" stroke={accent} strokeWidth="2.2" strokeLinecap="round" />
+                <path d="M20 4v5h-5" stroke={accent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          )}
         </div>
 
         {menuOpen && rightAction === 'pin' && (
@@ -146,7 +160,9 @@ export default function AppHeader({
           <div style={{ padding: '8px 18px 12px', display: 'flex', alignItems: 'flex-end', gap: 12 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               {hasKicker && <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: accent }}>{kicker}</div>}
-              <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.4, lineHeight: 1.12, marginTop: 2 }}>{title}</div>
+              {String(title).trim().length > 0 && (
+                <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.4, lineHeight: 1.12, marginTop: hasKicker ? 2 : 0 }}>{title}</div>
+              )}
               {pillBelow && (
                 <div style={{ display: 'flex', marginTop: 10 }}>
                   <ContextPill accent={accent} label={contextPill} />

@@ -20,6 +20,10 @@ const HistoryDetailPage = lazy(() => import('./pages/HistoryDetailPage'))
 const ContactPage = lazy(() => import('./pages/ContactPage'))
 const JoinRoundPage = lazy(() => import('./pages/JoinRoundPage'))
 const CourseAdminPage = lazy(() => import('./pages/admin/CourseAdminPage'))
+const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
+const AdminPlayersPage = lazy(() => import('./pages/admin/AdminPlayersPage'))
+const AdminPlayerDetailPage = lazy(() => import('./pages/admin/AdminPlayerDetailPage'))
+const AdminGamesPage = lazy(() => import('./pages/admin/AdminGamesPage'))
 
 /** The signed-in app's full route tree. */
 function MainRoutes() {
@@ -40,8 +44,13 @@ function MainRoutes() {
           <Route path="/history/:roundId" element={<HistoryDetailPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/join/:code" element={<JoinRoundPage />} />
-          <Route path="/admin" element={<Navigate to="/admin/courses" replace />} />
-          <Route path="/admin/courses" element={<CourseAdminPage />} />
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<Navigate to="players" replace />} />
+            <Route path="players" element={<AdminPlayersPage />} />
+            <Route path="players/:userId" element={<AdminPlayerDetailPage />} />
+            <Route path="courses" element={<CourseAdminPage />} />
+            <Route path="games" element={<AdminGamesPage />} />
+          </Route>
         </Routes>
         <LiveToast />
         <LiveNotifications />
