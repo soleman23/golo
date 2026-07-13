@@ -13,25 +13,29 @@ import { persist } from 'zustand/middleware'
  * Venmo is still a local preference. GHIN connection state syncs via Supabase
  * edge functions when the backend and GPA credentials are configured.
  */
+const DEFAULT_PROFILE = {
+  name: null, // full name, or null
+  nickname: null, // handle (shown as @nickname), or null
+  email: null, // primary identifier (one of email/phone is expected)
+  phone: null, // alternate identifier
+  handicapIndex: null, // saved handicap index, or null until known
+  avatarUrl: null, // profile photo (Supabase Storage public URL), or null
+  onboarded: false, // seen the first-run onboarding flow (set on finish or skip)
+  homeClub: null, // optional home-club override; null = auto (most-played course)
+  venmo: null, // payout handle, e.g. "@mike"; null = not linked
+  ghinNumber: null, // official GHIN # after connect, or null
+  ghinConnectedAt: null, // ISO timestamp when OAuth completed
+  ghinLastSyncAt: null, // ISO timestamp of last handicap pull
+  ghinSync: false, // auto-sync handicap from GHIN on login when connected
+  notifySettle: true, // notify on settle-up
+  notifyLive: true, // notify on live-round updates
+  skinsDefault: null, // saved Skins setup (the wizard selection shape), or null
+}
+
 const useProfileStore = create(
   persist(
     (set) => ({
-      name: null, // full name, or null
-      nickname: null, // handle (shown as @nickname), or null
-      email: null, // primary identifier (one of email/phone is expected)
-      phone: null, // alternate identifier
-      handicapIndex: null, // saved handicap index, or null until known
-      avatarUrl: null, // profile photo (Supabase Storage public URL), or null
-      onboarded: false, // seen the first-run onboarding flow (set on finish or skip)
-      homeClub: null, // optional home-club override; null = auto (most-played course)
-      venmo: null, // payout handle, e.g. "@mike"; null = not linked
-      ghinNumber: null, // official GHIN # after connect, or null
-      ghinConnectedAt: null, // ISO timestamp when OAuth completed
-      ghinLastSyncAt: null, // ISO timestamp of last handicap pull
-      ghinSync: false, // auto-sync handicap from GHIN on login when connected
-      notifySettle: true, // notify on settle-up
-      notifyLive: true, // notify on live-round updates
-      skinsDefault: null, // saved Skins setup (the wizard selection shape), or null
+      ...DEFAULT_PROFILE,
       setName: (name) => set({ name: name?.trim() || null }),
       setAvatarUrl: (url) => set({ avatarUrl: url || null }),
       setSkinsDefault: (cfg) => set({ skinsDefault: cfg ?? null }),
@@ -71,6 +75,9 @@ const useProfileStore = create(
         }),
       setNotify: (settle, live) => set({ notifySettle: !!settle, notifyLive: !!live }),
       completeOnboarding: () => set({ onboarded: true }),
+      // Back to a blank profile — used when a different account signs in on this
+      // device, so the previous owner's identity never leaks into the new one.
+      resetProfile: () => set({ ...DEFAULT_PROFILE }),
     }),
     { name: 'golo-profile' }
   )

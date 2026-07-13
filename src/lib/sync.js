@@ -36,6 +36,31 @@ let currentUserId = null
 let unsubscribeProfile = null
 let profileDebounce = null
 
+// The persisted local cache (live round, history, profile) belongs to the last
+// account that synced on this device. If a *different* account signs in, the
+// cache must be wiped before hydrating — otherwise the new user inherits the
+// old user's in-progress round on Home, their local history gets migrated into
+// the new cloud account, and a missing remote profile gets seeded from the old
+// identity. A null owner means "never synced" (pre-backend local data), which
+// keeps the intentional first-login migration path.
+const CACHE_OWNER_KEY = 'golo:cache-owner'
+
+function readCacheOwner() {
+  try { return localStorage.getItem(CACHE_OWNER_KEY) } catch { return null }
+}
+
+function writeCacheOwner(userId) {
+  try { localStorage.setItem(CACHE_OWNER_KEY, userId) } catch { /* private mode */ }
+}
+
+function wipeLocalCacheForUserSwitch() {
+  teardownLiveSync()
+  useLiveRoundStore.getState().clearSession()
+  useRoundStore.getState().resetRound()
+  useHistoryStore.getState().setRounds([])
+  useProfileStore.getState().resetProfile()
+}
+
 function pickProfile(state) {
   const out = {}
   for (const k of PROFILE_FIELDS) out[k] = state[k]
@@ -64,6 +89,10 @@ function stopProfileSync() {
 export async function syncOnLogin(userId, { force = false } = {}) {
   if (!isSupabaseConfigured || !userId) return
   if (!force && userId === currentUserId) return
+
+  const prevOwner = readCacheOwner()
+  if (prevOwner && prevOwner !== userId) wipeLocalCacheForUserSwitch()
+  writeCacheOwner(userId)
 
   const { setSyncing, setSyncError, clearSyncError, setReady } = useSyncStore.getState()
   setSyncing(true)
