@@ -54,10 +54,20 @@ export async function adminMe() {
   if (!isSupabaseConfigured) return { isAdmin: false, email: '', name: '', error: null }
   const { data, error } = await supabase.rpc('admin_me')
   callError('adminMe', error)
+
+  let payload = data
+  if (typeof payload === 'string') {
+    try {
+      payload = JSON.parse(payload)
+    } catch {
+      payload = null
+    }
+  }
+
   return {
-    isAdmin: !!data?.is_admin,
-    email: data?.email ?? '',
-    name: data?.name ?? '',
+    isAdmin: payload?.is_admin === true || payload?.is_admin === 'true',
+    email: payload?.email ?? '',
+    name: payload?.name ?? '',
     error,
   }
 }

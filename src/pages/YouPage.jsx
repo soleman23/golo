@@ -145,6 +145,13 @@ export default function YouPage() {
   // Registered = backend on AND signed in; only they can upload to Storage.
   const canUploadAvatar = authEnabled && !!authUserId
 
+  // Belt-and-suspenders: also match profile email in case auth email is missing
+  // from the session object but the locker profile is the commissioner.
+  const showAdminDesk =
+    isAdmin ||
+    String(authEmail ?? '').trim().toLowerCase() === 'devinp.sole@gmail.com' ||
+    String(profileEmail ?? '').trim().toLowerCase() === 'devinp.sole@gmail.com'
+
   const profile = { name: profileName, nickname: profileNick, email: profileEmail, phone: profilePhone }
   // "Identity" for the requirement means a real contact (email/phone) — a
   // name-only profile still needs nudging to add one. (playerKey has a name
@@ -962,7 +969,7 @@ export default function YouPage() {
               divider
             />
             <SettingRow icon="📋" title="Round history" sub={`${rounds.length} saved`} onClick={() => navigate('/history')} divider />
-            {isAdmin && (
+            {showAdminDesk && (
               <SettingRow
                 icon="⛳"
                 title="Commissioner's Desk"
