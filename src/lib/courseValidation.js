@@ -106,3 +106,35 @@ export function validateCourseForSetup(course) {
 export function isCourseReadyForSetup(course) {
   return validateCourseForSetup(course).length === 0
 }
+
+/**
+ * Build a partial course from an NCRDB search hit + its tee sets, ready for
+ * normalizeCourseForSave(). Pars and stroke index are not in the NCRDB, so
+ * the user still enters those manually.
+ */
+export function courseFromNcrdb(ncrdbCourse, tees, genderFilter = 'M') {
+  const city = String(ncrdbCourse?.city ?? '').trim()
+  const state = String(ncrdbCourse?.stateDisplay ?? '').trim()
+  const filteredTees = (Array.isArray(tees) ? tees : []).filter((tee) => !genderFilter || tee?.gender === genderFilter)
+  // NCRDB/GHIN id namespace equivalence is assumed here; verify before first real GHIN score post when _shared/ghin.ts credential stubs are finalized.
+  const ghinTeeSets = Object.fromEntries(
+    filteredTees
+      .map((tee) => [String(tee?.name ?? '').trim(), tee?.teeId != null ? String(tee.teeId) : ''])
+      .filter(([name, teeId]) => name && teeId)
+  )
+
+  return {
+    name: String(ncrdbCourse?.fullName ?? '').trim(),
+    loc: [city, state].filter(Boolean).join(', '),
+    ghinFacilityId: ncrdbCourse?.facilityID != null ? String(ncrdbCourse.facilityID) : '',
+    ghinCourseId: ncrdbCourse?.courseID != null ? String(ncrdbCourse.courseID) : '',
+    ghinTeeSets,
+    tees: filteredTees.map((tee) => ({
+      name: tee.name,
+      rating: tee.courseRating,
+      slope: tee.slope,
+      par: tee.par,
+      yards: tee.yards,
+    })),
+  }
+}
