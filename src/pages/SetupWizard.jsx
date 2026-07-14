@@ -13,7 +13,23 @@ import { searchVerifiedPlayers, fetchPlayerContact } from '../lib/db/players'
 import { searchNcrdbCourses, getNcrdbTees } from '../lib/ncrdb'
 import { courseFromNcrdb } from '../lib/courseValidation'
 import { getCourseImage } from '../lib/courseImages'
-import { defaultHomeCourse, sortCoursesHomeFirst } from '../lib/homeCourse'
+import { defaultHomeCourse } from '../lib/homeCourse'
+import {
+  GEO_STATUS,
+  getDevicePosition,
+  readCachedGeo,
+  writeCachedGeo,
+} from '../lib/geolocation'
+import { reverseGeocode, forwardGeocode } from '../lib/reverseGeocode'
+import {
+  sortCoursesForNearby,
+  dedupeNcrdbAgainstCatalog,
+  courseDistanceLabel,
+  enrichRegionWithCatalog,
+  ncrdbHitMatchesRegion,
+  sortNcrdbHitsByRegion,
+  buildNearbySearchQueries,
+} from '../lib/nearbyCourses'
 import { normalizeSkinsLdHole, resolveLdHoleNumber } from '../engines/skins'
 import { isSupabaseConfigured } from '../lib/supabaseClient'
 import { serializeRoundState, ensureLiveScorerAccess, liveRoundUserMessage } from '../lib/db/liveRounds'
@@ -105,15 +121,17 @@ const LOSTTRACKS_TEES = [
 ]
 
 const COURSES = [
-  { id: 'pinehurst', name: 'Pinehurst No.2', loc: 'Pinehurst, NC', holes: 18, bg: '/courses/course.png' },
-  { id: 'harbor', name: 'Harbor Dunes', loc: 'Pawleys Island, SC', holes: 18, bg: '/courses/sunset.png' },
-  { id: 'lincoln', name: 'Lincoln Park', loc: 'San Francisco, CA', holes: 18, bg: '/courses/turf.png' },
+  { id: 'pinehurst', name: 'Pinehurst No.2', loc: 'Pinehurst, NC', holes: 18, bg: '/courses/course.png', latitude: 35.1856, longitude: -79.4663 },
+  { id: 'harbor', name: 'Harbor Dunes', loc: 'Pawleys Island, SC', holes: 18, bg: '/courses/sunset.png', latitude: 33.4228, longitude: -79.0956 },
+  { id: 'lincoln', name: 'Lincoln Park', loc: 'San Francisco, CA', holes: 18, bg: '/courses/turf.png', latitude: 37.7849, longitude: -122.4994 },
   {
     id: 'tetherow', name: 'Tetherow', loc: 'Bend, OR', holes: 18, bg: '/courses/tetherow.jpg',
+    latitude: 44.0215, longitude: -121.3165,
     pars: TETHEROW_PARS, strokeIndex: TETHEROW_SI, tees: TETHEROW_TEES,
   },
   {
     id: 'losttracks', name: 'Lost Tracks Golf Course', loc: 'Bend, OR', holes: 18, bg: '/courses/losttracks.webp',
+    latitude: 44.0245, longitude: -121.2789,
     pars: LOSTTRACKS_PARS, strokeIndex: LOSTTRACKS_SI, tees: LOSTTRACKS_TEES,
   },
 ]
@@ -602,10 +620,159 @@ export default function SetupWizard() {
   const [accountSearch, setAccountSearch] = useState('')
   const [accountSearchResults, setAccountSearchResults] = useState([])
   const [accountSearchLoading, setAccountSearchLoading] = useState(false)
+  const [geoStatus, setGeoStatus] = useState(GEO_STATUS.IDLE)
+  const [geoRegion, setGeoRegion] = useState(null)
+  const [nearbyNcrdb, setNearbyNcrdb] = useState([])
+  const [nearbyLoading, setNearbyLoading] = useState(false)
+  const nearbyFetchGen = useRef(0)
+  const nearbyFetchedKey = useRef('')
+  const nearbyRetryCount = useRef(0)
+  const nearbyTimerRef = useRef(null)
   const courseIdRef = useRef(st.courseId)
+  const courseQueryRef = useRef(st.courseQuery)
+  const catalogRef = useRef(catalog)
+  useEffect(() => {
+    catalogRef.current = catalog
+  }, [catalog])
   useEffect(() => {
     courseIdRef.current = st.courseId
   }, [st.courseId])
+  useEffect(() => {
+    courseQueryRef.current = st.courseQuery
+  }, [st.courseQuery])
+
+  const fetchNearbyNcrdb = async (region, { force = false } = {}) => {
+    if (!isSupabaseConfigured || courseQueryRef.current.trim()) return null
+    const enriched = enrichRegionWithCatalog(region, catalogRef.current, COURSES)
+    const city = String(enriched?.city ?? '').trim()
+    const state = String(enriched?.stateCode ?? enriched?.state ?? '').trim()
+    if (!city && !state && enriched?.lat == null) return null
+
+    const key = `${city}|${state}|${catalogRef.current.length}`
+    if (!force && nearbyFetchedKey.current === key) return null
+
+    const gen = ++nearbyFetchGen.current
+    setNearbyLoading(true)
+
+    const hits = []
+    const seen = new Set()
+    const addHits = (rows) => {
+      for (const row of rows ?? []) {
+        const id = String(row?.courseID ?? row?.courseId ?? '').trim()
+        if (!id || seen.has(id)) continue
+        seen.add(id)
+        hits.push(row)
+      }
+    }
+
+    const queries = buildNearbySearchQueries(enriched, catalogRef.current)
+
+    const results = await Promise.all(
+      queries.map((params) => searchNcrdbCourses(params).then(({ data, error }) => (error ? [] : data?.courses ?? []))),
+    )
+    // Superseded: leave nearbyLoading alone so the newer request still owns it.
+    if (gen !== nearbyFetchGen.current) return null
+    if (courseQueryRef.current.trim()) {
+      setNearbyLoading(false)
+      return null
+    }
+    for (const rows of results) addHits(rows)
+
+    const regionalHits = sortNcrdbHitsByRegion(
+      city || state ? hits.filter((hit) => ncrdbHitMatchesRegion(hit, enriched)) : hits,
+      enriched,
+    ).slice(0, 15)
+
+    // First empty response is often a cold edge-function miss — auto-retry once.
+    if (regionalHits.length === 0 && nearbyRetryCount.current < 1) {
+      nearbyRetryCount.current += 1
+      setNearbyLoading(false)
+      return fetchNearbyNcrdb(enriched, { force: true })
+    }
+
+    setNearbyNcrdb(regionalHits)
+    setNearbyLoading(false)
+    // Only lock when we got results — empty must not block later auto/catalog retries.
+    if (regionalHits.length > 0) nearbyFetchedKey.current = key
+    return { key, count: regionalHits.length }
+  }
+
+  const scheduleNearbyFetch = (region, opts = {}) => {
+    if (nearbyTimerRef.current) clearTimeout(nearbyTimerRef.current)
+    nearbyTimerRef.current = setTimeout(() => {
+      fetchNearbyNcrdb(region, opts)
+    }, 400)
+  }
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function resolveRegionFromCoords(lat, lng) {
+      const { data, error } = await reverseGeocode(lat, lng)
+      if (cancelled) return null
+      if (error || !data?.city) {
+        // Coords-only fallback: distance sort still works without reverse-geocode edge fn.
+        return { lat, lng, city: '', state: '', stateCode: '' }
+      }
+      return {
+        lat,
+        lng,
+        city: data.city,
+        state: data.state,
+        stateCode: data.stateCode || data.state,
+      }
+    }
+
+    async function applyRegion(region) {
+      if (cancelled || region?.lat == null || region?.lng == null) return
+      const enriched = enrichRegionWithCatalog(region, catalogRef.current, COURSES)
+      setGeoRegion(enriched)
+      setGeoStatus(GEO_STATUS.READY)
+      writeCachedGeo(enriched)
+      if (enriched.city && isSupabaseConfigured) {
+        nearbyRetryCount.current = 0
+        scheduleNearbyFetch(enriched)
+      }
+    }
+
+    async function loadNearbyGeo() {
+      setGeoStatus(GEO_STATUS.LOADING)
+
+      const cached = readCachedGeo()
+      if (cached?.lat != null && cached?.lng != null) {
+        if (cached?.city && (cached?.stateCode || cached?.state)) {
+          await applyRegion(cached)
+          return
+        }
+        const region = await resolveRegionFromCoords(cached.lat, cached.lng)
+        if (region) {
+          await applyRegion(region)
+          return
+        }
+      }
+
+      try {
+        const pos = await getDevicePosition()
+        if (cancelled) return
+        const region = await resolveRegionFromCoords(pos.lat, pos.lng)
+        if (!region) {
+          setGeoStatus(GEO_STATUS.UNAVAILABLE)
+          return
+        }
+        await applyRegion(region)
+      } catch (err) {
+        if (cancelled) return
+        if (err?.code === 1) setGeoStatus(GEO_STATUS.DENIED)
+        else setGeoStatus(GEO_STATUS.UNAVAILABLE)
+      }
+    }
+
+    loadNearbyGeo()
+    return () => {
+      cancelled = true
+      if (nearbyTimerRef.current) clearTimeout(nearbyTimerRef.current)
+    }
+  }, [])
   useEffect(() => {
     let active = true
     fetchCourses().then((rows) => {
@@ -626,6 +793,20 @@ export default function SetupWizard() {
     })
     return () => { active = false }
   }, [])
+
+  // Debounce nearby fetch when geo + catalogue settle (coalesces Strict Mode / catalog races).
+  useEffect(() => {
+    if (geoStatus !== GEO_STATUS.READY || geoRegion?.lat == null) return undefined
+    const enriched = enrichRegionWithCatalog(geoRegion, catalog, COURSES)
+    if (!enriched.city || !isSupabaseConfigured) return undefined
+    if (!geoRegion.city || geoRegion.city !== enriched.city) {
+      setGeoRegion(enriched)
+      writeCachedGeo(enriched)
+    }
+    scheduleNearbyFetch(enriched)
+    return undefined
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalog, coursesFromDb, geoStatus, geoRegion?.lat, geoRegion?.city])
 
   useEffect(() => {
     const q = st.courseQuery.trim()
@@ -900,11 +1081,25 @@ export default function SetupWizard() {
       setNcrdbError("No rated men's tees were found for that course.")
       return
     }
+    let latitude = null
+    let longitude = null
+    if (imported.loc) {
+      const { data: coords } = await forwardGeocode(imported.loc)
+      if (coords?.lat != null && coords?.lng != null) {
+        latitude = coords.lat
+        longitude = coords.lng
+      }
+    }
+    if (latitude == null && geoRegion?.lat != null && geoRegion?.lng != null) {
+      latitude = geoRegion.lat
+      longitude = geoRegion.lng
+    }
     const importedCourse = {
       ...imported,
       id: `ncrdb-${courseId}`,
       holes: 18,
       bg: getCourseImage({ id: `ncrdb-${courseId}`, name: imported.name }),
+      ...(latitude != null && longitude != null ? { latitude, longitude } : {}),
     }
     userPickedCourse.current = true
     setCatalog((items) => {
@@ -1288,36 +1483,45 @@ export default function SetupWizard() {
     return <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: 'rgba(255,255,255,.5)', marginBottom: 10, ...style }}>{text}</div>
   }
 
+  function courseRowSubtitle(course) {
+    const distance = courseDistanceLabel(course, geoRegion?.lat, geoRegion?.lng)
+    const parts = [course.loc, `${course.holes} holes`]
+    if (distance) parts.splice(1, 0, distance)
+    return parts.filter(Boolean).join(' · ')
+  }
+
   function renderCourse() {
     const q = st.courseQuery.trim().toLowerCase()
+    const showNearby = !q && geoStatus === GEO_STATUS.READY && geoRegion?.lat != null
     // From the backend, `catalog` is already filtered to visible setup courses;
     // in local-only mode keep the curated visible subset that used to be hardcoded.
     const visible = coursesFromDb
       ? catalog
       : VISIBLE_COURSE_IDS.map((id) => catalog.find((c) => c.id === id)).filter(Boolean)
-    const ordered = sortCoursesHomeFirst(visible, {
+    const ordered = sortCoursesForNearby(visible, {
       homeClub: profileHomeClub,
       rounds: historyRounds,
+      region: showNearby ? geoRegion : null,
+      userLat: geoRegion?.lat,
+      userLng: geoRegion?.lng,
     })
     const matches = ordered.filter((c) => !q || (c.name + ' ' + (c.loc ?? '')).toLowerCase().includes(q))
-    const localCourseKeys = new Set(
-      ordered.flatMap((c) => [
-        c.ghinCourseId ? `ncrdb:${c.ghinCourseId}` : '',
-        `${String(c.name ?? '').trim()}|${String(c.loc ?? '').trim()}`.toLowerCase(),
-      ]).filter(Boolean)
-    )
     const showNcrdbSearch = isSupabaseConfigured && q.length >= 3
     const remoteMatches = showNcrdbSearch
-      ? ncrdbResults
-        .map(normalizedNcrdbCourse)
-        .filter((c) => {
-          const id = ncrdbCourseId(c)
-          const name = ncrdbCourseName(c)
-          const loc = ncrdbCourseLocation(c)
-          if (!id || !name) return false
-          return !localCourseKeys.has(`ncrdb:${id}`) && !localCourseKeys.has(`${name}|${loc}`.toLowerCase())
-        })
+      ? dedupeNcrdbAgainstCatalog(ordered, ncrdbResults, {
+          getId: ncrdbCourseId,
+          getName: ncrdbCourseName,
+          getLoc: ncrdbCourseLocation,
+        }).map(normalizedNcrdbCourse)
       : []
+    const nearbyMatches = showNearby
+      ? dedupeNcrdbAgainstCatalog(ordered, nearbyNcrdb, {
+          getId: ncrdbCourseId,
+          getName: ncrdbCourseName,
+          getLoc: ncrdbCourseLocation,
+        }).map(normalizedNcrdbCourse)
+      : []
+    const nearbyLabel = [geoRegion?.city, geoRegion?.stateCode || geoRegion?.state].filter(Boolean).join(', ')
     return (
       <div>
         {sectionLabel('COURSE SEARCH')}
@@ -1334,6 +1538,22 @@ export default function SetupWizard() {
           )}
         </div>
 
+        {(geoStatus === GEO_STATUS.LOADING || nearbyLoading) && !q && (
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: ACCENT, marginBottom: 12 }}>
+            Finding courses near you…
+          </div>
+        )}
+        {geoStatus === GEO_STATUS.DENIED && !q && (
+          <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.4)', marginBottom: 12 }}>
+            Enable location to see nearby courses.
+          </div>
+        )}
+        {showNearby && (
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: ACCENT, marginBottom: 10 }}>
+            NEAR YOU{nearbyLabel ? ` · ${nearbyLabel}` : ' · sorted by distance'}
+          </div>
+        )}
+
         {sectionLabel('COURSE')}
         {matches.map((c) => {
           const sel = c.id === st.courseId
@@ -1342,12 +1562,49 @@ export default function SetupWizard() {
               <span style={{ width: 54, height: 54, borderRadius: 12, flex: '0 0 auto', background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundImage: `url(${c.bg}), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)' }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{c.name}</div>
-                <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', marginTop: 1 }}>{c.loc} · {c.holes} holes</div>
+                <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', marginTop: 1 }}>{courseRowSubtitle(c)}</div>
               </div>
               <span style={{ width: 24, height: 24, borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${sel ? ACCENT : 'rgba(255,255,255,.3)'}`, background: sel ? ACCENT : 'transparent', color: ACCENT_DARK, fontSize: 14, fontWeight: 800 }}>{sel ? '✓' : ''}</span>
             </button>
           )
         })}
+        {showNearby && (nearbyLoading || nearbyMatches.length > 0) && (
+          <>
+            {sectionLabel('MORE NEARBY', { margin: matches.length ? '16px 0 10px' : undefined })}
+            {nearbyLoading && nearbyMatches.length === 0 && (
+              <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,.62)', background: 'rgba(20,28,24,.5)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 14, padding: 14, lineHeight: 1.5, marginBottom: 10 }}>
+                Loading nearby courses from USGA…
+              </div>
+            )}
+            {nearbyMatches.map((c) => {
+              const id = String(ncrdbCourseId(c))
+              const picking = ncrdbSelectingId === id
+              return (
+                <button key={`nearby-ncrdb-${id}`} disabled={!!ncrdbSelectingId} onClick={() => selectNcrdbCourse(c)} style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 16, padding: 12, marginBottom: 10, cursor: ncrdbSelectingId ? 'wait' : 'pointer', opacity: ncrdbSelectingId && !picking ? 0.55 : 1 }}>
+                  <span style={{ width: 54, height: 54, borderRadius: 12, flex: '0 0 auto', background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundImage: 'url(/courses/course.png), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)' }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{ncrdbCourseName(c)}</div>
+                    <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', marginTop: 1 }}>{ncrdbCourseLocation(c) || 'USGA NCRDB'} · 18 holes</div>
+                  </div>
+                  <span style={{ minWidth: 72, height: 26, borderRadius: 999, flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${hexA(ACCENT, 0.35)}`, background: hexA(ACCENT, 0.12), color: ACCENT, fontSize: 11, fontWeight: 900, letterSpacing: 0.8 }}>{picking ? 'LOADING' : 'ADD'}</span>
+                </button>
+              )
+            })}
+          </>
+        )}
+        {showNearby && !nearbyLoading && nearbyMatches.length === 0 && isSupabaseConfigured && (
+          <button
+            type="button"
+            onClick={() => {
+              nearbyFetchedKey.current = ''
+              nearbyRetryCount.current = 0
+              fetchNearbyNcrdb(geoRegion, { force: true })
+            }}
+            style={{ width: '100%', boxSizing: 'border-box', marginTop: 4, marginBottom: 10, minHeight: 48, borderRadius: 14, border: '1px solid rgba(255,255,255,.18)', background: 'rgba(255,255,255,.08)', color: 'rgba(255,255,255,.72)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+          >
+            Retry nearby courses
+          </button>
+        )}
         {showNcrdbSearch && (
           <>
             {sectionLabel('SEARCH RESULTS', { margin: matches.length ? '16px 0 10px' : undefined })}

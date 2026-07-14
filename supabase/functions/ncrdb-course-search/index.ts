@@ -198,8 +198,14 @@ Deno.serve(async (req) => {
 
   try {
     if (body?.action === 'search') {
-      if (!String(body.clubName ?? '').trim()) {
-        return jsonResponse({ error: 'invalid_request', message: 'clubName is required.' }, 400)
+      const clubName = String(body.clubName ?? '').trim()
+      const clubCity = String(body.clubCity ?? '').trim()
+      const clubState = String(body.clubState ?? '').trim()
+      if (!clubName && !clubCity && !clubState) {
+        return jsonResponse(
+          { error: 'invalid_request', message: 'clubName, clubCity, or clubState is required.' },
+          400,
+        )
       }
       const courses = await searchCourses(body as SearchParams)
       return jsonResponse({ courses })

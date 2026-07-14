@@ -21,6 +21,8 @@ const blankCourse = () => ({
   loc: '',
   holes: 18,
   bg: '',
+  latitude: '',
+  longitude: '',
   pars: emptyScorecard(),
   strokeIndex: emptyScorecard(),
   tees: [],
@@ -44,6 +46,8 @@ const toDraft = (course) => ({
   ...course,
   loc: course.loc ?? '',
   bg: course.bg ?? '',
+  latitude: course.latitude ?? '',
+  longitude: course.longitude ?? '',
   pars: Object.fromEntries(COURSE_HOLES.map((h) => [h, course.pars?.[h] ?? ''])),
   strokeIndex: Object.fromEntries(COURSE_HOLES.map((h) => [h, course.strokeIndex?.[h] ?? ''])),
   tees: (course.tees ?? []).map((tee) => ({
@@ -352,6 +356,28 @@ export default function CourseAdminPage() {
               <label style={S.label}>
                 Location
                 <input value={draft.loc} onChange={(e) => patchDraft({ loc: e.target.value })} placeholder="City, ST" style={S.input} />
+              </label>
+              <label style={S.label}>
+                Latitude
+                <input
+                  type="number"
+                  step="any"
+                  value={draft.latitude ?? ''}
+                  onChange={(e) => patchDraft({ latitude: e.target.value })}
+                  placeholder="44.0215"
+                  style={S.input}
+                />
+              </label>
+              <label style={S.label}>
+                Longitude
+                <input
+                  type="number"
+                  step="any"
+                  value={draft.longitude ?? ''}
+                  onChange={(e) => patchDraft({ longitude: e.target.value })}
+                  placeholder="-121.3165"
+                  style={S.input}
+                />
               </label>
               <label style={S.label}>
                 Course id

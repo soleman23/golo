@@ -25,8 +25,9 @@ async function invoke(body) {
 }
 
 /**
- * Search the NCRDB for courses matching name/city/state.
- * @param {{ clubName: string, clubCity?: string, clubState?: string, clubCountry?: string }} params
+ * Search the NCRDB for courses matching name and/or city/state.
+ * Regional nearby search can omit clubName when clubCity or clubState is provided.
+ * @param {{ clubName?: string, clubCity?: string, clubState?: string, clubCountry?: string }} params
  * @returns {Promise<{ data: { courses: Array<object> } | null, error: Error | null }>}
  */
 export async function searchNcrdbCourses({ clubName, clubCity, clubState, clubCountry }) {

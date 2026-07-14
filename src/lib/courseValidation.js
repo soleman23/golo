@@ -55,6 +55,8 @@ export function normalizeCourseForSave(course) {
     ghinFacilityId: String(course.ghinFacilityId ?? '').trim() || null,
     ghinCourseId: String(course.ghinCourseId ?? '').trim() || null,
     ghinTeeSets: Object.keys(ghinTeeSets).length ? ghinTeeSets : null,
+    latitude: asNumber(course.latitude),
+    longitude: asNumber(course.longitude),
   }
 }
 

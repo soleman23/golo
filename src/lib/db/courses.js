@@ -16,6 +16,8 @@ export const courseFromDb = (r) => ({
   visibleInSetup: r.visible_in_setup ?? false,
   setupReady: r.setup_ready ?? undefined,
   createdAt: r.created_at ?? null,
+  ...(r.latitude != null ? { latitude: Number(r.latitude) } : {}),
+  ...(r.longitude != null ? { longitude: Number(r.longitude) } : {}),
   ...(r.pars ? { pars: r.pars } : {}),
   ...(r.stroke_index ? { strokeIndex: r.stroke_index } : {}),
   ...(r.tees ? { tees: r.tees } : {}),
@@ -78,6 +80,8 @@ export async function upsertCourse(course, userId) {
     ghin_facility_id: course.ghinFacilityId ?? null,
     ghin_course_id: course.ghinCourseId ?? null,
     ghin_tee_sets: course.ghinTeeSets ?? null,
+    latitude: course.latitude ?? null,
+    longitude: course.longitude ?? null,
   }
   const { error } = await supabase.from('courses').upsert(row)
   if (error) console.error('[db] upsertCourse', error)
