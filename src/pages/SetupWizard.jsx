@@ -10,6 +10,8 @@ import { calculateCourseHandicap } from '../engines/handicap'
 import { hasContact, displayName, playerKey } from '../lib/identity'
 import { fetchCourses } from '../lib/db/courses'
 import { searchVerifiedPlayers, fetchPlayerContact } from '../lib/db/players'
+import { searchNcrdbCourses, getNcrdbTees } from '../lib/ncrdb'
+import { courseFromNcrdb } from '../lib/courseValidation'
 import { getCourseImage } from '../lib/courseImages'
 import { defaultHomeCourse, sortCoursesHomeFirst } from '../lib/homeCourse'
 import { normalizeSkinsLdHole, resolveLdHoleNumber } from '../engines/skins'
@@ -120,6 +122,33 @@ const COURSES = [
 // for data lookup (by id) but are hidden from the list until admin tooling
 // lets us manage the catalogue.
 const VISIBLE_COURSE_IDS = ['tetherow', 'losttracks', 'pinehurst']
+
+const ncrdbValue = (course, ...keys) => {
+  for (const key of keys) {
+    const value = course?.[key]
+    if (value != null && String(value).trim()) return value
+  }
+  return null
+}
+
+const ncrdbCourseId = (course) => ncrdbValue(course, 'courseID', 'courseId', 'CourseID')
+const ncrdbFacilityId = (course) => ncrdbValue(course, 'facilityID', 'facilityId', 'FacilityID')
+const ncrdbCourseName = (course) =>
+  String(ncrdbValue(course, 'fullName', 'courseName', 'clubName', 'name') ?? '').trim()
+const ncrdbCourseLocation = (course) =>
+  [
+    ncrdbValue(course, 'city', 'clubCity', 'City'),
+    ncrdbValue(course, 'stateDisplay', 'state', 'clubState', 'State'),
+  ].filter(Boolean).join(', ')
+
+const normalizedNcrdbCourse = (course) => ({
+  ...course,
+  fullName: ncrdbCourseName(course),
+  courseID: ncrdbCourseId(course),
+  facilityID: ncrdbFacilityId(course),
+  city: ncrdbValue(course, 'city', 'clubCity', 'City') ?? '',
+  stateDisplay: ncrdbValue(course, 'stateDisplay', 'state', 'clubState', 'State') ?? '',
+})
 
 // Format ids map directly to roundStore scoringType values.
 const FORMATS = [
@@ -566,6 +595,10 @@ export default function SetupWizard() {
   // Local-only mode keeps the curated hardcoded subset below.
   const [catalog, setCatalog] = useState(COURSES)
   const [coursesFromDb, setCoursesFromDb] = useState(false)
+  const [ncrdbResults, setNcrdbResults] = useState([])
+  const [ncrdbLoading, setNcrdbLoading] = useState(false)
+  const [ncrdbError, setNcrdbError] = useState('')
+  const [ncrdbSelectingId, setNcrdbSelectingId] = useState(null)
   const [accountSearch, setAccountSearch] = useState('')
   const [accountSearchResults, setAccountSearchResults] = useState([])
   const [accountSearchLoading, setAccountSearchLoading] = useState(false)
@@ -593,6 +626,32 @@ export default function SetupWizard() {
     })
     return () => { active = false }
   }, [])
+
+  useEffect(() => {
+    const q = st.courseQuery.trim()
+    if (!isSupabaseConfigured || q.length < 3) {
+      setNcrdbResults([])
+      setNcrdbLoading(false)
+      setNcrdbError('')
+      return undefined
+    }
+
+    let cancelled = false
+    setNcrdbLoading(true)
+    setNcrdbError('')
+    const timer = setTimeout(async () => {
+      const { data, error } = await searchNcrdbCourses({ clubName: q, clubCountry: 'USA' })
+      if (cancelled) return
+      setNcrdbResults(data?.courses ?? [])
+      setNcrdbError(error?.message ?? '')
+      setNcrdbLoading(false)
+    }, 350)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [st.courseQuery])
 
   // Verified-player search for the "Add player" picker (signed-in + Supabase only).
   useEffect(() => {
@@ -819,6 +878,51 @@ export default function SetupWizard() {
       pars: card.pars,
       strokeIndex: card.strokeIndex,
       bets: betsWithNormalizedLdHole(st.bets, card.pars),
+    })
+  }
+
+  const selectNcrdbCourse = async (hit) => {
+    const rawCourseId = ncrdbCourseId(hit)
+    const courseId = rawCourseId != null ? String(rawCourseId) : ''
+    if (!courseId || ncrdbSelectingId) return
+
+    setNcrdbSelectingId(courseId)
+    setNcrdbError('')
+    const { data, error } = await getNcrdbTees(Number(courseId))
+    setNcrdbSelectingId(null)
+    if (error) {
+      setNcrdbError(error.message)
+      return
+    }
+
+    const imported = courseFromNcrdb(normalizedNcrdbCourse(hit), data?.tees ?? [])
+    if (!imported.tees.length) {
+      setNcrdbError("No rated men's tees were found for that course.")
+      return
+    }
+    const importedCourse = {
+      ...imported,
+      id: `ncrdb-${courseId}`,
+      holes: 18,
+      bg: getCourseImage({ id: `ncrdb-${courseId}`, name: imported.name }),
+    }
+    userPickedCourse.current = true
+    setCatalog((items) => {
+      const exists = items.some((item) => item.id === importedCourse.id)
+      return exists
+        ? items.map((item) => (item.id === importedCourse.id ? { ...item, ...importedCourse } : item))
+        : [importedCourse, ...items]
+    })
+    setSt((s) => {
+      const card = defaultCard(s.holes)
+      return {
+        ...s,
+        courseId: importedCourse.id,
+        teeIdx: 0,
+        pars: card.pars,
+        strokeIndex: card.strokeIndex,
+        bets: betsWithNormalizedLdHole(s.bets, card.pars),
+      }
     })
   }
 
@@ -1196,6 +1300,24 @@ export default function SetupWizard() {
       rounds: historyRounds,
     })
     const matches = ordered.filter((c) => !q || (c.name + ' ' + (c.loc ?? '')).toLowerCase().includes(q))
+    const localCourseKeys = new Set(
+      ordered.flatMap((c) => [
+        c.ghinCourseId ? `ncrdb:${c.ghinCourseId}` : '',
+        `${String(c.name ?? '').trim()}|${String(c.loc ?? '').trim()}`.toLowerCase(),
+      ]).filter(Boolean)
+    )
+    const showNcrdbSearch = isSupabaseConfigured && q.length >= 3
+    const remoteMatches = showNcrdbSearch
+      ? ncrdbResults
+        .map(normalizedNcrdbCourse)
+        .filter((c) => {
+          const id = ncrdbCourseId(c)
+          const name = ncrdbCourseName(c)
+          const loc = ncrdbCourseLocation(c)
+          if (!id || !name) return false
+          return !localCourseKeys.has(`ncrdb:${id}`) && !localCourseKeys.has(`${name}|${loc}`.toLowerCase())
+        })
+      : []
     return (
       <div>
         {sectionLabel('COURSE SEARCH')}
@@ -1226,7 +1348,36 @@ export default function SetupWizard() {
             </button>
           )
         })}
-        {matches.length === 0 && (
+        {showNcrdbSearch && (
+          <>
+            {sectionLabel('SEARCH RESULTS', { margin: matches.length ? '16px 0 10px' : undefined })}
+            {ncrdbLoading && (
+              <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,.62)', background: 'rgba(20,28,24,.5)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 14, padding: 14, lineHeight: 1.5, marginBottom: 10 }}>
+                Searching courses...
+              </div>
+            )}
+            {!ncrdbLoading && remoteMatches.map((c) => {
+              const id = String(ncrdbCourseId(c))
+              const picking = ncrdbSelectingId === id
+              return (
+                <button key={`ncrdb-${id}`} disabled={!!ncrdbSelectingId} onClick={() => selectNcrdbCourse(c)} style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 16, padding: 12, marginBottom: 10, cursor: ncrdbSelectingId ? 'wait' : 'pointer', opacity: ncrdbSelectingId && !picking ? 0.55 : 1 }}>
+                  <span style={{ width: 54, height: 54, borderRadius: 12, flex: '0 0 auto', background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundImage: 'url(/courses/course.png), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)' }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{ncrdbCourseName(c)}</div>
+                    <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', marginTop: 1 }}>{ncrdbCourseLocation(c) || 'USGA NCRDB'} · 18 holes</div>
+                  </div>
+                  <span style={{ minWidth: 72, height: 26, borderRadius: 999, flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${hexA(ACCENT, 0.35)}`, background: hexA(ACCENT, 0.12), color: ACCENT, fontSize: 11, fontWeight: 900, letterSpacing: 0.8 }}>{picking ? 'LOADING' : 'ADD'}</span>
+                </button>
+              )
+            })}
+            {!ncrdbLoading && ncrdbError && (
+              <div style={{ fontSize: 13.5, color: '#fecdd3', background: 'rgba(127,29,29,.3)', border: '1px solid rgba(251,113,133,.35)', borderRadius: 14, padding: 14, lineHeight: 1.5, marginBottom: 10 }}>
+                {ncrdbError}
+              </div>
+            )}
+          </>
+        )}
+        {matches.length === 0 && (!showNcrdbSearch || (!ncrdbLoading && remoteMatches.length === 0 && !ncrdbError)) && (
           <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,.55)', background: 'rgba(20,28,24,.5)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 14, padding: 14, lineHeight: 1.5 }}>
             No courses match “{st.courseQuery}”. More courses coming soon — for now pick from the list above.
           </div>
