@@ -1,4 +1,4 @@
-import { defaultHomeCourse } from './homeCourse'
+import { defaultHomeCourse } from './homeCourse.js'
 
 const US_STATE_ABBREVS = {
   alabama: 'AL', alaska: 'AK', arizona: 'AZ', arkansas: 'AR', california: 'CA',

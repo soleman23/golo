@@ -13,6 +13,10 @@
     "verify:prod": "node scripts/verify-production.mjs",
     "verify:live-role": "node scripts/verify-live-role.mjs",
     "verify:press-bets": "node scripts/verify-press-bets.mjs",
+    "verify:nearby": "node scripts/verify-nearby.mjs",
+    "verify:nearby-pipeline": "node scripts/verify-nearby-pipeline.mjs",
+    "verify:nearby-ui": "node scripts/verify-nearby-ui.mjs",
+    "db:courses": "node scripts/list-db-courses.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

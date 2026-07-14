@@ -20,6 +20,7 @@ dist-ssr
 # Debug / scratch artifacts
 output/
 .cursor/
+debug-*.png
 
 # Editor directories and files
 .vscode/*
