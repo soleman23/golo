@@ -25,6 +25,7 @@ import {
   sortCoursesForNearby,
   dedupeNcrdbAgainstCatalog,
   courseDistanceLabel,
+  parseCourseRegion,
   enrichRegionWithCatalog,
   ncrdbHitMatchesRegion,
   sortNcrdbHitsByRegion,
@@ -167,6 +168,20 @@ const normalizedNcrdbCourse = (course) => ({
   city: ncrdbValue(course, 'city', 'clubCity', 'City') ?? '',
   stateDisplay: ncrdbValue(course, 'stateDisplay', 'state', 'clubState', 'State') ?? '',
 })
+
+function regionFromCourse(course) {
+  if (!course) return null
+  const { city, state } = parseCourseRegion(course.loc)
+  const lat = course.latitude ?? course.lat
+  const lng = course.longitude ?? course.lng
+  if (!city && !state && (lat == null || lng == null)) return null
+  return {
+    ...(lat != null && lng != null ? { lat, lng } : {}),
+    city,
+    state,
+    stateCode: state,
+  }
+}
 
 // Format ids map directly to roundStore scoringType values.
 const FORMATS = [
@@ -631,9 +646,17 @@ export default function SetupWizard() {
   const courseIdRef = useRef(st.courseId)
   const courseQueryRef = useRef(st.courseQuery)
   const catalogRef = useRef(catalog)
+  const homeClubRef = useRef(profileHomeClub)
+  const historyRoundsRef = useRef(historyRounds)
   useEffect(() => {
     catalogRef.current = catalog
   }, [catalog])
+  useEffect(() => {
+    homeClubRef.current = profileHomeClub
+  }, [profileHomeClub])
+  useEffect(() => {
+    historyRoundsRef.current = historyRounds
+  }, [historyRounds])
   useEffect(() => {
     courseIdRef.current = st.courseId
   }, [st.courseId])
@@ -704,6 +727,17 @@ export default function SetupWizard() {
     }, 400)
   }
 
+  const fallbackNearbyRegion = () => {
+    const homeCourse = defaultHomeCourse(catalogRef.current, {
+      homeClub: homeClubRef.current,
+      rounds: historyRoundsRef.current,
+    })
+    const selectedCourse = userPickedCourse.current
+      ? catalogRef.current.find((course) => course.id === courseIdRef.current)
+      : null
+    return regionFromCourse(homeCourse) ?? regionFromCourse(selectedCourse)
+  }
+
   useEffect(() => {
     let cancelled = false
 
@@ -724,12 +758,14 @@ export default function SetupWizard() {
     }
 
     async function applyRegion(region) {
-      if (cancelled || region?.lat == null || region?.lng == null) return
+      const hasCoords = region?.lat != null && region?.lng != null
+      const hasRegion = !!(region?.city || region?.stateCode || region?.state)
+      if (cancelled || (!hasCoords && !hasRegion)) return
       const enriched = enrichRegionWithCatalog(region, catalogRef.current, COURSES)
       setGeoRegion(enriched)
       setGeoStatus(GEO_STATUS.READY)
-      writeCachedGeo(enriched)
-      if (enriched.city && isSupabaseConfigured) {
+      if (enriched.lat != null && enriched.lng != null) writeCachedGeo(enriched)
+      if ((enriched.city || enriched.stateCode || enriched.state) && isSupabaseConfigured) {
         nearbyRetryCount.current = 0
         scheduleNearbyFetch(enriched)
       }
@@ -756,12 +792,19 @@ export default function SetupWizard() {
         if (cancelled) return
         const region = await resolveRegionFromCoords(pos.lat, pos.lng)
         if (!region) {
-          setGeoStatus(GEO_STATUS.UNAVAILABLE)
+          const fallback = fallbackNearbyRegion()
+          if (fallback) await applyRegion(fallback)
+          else setGeoStatus(GEO_STATUS.UNAVAILABLE)
           return
         }
         await applyRegion(region)
       } catch (err) {
         if (cancelled) return
+        const fallback = fallbackNearbyRegion()
+        if (fallback) {
+          await applyRegion(fallback)
+          return
+        }
         if (err?.code === 1) setGeoStatus(GEO_STATUS.DENIED)
         else setGeoStatus(GEO_STATUS.UNAVAILABLE)
       }
@@ -796,17 +839,18 @@ export default function SetupWizard() {
 
   // Debounce nearby fetch when geo + catalogue settle (coalesces Strict Mode / catalog races).
   useEffect(() => {
-    if (geoStatus !== GEO_STATUS.READY || geoRegion?.lat == null) return undefined
+    const hasRegion = geoRegion?.lat != null || geoRegion?.city || geoRegion?.stateCode || geoRegion?.state
+    if (geoStatus !== GEO_STATUS.READY || !hasRegion) return undefined
     const enriched = enrichRegionWithCatalog(geoRegion, catalog, COURSES)
-    if (!enriched.city || !isSupabaseConfigured) return undefined
+    if (!(enriched.city || enriched.stateCode || enriched.state) || !isSupabaseConfigured) return undefined
     if (!geoRegion.city || geoRegion.city !== enriched.city) {
       setGeoRegion(enriched)
-      writeCachedGeo(enriched)
+      if (enriched.lat != null && enriched.lng != null) writeCachedGeo(enriched)
     }
     scheduleNearbyFetch(enriched)
     return undefined
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalog, coursesFromDb, geoStatus, geoRegion?.lat, geoRegion?.city])
+  }, [catalog, coursesFromDb, geoStatus, geoRegion?.lat, geoRegion?.city, geoRegion?.stateCode, geoRegion?.state])
 
   useEffect(() => {
     const q = st.courseQuery.trim()
@@ -1059,6 +1103,15 @@ export default function SetupWizard() {
       strokeIndex: card.strokeIndex,
       bets: betsWithNormalizedLdHole(st.bets, card.pars),
     })
+    if (geoStatus !== GEO_STATUS.READY) {
+      const fallback = regionFromCourse(c)
+      if (fallback) {
+        setGeoRegion(fallback)
+        setGeoStatus(GEO_STATUS.READY)
+        nearbyRetryCount.current = 0
+        scheduleNearbyFetch(fallback, { force: true })
+      }
+    }
   }
 
   const selectNcrdbCourse = async (hit) => {
@@ -1493,7 +1546,8 @@ export default function SetupWizard() {
 
   function renderCourse() {
     const q = st.courseQuery.trim().toLowerCase()
-    const showNearby = !q && geoStatus === GEO_STATUS.READY && geoRegion?.lat != null
+    const hasNearbyRegion = geoRegion?.lat != null || geoRegion?.city || geoRegion?.stateCode || geoRegion?.state
+    const showNearby = !q && geoStatus === GEO_STATUS.READY && hasNearbyRegion
     // From the backend, `catalog` is already filtered to visible setup courses;
     // in local-only mode keep the curated visible subset that used to be hardcoded.
     const visible = coursesFromDb
