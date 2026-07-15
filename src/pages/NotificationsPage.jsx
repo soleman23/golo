@@ -4,6 +4,7 @@ import useNotificationStore, { selectUnreadCount } from '../store/notificationSt
 import useProfileStore from '../store/profileStore'
 import { hexA } from '../lib/colors'
 import AppHeader from '../components/shared/AppHeader'
+import PushSetupCard from '../components/shared/PushSetupCard'
 import {
   NOTIFICATION_CATEGORIES,
   fetchPreferences,
@@ -172,10 +173,9 @@ export default function NotificationsPage() {
                 </div>
               )
             })}
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,.4)', padding: '10px 4px 2px', lineHeight: 1.4 }}>
-              Push alerts (when GoLo is closed) arrive in a later update.
-            </div>
           </div>
+
+          <PushSetupCard />
         </div>
       </div>
     </div>
