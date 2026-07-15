@@ -1,5 +1,5 @@
 -- Commissioner's Desk: soft-deactivate players, desk stats, profile + live admin RPCs.
--- Run after 0012_complete_live_round_any_member.sql. Re-runnable for development.
+-- Run after 0013_complete_live_round_any_member.sql. Re-runnable for development.
 
 alter table public.profiles
   add column if not exists is_active boolean not null default true;

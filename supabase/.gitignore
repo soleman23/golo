@@ -1,0 +1,9 @@
+# Supabase CLI local state — machine-specific, not for version control.
+.branches
+.temp
+
+# Local secrets used by edge functions / CLI.
+.env
+.env.local
+.env.*.local
+.env.keys

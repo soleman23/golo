@@ -1,4 +1,4 @@
--- 0010 — Search onboarded GoLo players when building a round roster.
+-- 0011 — Search onboarded GoLo players when building a round roster.
 -- Returns just enough to recognise a player (name, handle, handicap, MASKED
 -- contact); never raw email/phone, so the endpoint can't be used to bulk-scrape
 -- the user base. The caller fetches a single player's real contact via
