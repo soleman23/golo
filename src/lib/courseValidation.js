@@ -15,6 +15,55 @@ const asNumber = (value) => {
 }
 
 const isBlank = (value) => String(value ?? '').trim().length === 0
+const isValidPar = (value) => Number.isInteger(value) && value >= 3 && value <= 6
+const isValidStrokeIndex = (value) => Number.isInteger(value) && value >= 1 && value <= 18
+
+function completeHoleMap(values, validator) {
+  const out = {}
+  for (const hole of COURSE_HOLES) {
+    const value = asNumber(values?.[hole] ?? values?.[String(hole)])
+    if (!validator(value)) return null
+    out[hole] = value
+  }
+  return out
+}
+
+function holeRowsToMap(rows, key, validator) {
+  const values = {}
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const hole = asNumber(row?.hole ?? row?.number ?? row?.holeNumber)
+    if (!Number.isInteger(hole) || hole < 1 || hole > 18) continue
+    const value = asNumber(row?.[key])
+    if (validator(value)) values[hole] = value
+  }
+  return completeHoleMap(values, validator)
+}
+
+function scorecardMapFromTee(tee, objectKeys, rowKey, validator) {
+  for (const key of objectKeys) {
+    const map = completeHoleMap(tee?.[key], validator)
+    if (map) return map
+  }
+  return holeRowsToMap(tee?.holes, rowKey, validator)
+}
+
+export function scorecardFromNcrdbTees(tees) {
+  for (const tee of Array.isArray(tees) ? tees : []) {
+    const pars = scorecardMapFromTee(tee, ['pars', 'holePars', 'parByHole'], 'par', isValidPar)
+    if (!pars) continue
+    const strokeIndex = scorecardMapFromTee(
+      tee,
+      ['strokeIndex', 'stroke_index', 'handicap', 'handicapIndex'],
+      'strokeIndex',
+      isValidStrokeIndex
+    )
+    return {
+      pars,
+      ...(strokeIndex ? { strokeIndex } : {}),
+    }
+  }
+  return {}
+}
 
 export function normalizeCourseForSave(course) {
   const pars = {}
@@ -109,15 +158,11 @@ export function isCourseReadyForSetup(course) {
   return validateCourseForSetup(course).length === 0
 }
 
-/**
- * Build a partial course from an NCRDB search hit + its tee sets, ready for
- * normalizeCourseForSave(). Pars and stroke index are not in the NCRDB, so
- * the user still enters those manually.
- */
 export function courseFromNcrdb(ncrdbCourse, tees, genderFilter = 'M') {
   const city = String(ncrdbCourse?.city ?? '').trim()
   const state = String(ncrdbCourse?.stateDisplay ?? '').trim()
   const filteredTees = (Array.isArray(tees) ? tees : []).filter((tee) => !genderFilter || tee?.gender === genderFilter)
+  const scorecard = scorecardFromNcrdbTees(filteredTees)
   // NCRDB/GHIN id namespace equivalence is assumed here; verify before first real GHIN score post when _shared/ghin.ts credential stubs are finalized.
   const ghinTeeSets = Object.fromEntries(
     filteredTees
@@ -131,6 +176,7 @@ export function courseFromNcrdb(ncrdbCourse, tees, genderFilter = 'M') {
     ghinFacilityId: ncrdbCourse?.facilityID != null ? String(ncrdbCourse.facilityID) : '',
     ghinCourseId: ncrdbCourse?.courseID != null ? String(ncrdbCourse.courseID) : '',
     ghinTeeSets,
+    ...scorecard,
     tees: filteredTees.map((tee) => ({
       name: tee.name,
       rating: tee.courseRating,

@@ -7,6 +7,7 @@ import { buildLeaderboard } from '../src/engines/scoring.js'
 import { getPressEligibility } from '../src/engines/pressBets.js'
 import { buildMatchPairings, buildMatchplayLeaderboard } from '../src/engines/matchplay.js'
 import { isWolfField } from '../src/engines/wolf.js'
+import { courseFromNcrdb } from '../src/lib/courseValidation.js'
 
 let passed = 0
 let failed = 0
@@ -107,6 +108,29 @@ assert('startScoring allowed from setup', canStartScoring('setup'))
 // wolf guard: fewer than 4 players is not a valid field
 assert('wolf field rejects 3 players', !isWolfField([{ id: 'a' }, { id: 'b' }, { id: 'c' }]))
 assert('wolf field accepts 4 players', isWolfField([{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }]))
+
+// NCRDB imports must preserve hole-level pars instead of falling back to all par 4s.
+{
+  const imported = courseFromNcrdb(
+    { fullName: 'Example Links', city: 'Bend', stateDisplay: 'OR', facilityID: 10, courseID: 20 },
+    [{
+      name: 'Blue',
+      gender: 'M',
+      courseRating: 72.1,
+      slope: 133,
+      par: 72,
+      yards: 6500,
+      teeId: 30,
+      holes: Array.from({ length: 18 }, (_, i) => ({
+        hole: i + 1,
+        par: [3, 5, 4][i % 3],
+        strokeIndex: i + 1,
+      })),
+    }],
+  )
+  assert('NCRDB import promotes hole-level pars', imported.pars[1] === 3 && imported.pars[2] === 5 && imported.pars[3] === 4)
+  assert('NCRDB import promotes hole-level stroke index', imported.strokeIndex[1] === 1 && imported.strokeIndex[18] === 18)
+}
 
 console.log(`\nverify-medium-fixes: ${passed} passed, ${failed} failed`)
 process.exit(failed > 0 ? 1 : 0)

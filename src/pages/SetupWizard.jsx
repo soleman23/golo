@@ -451,9 +451,9 @@ const skinsSelectionFrom = (c) => {
 
 /** Course card for wizard state — saved round card, course-specific card, or generic. */
 function cardForCourse(course, holes, roundPars, roundStrokeIndex) {
-  if (roundPars && roundStrokeIndex) return defaultCard(holes, roundPars, roundStrokeIndex)
-  if (course?.pars && course?.strokeIndex) {
-    return { pars: { ...course.pars }, strokeIndex: { ...course.strokeIndex } }
+  if (roundPars || roundStrokeIndex) return defaultCard(holes, roundPars, roundStrokeIndex)
+  if (course?.pars || course?.strokeIndex) {
+    return defaultCard(holes, course.pars, course.strokeIndex)
   }
   return defaultCard(holes)
 }
@@ -1049,10 +1049,9 @@ export default function SetupWizard() {
       catalog.find((x) => x.id === id) ??
       COURSES.find((x) => x.id === id)
     if (!c) return
-    const card =
-      c.pars && c.strokeIndex
-        ? { pars: { ...c.pars }, strokeIndex: { ...c.strokeIndex } }
-        : defaultCard(st.holes)
+    const card = c.pars || c.strokeIndex
+      ? defaultCard(st.holes, c.pars, c.strokeIndex)
+      : defaultCard(st.holes)
     patch({
       courseId: id,
       teeIdx: 1,
@@ -1109,7 +1108,9 @@ export default function SetupWizard() {
         : [importedCourse, ...items]
     })
     setSt((s) => {
-      const card = defaultCard(s.holes)
+      const card = importedCourse.pars || importedCourse.strokeIndex
+        ? defaultCard(s.holes, importedCourse.pars, importedCourse.strokeIndex)
+        : defaultCard(s.holes)
       return {
         ...s,
         courseId: importedCourse.id,
