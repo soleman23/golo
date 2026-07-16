@@ -29,7 +29,7 @@ import {
  *   form trend  → recent per-round results (net up/down), not fake differentials
  *   scoring mix → finishes (1st/2nd/3rd/4th+) from real leaderboard ranks
  *   trophy case → badges derived from real history
- *   account     → honest settings (history, identity, clear data)
+ *   account     → honest settings (history and identity)
  *
  * "You" is identified by email/phone (else name) — see lib/identity. It's the
  * profile's own identity, else the most-frequent player across saved history.
@@ -89,7 +89,6 @@ const myPlace = (r, key, name) =>
 export default function YouPage() {
   const navigate = useNavigate()
   const rounds = useHistoryStore((s) => s.rounds)
-  const clearHistory = useHistoryStore((s) => s.clearHistory)
   const livePlayers = useRoundStore((s) => s.players)
   const liveCourse = useRoundStore((s) => s.round?.course)
   const profileName = useProfileStore((s) => s.name)
@@ -395,21 +394,14 @@ export default function YouPage() {
     }
   }, [rounds, livePlayers, liveCourse, meKey, meName, homeClubOverride, profileHandicap, view])
 
-  const confirmModel = confirmAction === 'clearHistory'
+  const confirmModel = confirmAction === 'signOut'
     ? {
-        title: 'Clear saved rounds?',
-        body: 'This deletes every saved round from this device. This cannot be undone.',
-        confirmLabel: 'Clear history',
+        title: 'Sign out of Golo?',
+        body: 'This ends your session on this device. Saved account data stays attached to your profile.',
+        confirmLabel: confirmBusy ? 'Signing out...' : 'Sign out',
         danger: true,
       }
-    : confirmAction === 'signOut'
-      ? {
-          title: 'Sign out of Golo?',
-          body: 'This ends your session on this device. Saved account data stays attached to your profile.',
-          confirmLabel: confirmBusy ? 'Signing out...' : 'Sign out',
-          danger: true,
-        }
-      : null
+    : null
 
   const openConfirm = (action) => {
     setConfirmError(null)
@@ -423,12 +415,6 @@ export default function YouPage() {
   }
 
   const runConfirmAction = async () => {
-    if (confirmAction === 'clearHistory') {
-      clearHistory()
-      closeConfirm()
-      return
-    }
-
     if (confirmAction === 'signOut') {
       setConfirmBusy(true)
       setConfirmError(null)
@@ -440,11 +426,6 @@ export default function YouPage() {
       }
       setConfirmAction(null)
     }
-  }
-
-  const handleClear = () => {
-    if (rounds.length === 0) return
-    openConfirm('clearHistory')
   }
 
   const editVenmo = () => {
@@ -972,7 +953,6 @@ export default function YouPage() {
                 divider
               />
             )}
-            <SettingRow icon="🗑️" title="Clear history" sub="Delete all saved rounds" onClick={handleClear} divider danger />
             <SettingRow
               icon="✎"
               title="Edit profile"
