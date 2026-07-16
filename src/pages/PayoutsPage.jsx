@@ -8,6 +8,7 @@ import useAuthStore from '../store/authStore'
 import useLiveRoundStore from '../store/liveRoundStore'
 import { saveRound as dbSaveRound } from '../lib/db/rounds'
 import { completeLiveRound, liveRoundUserMessage } from '../lib/db/liveRounds'
+import { fetchBettingGate } from '../lib/db/betting'
 import { teardownLiveSync } from '../lib/liveRoundSync'
 import { fetchCourseGhinMapping } from '../lib/db/courses'
 import { postRoundToGhin } from '../lib/ghin/client'
@@ -151,9 +152,11 @@ export default function PayoutsPage() {
   const profilePhone = useProfileStore((s) => s.phone)
   const ghinConnectedAt = useProfileStore((s) => s.ghinConnectedAt)
   const authEnabled = useAuthStore((s) => s.enabled)
+  const liveRoundId = useLiveRoundStore((s) => s.liveRoundId)
 
   const [meOverride, setMe] = useState(null) // hero player id, once the user taps
   const [paid, setPaid] = useState({}) // settlement key `${from}>${to}` → true
+  const [bettingGate, setBettingGate] = useState(null) // betting-acceptance gate, or null
   const [expanded, setExpanded] = useState({}) // bet id → true
   const [toast, setToast] = useState(null) // share-feedback message, or null
   const [celebrate, setCelebrate] = useState(false)
@@ -303,6 +306,17 @@ export default function PayoutsPage() {
     })
     return () => { cancelled = true }
   }, [round?.courseId, authEnabled])
+
+  // Whether the bet is binding — surfaces a warning if any player hasn't accepted
+  // the locked betting terms (Phase 4). No-op with no backend / no live round.
+  useEffect(() => {
+    if (!authEnabled || !liveRoundId) return undefined
+    let cancelled = false
+    fetchBettingGate(liveRoundId).then((gate) => {
+      if (!cancelled) setBettingGate(gate)
+    })
+    return () => { cancelled = true }
+  }, [authEnabled, liveRoundId])
 
   const ghinEligibility = useMemo(
     () =>
@@ -649,6 +663,20 @@ export default function PayoutsPage() {
 
         {/* scroll body ---------------------------------------------------- */}
         <div className="golo-scroll" style={S.scroll}>
+          {/* BETTING NOT FULLY ACCEPTED */}
+          {bettingGate?.hasTerms && !bettingGate.active && (
+            <button
+              type="button"
+              onClick={() => liveRoundId && navigate(`/betting/${liveRoundId}`)}
+              style={S.betWarn}
+            >
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, color: '#fb7185' }}>BET NOT FULLY ACCEPTED</div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,.72)', marginTop: 3, lineHeight: 1.4 }}>
+                {bettingGate.notAccepted.map((p) => `${p.name} (${p.status})`).join(', ')} — the bet isn’t binding for them. Tap to review.
+              </div>
+            </button>
+          )}
+
           {/* HERO · your result */}
           <div style={{ ...S.hero, borderColor: hexA(ACCENT, 0.5) }}>
             <span style={{ ...S.heroGlow, background: hexA(mePlayer?.color, 0.5) }} />
@@ -966,6 +994,7 @@ const S = {
   column: { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', width: '100%', maxWidth: 480, margin: '0 auto' },
   headerDetail: { flex: '0 0 auto', padding: '0 18px 10px', fontSize: 13, color: 'rgba(255,255,255,.6)', textShadow: '0 2px 12px rgba(0,0,0,.4)' },
   scroll: { flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '4px 16px 14px' },
+  betWarn: { width: '100%', boxSizing: 'border-box', textAlign: 'left', display: 'block', background: 'rgba(127,29,29,.28)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(251,113,133,.4)', borderRadius: 16, padding: '12px 15px', marginBottom: 12, cursor: 'pointer' },
 
   avatar: { borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#fff', boxShadow: '0 0 0 2px rgba(255,255,255,.25)' },
 

@@ -106,6 +106,26 @@ export function subscribeToAcceptances(termsId, onChange) {
   return () => { supabase.removeChannel(channel) }
 }
 
+/**
+ * Payout gate: is the bet binding? Returns whether the round has locked terms,
+ * whether everyone accepted, and the names of anyone still pending/declined.
+ * `active` is true (and non-blocking) when there are no betting terms at all.
+ */
+export async function fetchBettingGate(roundId) {
+  if (!isSupabaseConfigured || !roundId) return { hasTerms: false, active: true, notAccepted: [] }
+  const terms = await fetchCurrentTerms(roundId)
+  if (!terms) return { hasTerms: false, active: true, notAccepted: [] }
+  const acceptances = await fetchAcceptances(terms.id)
+  const outstanding = acceptances.filter((a) => a.status !== 'accepted')
+  const names = await fetchProfileNames(outstanding.map((a) => a.user_id))
+  return {
+    hasTerms: true,
+    termsId: terms.id,
+    active: outstanding.length === 0,
+    notAccepted: outstanding.map((a) => ({ status: a.status, name: names[a.user_id] ?? 'Player' })),
+  }
+}
+
 /** Defensive human-readable summary of a terms snapshot for the review screen. */
 export function summarizeTerms(terms) {
   if (!terms) return []
