@@ -1314,6 +1314,16 @@ export default function ScoringPage() {
 
       {sheet === 'bets' && (
         <Sheet onClose={() => setSheet(null)} title="Active Bets">
+          {liveRoundId && bets.length > 0 && (
+            <button
+              type="button"
+              onClick={() => { setSheet(null); navigate(`/betting/${liveRoundId}`) }}
+              style={{ width: '100%', boxSizing: 'border-box', textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '14px 18px', background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,.07)', color: ACCENT, fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              Review betting terms &amp; acceptance
+              <span aria-hidden="true">→</span>
+            </button>
+          )}
           {pills.length === 0 && activePresses.length === 0 && (
             <div style={{ padding: '14px 18px', color: 'rgba(255,255,255,.5)', fontSize: 14 }}>No games on — just keeping score.</div>
           )}

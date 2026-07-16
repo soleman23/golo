@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import useAuthStore from '../store/authStore'
+import useRoundStore from '../store/roundStore'
 import { hexA } from '../lib/colors'
 import AppHeader from '../components/shared/AppHeader'
 import {
@@ -8,6 +9,8 @@ import {
   fetchAcceptances,
   fetchProfileNames,
   respondBettingTerms,
+  finalizeBettingTerms,
+  buildTermsSnapshot,
   subscribeToAcceptances,
   summarizeTerms,
 } from '../lib/db/betting'
@@ -67,6 +70,7 @@ export default function BettingReviewPage() {
   const mine = useMemo(() => acceptances.find((a) => a.user_id === myUid), [acceptances, myUid])
   const summary = useMemo(() => summarizeTerms(terms?.terms), [terms])
   const allAccepted = acceptances.length > 0 && acceptances.every((a) => a.status === 'accepted')
+  const amCreator = !!terms && terms.created_by === myUid
 
   const respond = async (accept) => {
     if (!terms?.id || busy) return
@@ -74,6 +78,19 @@ export default function BettingReviewPage() {
     setError(null)
     const { error: err } = await respondBettingTerms(terms.id, accept)
     if (err) setError(typeof err === 'string' ? err : err.message ?? 'Could not save your response.')
+    else await load()
+    setBusy(false)
+  }
+
+  // Organizer re-locks after editing the bets: snapshots the current round state
+  // as a new version, superseding the old and re-pending everyone (guide: any
+  // material term change requires acceptance again).
+  const reLock = async () => {
+    if (!roundId || busy) return
+    setBusy(true)
+    setError(null)
+    const { error: err } = await finalizeBettingTerms(roundId, buildTermsSnapshot(useRoundStore.getState()), null)
+    if (err) setError(typeof err === 'string' ? err : err.message ?? 'Could not re-lock terms.')
     else await load()
     setBusy(false)
   }
@@ -121,6 +138,17 @@ export default function BettingReviewPage() {
                   </div>
                 )}
               </div>
+
+              {amCreator && (
+                <>
+                  <button type="button" onClick={reLock} disabled={busy} style={S.relockBtn}>
+                    {busy ? 'Re-locking…' : 'Re-lock terms · new version'}
+                  </button>
+                  <div style={{ fontSize: 11.5, fontWeight: 600, color: 'rgba(255,255,255,.42)', margin: '4px 2px 12px', lineHeight: 1.4 }}>
+                    Edited the bets? Re-lock to snapshot the new terms — everyone re-accepts.
+                  </div>
+                </>
+              )}
 
               {/* my response */}
               {mine && mine.status === 'pending' && (
@@ -184,6 +212,7 @@ const S = {
   avatar: { flex: '0 0 auto', width: 34, height: 34, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14 },
   acceptBtn: { flex: 1, minHeight: 50, borderRadius: 15, border: 'none', background: ACCENT, color: ACCENT_DARK, fontSize: 15, fontWeight: 800, cursor: 'pointer' },
   declineBtn: { flex: '0 0 auto', minHeight: 50, padding: '0 18px', borderRadius: 15, border: '1px solid rgba(251,113,133,.5)', background: 'rgba(251,113,133,.12)', color: '#fb7185', fontSize: 15, fontWeight: 800, cursor: 'pointer' },
+  relockBtn: { width: '100%', minHeight: 46, borderRadius: 14, marginTop: 10, border: `1px solid ${hexA(ACCENT, 0.4)}`, background: hexA(ACCENT, 0.1), color: ACCENT, fontSize: 14, fontWeight: 800, cursor: 'pointer' },
   scoringBtn: { width: '100%', minHeight: 50, borderRadius: 15, marginTop: 18, border: '1px solid rgba(255,255,255,.18)', background: 'rgba(255,255,255,.08)', color: '#fff', fontSize: 15, fontWeight: 800, cursor: 'pointer' },
   empty: { fontSize: 13.5, color: 'rgba(255,255,255,.55)', background: 'rgba(20,28,24,.5)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 16, padding: 18, textAlign: 'center', marginTop: 10 },
 }
