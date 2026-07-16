@@ -584,6 +584,7 @@ function initState() {
     step: 0,
     courseId: initialCourse.id,
     courseQuery: '',
+    courseListOpen: !courseMatch,
     teeIdx: 1,
     holes,
     date: round?.date ?? today(),
@@ -1088,22 +1089,28 @@ export default function SetupWizard() {
   // Switching course loads its real card (pars + stroke index) and resets the
   // tee; courses without their own data fall back to a generic par-4 card.
   const selectCourse = (id) => {
-    if (id === st.courseId) return
-    userPickedCourse.current = true
     const c =
       catalog.find((x) => x.id === id) ??
       COURSES.find((x) => x.id === id)
     if (!c) return
-    const card = c.pars || c.strokeIndex
-      ? defaultCard(st.holes, c.pars, c.strokeIndex)
-      : defaultCard(st.holes)
-    patch({
-      courseId: id,
-      teeIdx: 1,
-      pars: card.pars,
-      strokeIndex: card.strokeIndex,
-      bets: betsWithNormalizedLdHole(st.bets, card.pars),
-    })
+    userPickedCourse.current = true
+
+    if (id === st.courseId) {
+      patch({ courseListOpen: false, courseQuery: '' })
+    } else {
+      const card = c.pars || c.strokeIndex
+        ? defaultCard(st.holes, c.pars, c.strokeIndex)
+        : defaultCard(st.holes)
+      patch({
+        courseId: id,
+        courseQuery: '',
+        courseListOpen: false,
+        teeIdx: 1,
+        pars: card.pars,
+        strokeIndex: card.strokeIndex,
+        bets: betsWithNormalizedLdHole(st.bets, card.pars),
+      })
+    }
     if (geoStatus !== GEO_STATUS.READY) {
       const fallback = regionFromCourse(c)
       if (fallback) {
@@ -1168,6 +1175,8 @@ export default function SetupWizard() {
       return {
         ...s,
         courseId: importedCourse.id,
+        courseQuery: '',
+        courseListOpen: false,
         teeIdx: 0,
         pars: card.pars,
         strokeIndex: card.strokeIndex,
@@ -1559,8 +1568,9 @@ export default function SetupWizard() {
 
   function renderCourse() {
     const q = st.courseQuery.trim().toLowerCase()
+    const courseListOpen = st.courseListOpen
     const hasNearbyRegion = geoRegion?.lat != null || geoRegion?.city || geoRegion?.stateCode || geoRegion?.state
-    const showNearby = !q && geoStatus === GEO_STATUS.READY && hasNearbyRegion
+    const showNearby = courseListOpen && !q && geoStatus === GEO_STATUS.READY && hasNearbyRegion
     // From the backend, `catalog` is already filtered to visible setup courses;
     // in local-only mode keep the curated visible subset that used to be hardcoded.
     const visible = coursesFromDb
@@ -1573,23 +1583,53 @@ export default function SetupWizard() {
       userLat: geoRegion?.lat,
       userLng: geoRegion?.lng,
     })
-    const matches = ordered.filter((c) => !q || (c.name + ' ' + (c.loc ?? '')).toLowerCase().includes(q))
-    const showNcrdbSearch = isSupabaseConfigured && q.length >= 3
+    const orderedWithSelected = course
+      ? [course, ...ordered.filter((c) => c.id !== course.id)]
+      : ordered
+    const matches = orderedWithSelected.filter((c) => !q || (c.name + ' ' + (c.loc ?? '')).toLowerCase().includes(q))
+    const showNcrdbSearch = courseListOpen && isSupabaseConfigured && q.length >= 3
     const remoteMatches = showNcrdbSearch
-      ? dedupeNcrdbAgainstCatalog(ordered, ncrdbResults, {
+      ? dedupeNcrdbAgainstCatalog(orderedWithSelected, ncrdbResults, {
           getId: ncrdbCourseId,
           getName: ncrdbCourseName,
           getLoc: ncrdbCourseLocation,
         }).map(normalizedNcrdbCourse)
       : []
     const nearbyMatches = showNearby
-      ? dedupeNcrdbAgainstCatalog(ordered, nearbyNcrdb, {
+      ? dedupeNcrdbAgainstCatalog(orderedWithSelected, nearbyNcrdb, {
           getId: ncrdbCourseId,
           getName: ncrdbCourseName,
           getLoc: ncrdbCourseLocation,
         }).map(normalizedNcrdbCourse)
       : []
     const nearbyLabel = [geoRegion?.city, geoRegion?.stateCode || geoRegion?.state].filter(Boolean).join(', ')
+    const courseCardStyle = (selected, interactive) => ({
+      width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 12,
+      textAlign: 'left', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)',
+      WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${selected ? hexA(ACCENT, 0.55) : 'rgba(255,255,255,.12)'}`,
+      borderRadius: 16, padding: 12, marginBottom: 10, cursor: interactive ? 'pointer' : 'default',
+    })
+    const courseCardContent = (c, selected) => (
+      <>
+        <span style={{ width: 54, height: 54, borderRadius: 12, flex: '0 0 auto', background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundImage: `url(${getCourseImage(c)}), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)' }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{c.name}</div>
+          <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', marginTop: 1 }}>{courseRowSubtitle(c)}</div>
+        </div>
+        <span style={{ width: 24, height: 24, borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${selected ? ACCENT : 'rgba(255,255,255,.3)'}`, background: selected ? ACCENT : 'transparent', color: ACCENT_DARK, fontSize: 14, fontWeight: 800 }}>{selected ? '✓' : ''}</span>
+      </>
+    )
+    const renderCourseButton = (c, { selected = c.id === st.courseId, onClick = () => selectCourse(c.id) } = {}) => (
+      <button key={c.id} type="button" onClick={onClick} style={courseCardStyle(selected, true)}>
+        {courseCardContent(c, selected)}
+      </button>
+    )
+    const renderCourseCard = (c, { selected = c.id === st.courseId } = {}) => (
+      <div key={c.id} style={courseCardStyle(selected, false)}>
+        {courseCardContent(c, selected)}
+      </div>
+    )
+
     return (
       <div>
         {sectionLabel('COURSE SEARCH')}
@@ -1597,7 +1637,7 @@ export default function SetupWizard() {
           <span style={{ fontSize: 19, flex: '0 0 auto', lineHeight: 1 }}>🔍</span>
           <input
             value={st.courseQuery}
-            onChange={(e) => patch({ courseQuery: e.target.value })}
+            onChange={(e) => patch({ courseQuery: e.target.value, courseListOpen: true })}
             placeholder="Search courses…"
             style={{ flex: 1, minHeight: 52, background: 'transparent', border: 'none', outline: 'none', color: '#fff', fontSize: 16, fontWeight: 700, fontFamily: 'inherit', padding: 0 }}
           />
@@ -1606,106 +1646,108 @@ export default function SetupWizard() {
           )}
         </div>
 
-        {(geoStatus === GEO_STATUS.LOADING || nearbyLoading) && !q && (
-          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: ACCENT, marginBottom: 12 }}>
-            Finding courses near you…
-          </div>
-        )}
-        {geoStatus === GEO_STATUS.DENIED && !q && (
-          <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.4)', marginBottom: 12 }}>
-            Enable location to see nearby courses.
-          </div>
-        )}
-        {showNearby && (
-          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: ACCENT, marginBottom: 10 }}>
-            NEAR YOU{nearbyLabel ? ` · ${nearbyLabel}` : ' · sorted by distance'}
-          </div>
-        )}
+        {courseListOpen ? (
+          <>
+            {(geoStatus === GEO_STATUS.LOADING || nearbyLoading) && !q && (
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: ACCENT, marginBottom: 12 }}>
+                Finding courses near you…
+              </div>
+            )}
+            {geoStatus === GEO_STATUS.DENIED && !q && (
+              <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.4)', marginBottom: 12 }}>
+                Enable location to see nearby courses.
+              </div>
+            )}
+            {showNearby && (
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: ACCENT, marginBottom: 10 }}>
+                NEAR YOU{nearbyLabel ? ` · ${nearbyLabel}` : ' · sorted by distance'}
+              </div>
+            )}
 
-        {sectionLabel('COURSE')}
-        {matches.map((c) => {
-          const sel = c.id === st.courseId
-          return (
-            <button key={c.id} onClick={() => selectCourse(c.id)} style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${sel ? hexA(ACCENT, 0.55) : 'rgba(255,255,255,.12)'}`, borderRadius: 16, padding: 12, marginBottom: 10, cursor: 'pointer' }}>
-              <span style={{ width: 54, height: 54, borderRadius: 12, flex: '0 0 auto', background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundImage: `url(${c.bg}), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)' }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{c.name}</div>
-                <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', marginTop: 1 }}>{courseRowSubtitle(c)}</div>
-              </div>
-              <span style={{ width: 24, height: 24, borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${sel ? ACCENT : 'rgba(255,255,255,.3)'}`, background: sel ? ACCENT : 'transparent', color: ACCENT_DARK, fontSize: 14, fontWeight: 800 }}>{sel ? '✓' : ''}</span>
-            </button>
-          )
-        })}
-        {showNearby && (nearbyLoading || nearbyMatches.length > 0) && (
-          <>
-            {sectionLabel('MORE NEARBY', { margin: matches.length ? '16px 0 10px' : undefined })}
-            {nearbyLoading && nearbyMatches.length === 0 && (
-              <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,.62)', background: 'rgba(20,28,24,.5)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 14, padding: 14, lineHeight: 1.5, marginBottom: 10 }}>
-                Loading nearby courses from USGA…
-              </div>
-            )}
-            {nearbyMatches.map((c) => {
-              const id = String(ncrdbCourseId(c))
-              const picking = ncrdbSelectingId === id
-              return (
-                <button key={`nearby-ncrdb-${id}`} disabled={!!ncrdbSelectingId} onClick={() => selectNcrdbCourse(c)} style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 16, padding: 12, marginBottom: 10, cursor: ncrdbSelectingId ? 'wait' : 'pointer', opacity: ncrdbSelectingId && !picking ? 0.55 : 1 }}>
-                  <span style={{ width: 54, height: 54, borderRadius: 12, flex: '0 0 auto', background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundImage: 'url(/courses/course.png), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)' }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{ncrdbCourseName(c)}</div>
-                    <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', marginTop: 1 }}>{ncrdbCourseLocation(c) || 'USGA NCRDB'} · 18 holes</div>
+            {sectionLabel('COURSE')}
+            {matches.map((c) => renderCourseButton(c))}
+            {showNearby && (nearbyLoading || nearbyMatches.length > 0) && (
+              <>
+                {sectionLabel('MORE NEARBY', { margin: matches.length ? '16px 0 10px' : undefined })}
+                {nearbyLoading && nearbyMatches.length === 0 && (
+                  <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,.62)', background: 'rgba(20,28,24,.5)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 14, padding: 14, lineHeight: 1.5, marginBottom: 10 }}>
+                    Loading nearby courses from USGA…
                   </div>
-                  <span style={{ minWidth: 72, height: 26, borderRadius: 999, flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${hexA(ACCENT, 0.35)}`, background: hexA(ACCENT, 0.12), color: ACCENT, fontSize: 11, fontWeight: 900, letterSpacing: 0.8 }}>{picking ? 'LOADING' : 'ADD'}</span>
-                </button>
-              )
-            })}
-          </>
-        )}
-        {showNearby && !nearbyLoading && nearbyMatches.length === 0 && isSupabaseConfigured && (
-          <button
-            type="button"
-            onClick={() => {
-              nearbyFetchedKey.current = ''
-              nearbyRetryCount.current = 0
-              fetchNearbyNcrdb(geoRegion, { force: true })
-            }}
-            style={{ width: '100%', boxSizing: 'border-box', marginTop: 4, marginBottom: 10, minHeight: 48, borderRadius: 14, border: '1px solid rgba(255,255,255,.18)', background: 'rgba(255,255,255,.08)', color: 'rgba(255,255,255,.72)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
-          >
-            Retry nearby courses
-          </button>
-        )}
-        {showNcrdbSearch && (
-          <>
-            {sectionLabel('SEARCH RESULTS', { margin: matches.length ? '16px 0 10px' : undefined })}
-            {ncrdbLoading && (
-              <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,.62)', background: 'rgba(20,28,24,.5)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 14, padding: 14, lineHeight: 1.5, marginBottom: 10 }}>
-                Searching courses...
-              </div>
+                )}
+                {nearbyMatches.map((c) => {
+                  const id = String(ncrdbCourseId(c))
+                  const picking = ncrdbSelectingId === id
+                  return (
+                    <button key={`nearby-ncrdb-${id}`} disabled={!!ncrdbSelectingId} onClick={() => selectNcrdbCourse(c)} style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 16, padding: 12, marginBottom: 10, cursor: ncrdbSelectingId ? 'wait' : 'pointer', opacity: ncrdbSelectingId && !picking ? 0.55 : 1 }}>
+                      <span style={{ width: 54, height: 54, borderRadius: 12, flex: '0 0 auto', background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundImage: 'url(/courses/course.png), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)' }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{ncrdbCourseName(c)}</div>
+                        <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', marginTop: 1 }}>{ncrdbCourseLocation(c) || 'USGA NCRDB'} · 18 holes</div>
+                      </div>
+                      <span style={{ minWidth: 72, height: 26, borderRadius: 999, flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${hexA(ACCENT, 0.35)}`, background: hexA(ACCENT, 0.12), color: ACCENT, fontSize: 11, fontWeight: 900, letterSpacing: 0.8 }}>{picking ? 'LOADING' : 'ADD'}</span>
+                    </button>
+                  )
+                })}
+              </>
             )}
-            {!ncrdbLoading && remoteMatches.map((c) => {
-              const id = String(ncrdbCourseId(c))
-              const picking = ncrdbSelectingId === id
-              return (
-                <button key={`ncrdb-${id}`} disabled={!!ncrdbSelectingId} onClick={() => selectNcrdbCourse(c)} style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 16, padding: 12, marginBottom: 10, cursor: ncrdbSelectingId ? 'wait' : 'pointer', opacity: ncrdbSelectingId && !picking ? 0.55 : 1 }}>
-                  <span style={{ width: 54, height: 54, borderRadius: 12, flex: '0 0 auto', background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundImage: 'url(/courses/course.png), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)' }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{ncrdbCourseName(c)}</div>
-                    <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', marginTop: 1 }}>{ncrdbCourseLocation(c) || 'USGA NCRDB'} · 18 holes</div>
+            {showNearby && !nearbyLoading && nearbyMatches.length === 0 && isSupabaseConfigured && (
+              <button
+                type="button"
+                onClick={() => {
+                  nearbyFetchedKey.current = ''
+                  nearbyRetryCount.current = 0
+                  fetchNearbyNcrdb(geoRegion, { force: true })
+                }}
+                style={{ width: '100%', boxSizing: 'border-box', marginTop: 4, marginBottom: 10, minHeight: 48, borderRadius: 14, border: '1px solid rgba(255,255,255,.18)', background: 'rgba(255,255,255,.08)', color: 'rgba(255,255,255,.72)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                Retry nearby courses
+              </button>
+            )}
+            {showNcrdbSearch && (
+              <>
+                {sectionLabel('SEARCH RESULTS', { margin: matches.length ? '16px 0 10px' : undefined })}
+                {ncrdbLoading && (
+                  <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,.62)', background: 'rgba(20,28,24,.5)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 14, padding: 14, lineHeight: 1.5, marginBottom: 10 }}>
+                    Searching courses...
                   </div>
-                  <span style={{ minWidth: 72, height: 26, borderRadius: 999, flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${hexA(ACCENT, 0.35)}`, background: hexA(ACCENT, 0.12), color: ACCENT, fontSize: 11, fontWeight: 900, letterSpacing: 0.8 }}>{picking ? 'LOADING' : 'ADD'}</span>
-                </button>
-              )
-            })}
-            {!ncrdbLoading && ncrdbError && (
-              <div style={{ fontSize: 13.5, color: '#fecdd3', background: 'rgba(127,29,29,.3)', border: '1px solid rgba(251,113,133,.35)', borderRadius: 14, padding: 14, lineHeight: 1.5, marginBottom: 10 }}>
-                {ncrdbError}
+                )}
+                {!ncrdbLoading && remoteMatches.map((c) => {
+                  const id = String(ncrdbCourseId(c))
+                  const picking = ncrdbSelectingId === id
+                  return (
+                    <button key={`ncrdb-${id}`} disabled={!!ncrdbSelectingId} onClick={() => selectNcrdbCourse(c)} style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 16, padding: 12, marginBottom: 10, cursor: ncrdbSelectingId ? 'wait' : 'pointer', opacity: ncrdbSelectingId && !picking ? 0.55 : 1 }}>
+                      <span style={{ width: 54, height: 54, borderRadius: 12, flex: '0 0 auto', background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundImage: 'url(/courses/course.png), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)' }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{ncrdbCourseName(c)}</div>
+                        <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', marginTop: 1 }}>{ncrdbCourseLocation(c) || 'USGA NCRDB'} · 18 holes</div>
+                      </div>
+                      <span style={{ minWidth: 72, height: 26, borderRadius: 999, flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${hexA(ACCENT, 0.35)}`, background: hexA(ACCENT, 0.12), color: ACCENT, fontSize: 11, fontWeight: 900, letterSpacing: 0.8 }}>{picking ? 'LOADING' : 'ADD'}</span>
+                    </button>
+                  )
+                })}
+                {!ncrdbLoading && ncrdbError && (
+                  <div style={{ fontSize: 13.5, color: '#fecdd3', background: 'rgba(127,29,29,.3)', border: '1px solid rgba(251,113,133,.35)', borderRadius: 14, padding: 14, lineHeight: 1.5, marginBottom: 10 }}>
+                    {ncrdbError}
+                  </div>
+                )}
+              </>
+            )}
+            {matches.length === 0 && (!showNcrdbSearch || (!ncrdbLoading && remoteMatches.length === 0 && !ncrdbError)) && (
+              <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,.55)', background: 'rgba(20,28,24,.5)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 14, padding: 14, lineHeight: 1.5 }}>
+                No courses match “{st.courseQuery}”. More courses coming soon — for now pick from the list above.
               </div>
             )}
           </>
-        )}
-        {matches.length === 0 && (!showNcrdbSearch || (!ncrdbLoading && remoteMatches.length === 0 && !ncrdbError)) && (
-          <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,.55)', background: 'rgba(20,28,24,.5)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 14, padding: 14, lineHeight: 1.5 }}>
-            No courses match “{st.courseQuery}”. More courses coming soon — for now pick from the list above.
-          </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
+              {sectionLabel('SELECTED COURSE', { marginBottom: 0 })}
+              <button type="button" onClick={() => patch({ courseListOpen: true, courseQuery: '' })} style={{ minHeight: 32, borderRadius: 999, padding: '0 12px', border: '1px solid rgba(255,255,255,.18)', background: 'rgba(255,255,255,.08)', color: ACCENT, fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Change course
+              </button>
+            </div>
+            {renderCourseCard(course, { selected: true })}
+          </>
         )}
 
         {sectionLabel('TEES', { margin: '18px 0 10px' })}
