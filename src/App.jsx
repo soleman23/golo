@@ -19,6 +19,7 @@ const HistoryPage = lazy(() => import('./pages/HistoryPage'))
 const HistoryDetailPage = lazy(() => import('./pages/HistoryDetailPage'))
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
 const BettingReviewPage = lazy(() => import('./pages/BettingReviewPage'))
+const PaymentsPage = lazy(() => import('./pages/PaymentsPage'))
 const ContactPage = lazy(() => import('./pages/ContactPage'))
 const JoinRoundPage = lazy(() => import('./pages/JoinRoundPage'))
 const CourseAdminPage = lazy(() => import('./pages/admin/CourseAdminPage'))
@@ -46,6 +47,7 @@ function MainRoutes() {
           <Route path="/history/:roundId" element={<HistoryDetailPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/betting/:roundId" element={<BettingReviewPage />} />
+          <Route path="/payments/:roundId" element={<PaymentsPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/join/:code" element={<JoinRoundPage />} />
           <Route path="/admin" element={<AdminLayout />}>

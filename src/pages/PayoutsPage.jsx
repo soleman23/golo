@@ -9,6 +9,7 @@ import useLiveRoundStore from '../store/liveRoundStore'
 import { saveRound as dbSaveRound } from '../lib/db/rounds'
 import { completeLiveRound, liveRoundUserMessage } from '../lib/db/liveRounds'
 import { fetchBettingGate } from '../lib/db/betting'
+import { createPaymentRequests } from '../lib/db/payments'
 import { teardownLiveSync } from '../lib/liveRoundSync'
 import { fetchCourseGhinMapping } from '../lib/db/courses'
 import { postRoundToGhin } from '../lib/ghin/client'
@@ -624,20 +625,31 @@ export default function PayoutsPage() {
     try {
       completeRound()
       await persistRound()
-      const liveRoundId = useLiveRoundStore.getState().liveRoundId
-      if (liveRoundId) {
-        const { error } = await completeLiveRound(liveRoundId)
+      const completedLiveRoundId = useLiveRoundStore.getState().liveRoundId
+      let createdRequests = 0
+      if (completedLiveRoundId) {
+        const { error } = await completeLiveRound(completedLiveRoundId)
         if (error) {
           setToast(liveRoundUserMessage(error?.message ?? String(error)))
           clearTimeout(toastTimer.current)
           toastTimer.current = setTimeout(() => setToast(null), 6000)
           return
         }
+        // Lock the result → save the settlements as server payment requests
+        // (payers get notified; the two-step flow lives on /payments).
+        const snapshot = {
+          course: round?.course ?? null,
+          date: round?.date ?? null,
+          players: players.map((p) => ({ id: p.id, name: p.name })),
+          settlements: settlements.map((s) => ({ from: s.from, to: s.to, amount: s.amount })),
+        }
+        const { data } = await createPaymentRequests(completedLiveRoundId, settlements, snapshot)
+        createdRequests = Number(data) || 0
       }
       teardownLiveSync()
       useLiveRoundStore.getState().clearSession()
       resetRound()
-      navigate('/you', { replace: true })
+      navigate(createdRequests > 0 ? `/payments/${completedLiveRoundId}` : '/you', { replace: true })
     } finally {
       setCompleting(false)
     }
