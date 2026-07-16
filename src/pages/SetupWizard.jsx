@@ -34,6 +34,7 @@ import {
 import { normalizeSkinsLdHole, resolveLdHoleNumber } from '../engines/skins'
 import { isSupabaseConfigured } from '../lib/supabaseClient'
 import { serializeRoundState, ensureLiveScorerAccess, liveRoundUserMessage } from '../lib/db/liveRounds'
+import { finalizeBettingTerms, buildTermsSnapshot } from '../lib/db/betting'
 import { teardownLiveSync } from '../lib/liveRoundSync'
 import useNotificationStore from '../store/notificationStore'
 import AppHeader from '../components/shared/AppHeader'
@@ -1366,6 +1367,16 @@ export default function SetupWizard() {
     if (st.step < 4) patch({ step: st.step + 1 })
     else {
       commit()
+      // Freeze the betting terms once the live round + scorer exist, so joiners
+      // must accept them. The organizer auto-accepts (they set it up). No-op with
+      // no live session or no bets.
+      const lockBets = async () => {
+        const live = useLiveRoundStore.getState()
+        const rsNow = useRoundStore.getState()
+        if (live.liveRoundId && live.role === 'scorer' && (rsNow.bets?.length ?? 0) > 0) {
+          await finalizeBettingTerms(live.liveRoundId, buildTermsSnapshot(rsNow), null)
+        }
+      }
       if (liveRoundsEnabled) {
         const rs = useRoundStore.getState()
         const roundId = rs.round?.roundId
@@ -1403,6 +1414,7 @@ export default function SetupWizard() {
                   role: 'scorer',
                   scorerName: me?.name?.trim() || displayName(me) || 'Scorer',
                 })
+                await lockBets()
                 patch({ started: true })
                 return
               }
@@ -1440,6 +1452,7 @@ export default function SetupWizard() {
         teardownLiveSync()
         useLiveRoundStore.getState().clearSession()
       }
+      await lockBets()
       patch({ started: true })
     }
   }
