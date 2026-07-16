@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { adminForceCompleteLiveRound, adminListLiveRounds } from '../../lib/db/admin'
+import {
+  adminForceCompleteLiveRound,
+  adminListGameTypeVisibility,
+  adminListLiveRounds,
+  adminSetGameTypeVisibility,
+} from '../../lib/db/admin'
 import { GAME_TYPES, SCORING_FORMATS } from '../../lib/gameCatalog'
 import useAdminDesk from './useAdminDesk'
 
@@ -8,21 +13,34 @@ const ACCENT = '#d4f23a'
 export default function AdminGamesPage() {
   const { refreshKey, refresh } = useAdminDesk()
   const [rounds, setRounds] = useState([])
+  const [gameVisibility, setGameVisibility] = useState({})
   const [loading, setLoading] = useState(true)
+  const [gamesLoading, setGamesLoading] = useState(true)
   const [busyId, setBusyId] = useState(null)
+  const [savingGame, setSavingGame] = useState(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
+    setGamesLoading(true)
     setError('')
-    const res = await adminListLiveRounds('live')
+    const [res, visibilityRes] = await Promise.all([
+      adminListLiveRounds('live'),
+      adminListGameTypeVisibility(),
+    ])
     setLoading(false)
+    setGamesLoading(false)
     if (res.error) {
       setError(res.error.message || 'Could not load live rounds.')
-      return
+    } else {
+      setRounds(res.rounds)
     }
-    setRounds(res.rounds)
+    if (visibilityRes.error) {
+      setError(visibilityRes.error.message || 'Could not load game visibility.')
+    } else {
+      setGameVisibility(Object.fromEntries(visibilityRes.games.map((game) => [game.appType, game.visibleInSetup])))
+    }
   }, [])
 
   useEffect(() => {
@@ -52,6 +70,27 @@ export default function AdminGamesPage() {
     setNotice('Live round completed.')
     refresh()
     load()
+  }
+
+  const gameIsVisible = (game) => gameVisibility[game.appType] !== false
+
+  const toggleGameVisibility = async (game) => {
+    const nextVisible = !gameIsVisible(game)
+    setSavingGame(game.appType)
+    setError('')
+    setNotice('')
+    const res = await adminSetGameTypeVisibility(game.appType, nextVisible)
+    setSavingGame(null)
+    if (res.error) {
+      setError(res.error.message || 'Could not update game visibility.')
+      return
+    }
+    const saved = res.game ?? { appType: game.appType, visibleInSetup: nextVisible }
+    setGameVisibility((current) => ({
+      ...current,
+      [saved.appType]: saved.visibleInSetup,
+    }))
+    setNotice(saved.visibleInSetup ? `${game.title} is now shown in setup.` : `${game.title} is hidden from setup.`)
   }
 
   return (
@@ -123,10 +162,27 @@ export default function AdminGamesPage() {
         </div>
         <div style={S.grid}>
           {GAME_TYPES.map((game) => (
-            <div key={game.key} style={S.catalogCard}>
-              <div style={S.catalogTitle}>{game.title}</div>
+            <div key={game.key} style={{ ...S.catalogCard, ...(gameIsVisible(game) ? null : S.catalogCardHidden) }}>
+              <div style={S.catalogTop}>
+                <div style={S.catalogTitle}>{game.title}</div>
+                <span style={gameIsVisible(game) ? S.statusOn : S.statusOff}>
+                  {gameIsVisible(game) ? 'Shown' : 'Hidden'}
+                </span>
+              </div>
               <div style={S.catalogDesc}>{game.desc}</div>
-              <div style={S.catalogId}>{game.appType}</div>
+              <div style={S.catalogFoot}>
+                <div style={S.catalogId}>{game.appType}</div>
+                <button
+                  type="button"
+                  disabled={gamesLoading || savingGame === game.appType}
+                  onClick={() => toggleGameVisibility(game)}
+                  aria-pressed={gameIsVisible(game)}
+                  aria-label={`${gameIsVisible(game) ? 'Hide' : 'Show'} ${game.title} in setup`}
+                  style={S.toggle(gameIsVisible(game), gamesLoading || savingGame === game.appType)}
+                >
+                  <span style={S.toggleKnob(gameIsVisible(game))} />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -230,6 +286,15 @@ const S = {
     display: 'grid',
     gap: 6,
   },
+  catalogCardHidden: {
+    opacity: 0.68,
+  },
+  catalogTop: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
   catalogTitle: { fontSize: 15, fontWeight: 800 },
   catalogDesc: {
     fontSize: 12,
@@ -244,6 +309,46 @@ const S = {
     letterSpacing: 0.6,
     color: 'rgba(212,242,58,.75)',
   },
+  catalogFoot: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  statusOn: {
+    flex: '0 0 auto',
+    color: ACCENT,
+    fontSize: 11,
+    fontWeight: 850,
+  },
+  statusOff: {
+    flex: '0 0 auto',
+    color: 'rgba(255,255,255,.55)',
+    fontSize: 11,
+    fontWeight: 850,
+  },
+  toggle: (on, disabled) => ({
+    width: 48,
+    height: 29,
+    borderRadius: 999,
+    border: 'none',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    flex: '0 0 auto',
+    position: 'relative',
+    background: on ? ACCENT : 'rgba(255,255,255,.18)',
+    opacity: disabled ? 0.58 : 1,
+  }),
+  toggleKnob: (on) => ({
+    position: 'absolute',
+    top: 3,
+    left: on ? 22 : 3,
+    width: 23,
+    height: 23,
+    borderRadius: '50%',
+    background: '#fff',
+    boxShadow: '0 1px 3px rgba(0,0,0,.38)',
+    transition: 'left .15s',
+  }),
   error: {
     borderRadius: 12,
     padding: 12,

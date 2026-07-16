@@ -50,6 +50,15 @@ const liveRoundFromRow = (row) => {
   }
 }
 
+const gameVisibilityFromRow = (row) => {
+  if (!row) return null
+  return {
+    appType: row.app_type ?? '',
+    visibleInSetup: row.visible_in_setup !== false,
+    updatedAt: row.updated_at ?? null,
+  }
+}
+
 export async function adminMe() {
   if (!isSupabaseConfigured) return { isAdmin: false, email: '', name: '', error: null }
   const { data, error } = await supabase.rpc('admin_me')
@@ -172,4 +181,24 @@ export async function adminSetCourseVisibility(id, visible) {
   })
   callError('adminSetCourseVisibility', error)
   return { course: data ? courseFromDb(data) : null, error }
+}
+
+export async function adminListGameTypeVisibility() {
+  if (!isSupabaseConfigured) return { games: [], error: null }
+  const { data, error } = await supabase.rpc('admin_list_game_type_visibility')
+  callError('adminListGameTypeVisibility', error)
+  return {
+    games: error ? [] : (data ?? []).map(gameVisibilityFromRow).filter(Boolean),
+    error,
+  }
+}
+
+export async function adminSetGameTypeVisibility(appType, visible) {
+  if (!isSupabaseConfigured) return { game: null, error: null }
+  const { data, error } = await supabase.rpc('admin_set_game_type_visibility', {
+    p_app_type: appType,
+    p_visible: visible,
+  })
+  callError('adminSetGameTypeVisibility', error)
+  return { game: data ? gameVisibilityFromRow(data) : null, error }
 }

@@ -9,6 +9,7 @@ import useLiveRoundStore from '../store/liveRoundStore'
 import { calculateCourseHandicap } from '../engines/handicap'
 import { hasContact, displayName, playerKey } from '../lib/identity'
 import { fetchCourses } from '../lib/db/courses'
+import { fetchGameTypeVisibility } from '../lib/db/games'
 import { searchVerifiedPlayers, fetchPlayerContact } from '../lib/db/players'
 import { searchNcrdbCourses, getNcrdbTees } from '../lib/ncrdb'
 import { courseFromNcrdb } from '../lib/courseValidation'
@@ -630,6 +631,7 @@ export default function SetupWizard() {
   // Local-only mode keeps the curated hardcoded subset below.
   const [catalog, setCatalog] = useState(COURSES)
   const [coursesFromDb, setCoursesFromDb] = useState(false)
+  const [gameVisibility, setGameVisibility] = useState({})
   const [ncrdbResults, setNcrdbResults] = useState([])
   const [ncrdbLoading, setNcrdbLoading] = useState(false)
   const [ncrdbError, setNcrdbError] = useState('')
@@ -839,6 +841,15 @@ export default function SetupWizard() {
     return () => { active = false }
   }, [])
 
+  useEffect(() => {
+    let active = true
+    fetchGameTypeVisibility().then((rows) => {
+      if (!active || !rows) return
+      setGameVisibility(Object.fromEntries(rows.map((game) => [game.appType, game.visibleInSetup])))
+    })
+    return () => { active = false }
+  }, [])
+
   // Debounce nearby fetch when geo + catalogue settle (coalesces Strict Mode / catalog races).
   useEffect(() => {
     const hasRegion = geoRegion?.lat != null || geoRegion?.city || geoRegion?.stateCode || geoRegion?.state
@@ -959,6 +970,9 @@ export default function SetupWizard() {
   const skins = st.bets.skins
   // Base amount shown in summaries — Skins reports its per-skin base value.
   const baseAmount = (d, b) => (d.key === 'skins' ? b.baseSkinValue : b.stake)
+
+  const gameVisibleInSetup = (d) => gameVisibility[d.appType] !== false
+  const setupGameDefs = GAME_DEFS.filter((d) => gameVisibleInSetup(d) || st.bets[d.key]?.on)
 
   const activeGames = GAME_DEFS.filter(
     (d) => st.bets[d.key].on && (d.requiresExactly == null || st.players.length === d.requiresExactly)
@@ -2106,12 +2120,19 @@ export default function SetupWizard() {
           <span style={{ fontSize: 14, fontWeight: 800, color: ACCENT }}>${totalStake} in play</span>
         </div>
 
-        {GAME_DEFS.map((d) => {
+        {setupGameDefs.length === 0 && (
+          <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,.5)', background: 'rgba(20,28,24,.5)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 16, padding: 14 }}>
+            No side games are available.
+          </div>
+        )}
+
+        {setupGameDefs.map((d) => {
           const b = st.bets[d.key]
           const locked = d.requiresExactly != null && st.players.length !== d.requiresExactly
           const wolfLocked = d.key === 'wolf' && st.players.length !== 4
           const gameLocked = locked || wolfLocked
           const selCount = selectedCount(d)
+          const hiddenFromNewRounds = !gameVisibleInSetup(d)
           return (
             <div key={d.key} style={{ background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${b.on && !gameLocked ? hexA(ACCENT, 0.4) : 'rgba(255,255,255,.12)'}`, borderRadius: 20, padding: 14, marginBottom: 12, boxShadow: '0 8px 24px rgba(0,0,0,.28)', opacity: gameLocked ? 0.55 : 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -2120,7 +2141,9 @@ export default function SetupWizard() {
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{d.title}</div>
-                  {wolfLocked ? (
+                  {hiddenFromNewRounds ? (
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#fb923c', marginTop: 2 }}>Hidden from new rounds</div>
+                  ) : wolfLocked ? (
                     <div style={{ fontSize: 12, fontWeight: 700, color: '#fb923c', marginTop: 2 }}>Needs exactly 4 players</div>
                   ) : (
                     <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', marginTop: 2 }}>{locked ? `Needs exactly ${d.requiresExactly} players` : d.desc}</div>
