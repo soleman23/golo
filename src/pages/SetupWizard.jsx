@@ -1,5 +1,5 @@
 import { hexA } from '../lib/colors'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useRoundStore from '../store/roundStore'
 import useHistoryStore from '../store/historyStore'
@@ -668,7 +668,7 @@ export default function SetupWizard() {
     courseQueryRef.current = st.courseQuery
   }, [st.courseQuery])
 
-  const fetchNearbyNcrdb = async (region, { force = false } = {}) => {
+  const fetchNearbyNcrdb = useCallback(async function fetchNearby(region, { force = false } = {}) {
     if (!isSupabaseConfigured || courseQueryRef.current.trim()) return null
     const enriched = enrichRegionWithCatalog(region, catalogRef.current, COURSES)
     const city = String(enriched?.city ?? '').trim()
@@ -714,7 +714,7 @@ export default function SetupWizard() {
     if (regionalHits.length === 0 && nearbyRetryCount.current < 1) {
       nearbyRetryCount.current += 1
       setNearbyLoading(false)
-      return fetchNearbyNcrdb(enriched, { force: true })
+      return fetchNearby(enriched, { force: true })
     }
 
     setNearbyNcrdb(regionalHits)
@@ -722,16 +722,16 @@ export default function SetupWizard() {
     // Only lock when we got results — empty must not block later auto/catalog retries.
     if (regionalHits.length > 0) nearbyFetchedKey.current = key
     return { key, count: regionalHits.length }
-  }
+  }, [])
 
-  const scheduleNearbyFetch = (region, opts = {}) => {
+  const scheduleNearbyFetch = useCallback((region, opts = {}) => {
     if (nearbyTimerRef.current) clearTimeout(nearbyTimerRef.current)
     nearbyTimerRef.current = setTimeout(() => {
       fetchNearbyNcrdb(region, opts)
     }, 400)
-  }
+  }, [fetchNearbyNcrdb])
 
-  const fallbackNearbyRegion = () => {
+  const fallbackNearbyRegion = useCallback(() => {
     const homeCourse = defaultHomeCourse(catalogRef.current, {
       homeClub: homeClubRef.current,
       rounds: historyRoundsRef.current,
@@ -740,7 +740,7 @@ export default function SetupWizard() {
       ? catalogRef.current.find((course) => course.id === courseIdRef.current)
       : null
     return regionFromCourse(homeCourse) ?? regionFromCourse(selectedCourse)
-  }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -819,7 +819,7 @@ export default function SetupWizard() {
       cancelled = true
       if (nearbyTimerRef.current) clearTimeout(nearbyTimerRef.current)
     }
-  }, [])
+  }, [fallbackNearbyRegion, scheduleNearbyFetch])
   useEffect(() => {
     let active = true
     fetchCourses().then((rows) => {
@@ -852,18 +852,24 @@ export default function SetupWizard() {
 
   // Debounce nearby fetch when geo + catalogue settle (coalesces Strict Mode / catalog races).
   useEffect(() => {
-    const hasRegion = geoRegion?.lat != null || geoRegion?.city || geoRegion?.stateCode || geoRegion?.state
+    const region = {
+      lat: geoRegion?.lat,
+      lng: geoRegion?.lng,
+      city: geoRegion?.city,
+      stateCode: geoRegion?.stateCode,
+      state: geoRegion?.state,
+    }
+    const hasRegion = region.lat != null || region.city || region.stateCode || region.state
     if (geoStatus !== GEO_STATUS.READY || !hasRegion) return undefined
-    const enriched = enrichRegionWithCatalog(geoRegion, catalog, COURSES)
+    const enriched = enrichRegionWithCatalog(region, catalog, COURSES)
     if (!(enriched.city || enriched.stateCode || enriched.state) || !isSupabaseConfigured) return undefined
-    if (!geoRegion.city || geoRegion.city !== enriched.city) {
+    if (!region.city || region.city !== enriched.city) {
       setGeoRegion(enriched)
       if (enriched.lat != null && enriched.lng != null) writeCachedGeo(enriched)
     }
     scheduleNearbyFetch(enriched)
     return undefined
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalog, coursesFromDb, geoStatus, geoRegion?.lat, geoRegion?.city, geoRegion?.stateCode, geoRegion?.state])
+  }, [catalog, coursesFromDb, geoStatus, geoRegion?.lat, geoRegion?.lng, geoRegion?.city, geoRegion?.stateCode, geoRegion?.state, scheduleNearbyFetch])
 
   useEffect(() => {
     const q = st.courseQuery.trim()
