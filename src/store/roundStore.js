@@ -38,6 +38,10 @@ const useRoundStore = create(
             currentHole: 1,
             pars: {},
             strokeIndex: {},
+            // Per-hole yardage for the chosen tee (GolfCourseAPI, cached
+            // server-side). Empty when unavailable — par + stroke index are the
+            // required card; yardage is enrichment only.
+            yardages: {},
             ...roundData,
           },
           players: [],

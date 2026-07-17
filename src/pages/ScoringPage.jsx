@@ -75,6 +75,7 @@ function BetGlyph({ bet, size = 18, color = ACCENT }) {
 /** Money the golf-bet way: +$5, −$3, $0 (rounded to the dollar for display). */
 const fmtMoney = (n) => { const r = Number.isFinite(Number(n)) ? Math.round(Number(n)) : 0; return r > 0 ? `+$${r}` : r < 0 ? `−$${-r}` : '$0' }
 const moneyColor = (n) => (n > 0.5 ? '#bef264' : n < -0.5 ? '#fb7185' : 'rgba(255,255,255,.72)')
+const fmtComma = (n) => Number.isFinite(Number(n)) ? Math.round(Number(n)).toLocaleString('en-US') : null
 const clampHole = (hole, totalHoles) => {
   const max = Math.max(1, Math.round(Number(totalHoles) || 1))
   const n = Math.round(Number(hole))
@@ -652,6 +653,122 @@ export default function ScoringPage() {
     }
   }, [sheet, lbView, isScramble, isStableford, useGrossScoring, teams, players, scores, pars, allocations, bets, pressBets, sideGameFlags, skinFlags, wolfPicks, bbbFlags, scoringType, totalHoles, meEntityId])
 
+  const scorecardModel = useMemo(() => {
+    if (sheet !== 'leaderboard' || lbView !== 'scorecard') return null
+    const ents = isScramble ? teams : players
+    if (ents.length === 0) return null
+
+    const holes = Array.from({ length: totalHoles }, (_, i) => i + 1)
+    const frontHoles = holes.slice(0, Math.min(9, holes.length))
+    const backHoles = holes.slice(frontHoles.length)
+    const showNet = !isScramble && !useGrossScoring
+    const strokeIndex = round?.strokeIndex ?? {}
+    const tee = round?.tee ?? {}
+
+    const parOf = (hole) => pars[hole] ?? 4
+    const sumPar = (range) => range.reduce((sum, hole) => sum + parOf(hole), 0)
+    const grossTotal = (id, range) => {
+      let total = 0
+      let count = 0
+      range.forEach((hole) => {
+        const gross = scoreValue(scores[id]?.[hole])
+        if (gross == null) return
+        total += gross
+        count += 1
+      })
+      return count ? total : null
+    }
+    const netTotal = (id, range) => {
+      if (!showNet) return null
+      let total = 0
+      let count = 0
+      range.forEach((hole) => {
+        const gross = scoreValue(scores[id]?.[hole])
+        if (gross == null) return
+        total += Math.max(0, gross - (allocations[id]?.[hole] ?? 0))
+        count += 1
+      })
+      return count ? total : null
+    }
+    const scoreToPar = (id) => {
+      let total = 0
+      let parTotal = 0
+      let count = 0
+      holes.forEach((hole) => {
+        const gross = scoreValue(scores[id]?.[hole])
+        if (gross == null) return
+        const strokes = showNet ? Math.max(0, gross - (allocations[id]?.[hole] ?? 0)) : gross
+        total += strokes
+        parTotal += parOf(hole)
+        count += 1
+      })
+      return count ? total - parTotal : null
+    }
+
+    const teeYards = fmtComma(tee.yards)
+    const metaLine = [
+      tee.name ? `${tee.name} tees` : null,
+      teeYards ? `${teeYards} yds` : null,
+      tee.rating ? `CR ${tee.rating}` : null,
+      tee.slope ? `Slope ${tee.slope}` : null,
+      tee.par ? `Par ${tee.par}` : null,
+    ].filter(Boolean).join(' · ')
+
+    return {
+      courseName: round?.course ?? 'Scorecard',
+      metaLine,
+      frontHoles,
+      backHoles,
+      showNet,
+      courseRows: [
+        {
+          id: 'par',
+          label: 'Par',
+          cells: holes.map((hole) => ({ hole, value: parOf(hole) })),
+          out: sumPar(frontHoles),
+          in: backHoles.length ? sumPar(backHoles) : null,
+          total: sumPar(holes),
+        },
+        {
+          id: 'hcp',
+          label: 'HCP',
+          cells: holes.map((hole) => ({ hole, value: strokeIndex[hole] ?? '-' })),
+          blankTotals: true,
+          out: '',
+          in: '',
+          total: '',
+        },
+      ],
+      rows: ents.map((e) => {
+        const gross = grossTotal(e.id, holes)
+        const net = netTotal(e.id, holes)
+        const thru = holes.filter((hole) => scoreValue(scores[e.id]?.[hole]) != null).length
+        return {
+          id: e.id,
+          name: e.name,
+          color: e.color,
+          isMe: e.id === meEntityId,
+          sub: isScramble
+            ? 'Team score'
+            : showNet
+              ? `Hdcp ${e.courseHandicap ?? e.handicapIndex ?? 0}`
+              : 'Gross',
+          thru,
+          cells: holes.map((hole) => ({
+            hole,
+            gross: scoreValue(scores[e.id]?.[hole]),
+            strokes: allocations[e.id]?.[hole] ?? 0,
+          })),
+          out: grossTotal(e.id, frontHoles),
+          in: backHoles.length ? grossTotal(e.id, backHoles) : null,
+          gross,
+          net,
+          toPar: scoreToPar(e.id),
+        }
+      }),
+    }
+  }, [sheet, lbView, isScramble, useGrossScoring, teams, players, totalHoles, round, pars, scores, allocations, meEntityId])
+
   // Completed rounds belong on Payouts, not an editable scorecard.
   if (round && roundStatus === 'complete') {
     return <Navigate to="/payouts" replace />
@@ -765,7 +882,7 @@ export default function ScoringPage() {
   const holeDetail = [
     `Par ${par}`,
     si != null ? `H ${si}` : null,
-    round?.holeYards?.[currentHole] ? `${round.holeYards[currentHole]}y` : null,
+    round?.yardages?.[currentHole] ? `${round.yardages[currentHole]} yds` : null,
   ].filter(Boolean).join(' · ')
 
   const useCompactRows = entities.length >= 3
@@ -1208,12 +1325,12 @@ export default function ScoringPage() {
               </div>
             </div>
 
-            {/* Net / Gross / Money */}
+            {/* Net / Gross / Money / Scorecard */}
             <div style={{ flex: '0 0 auto', padding: '4px 16px 8px' }}>
               <div style={{ display: 'flex', gap: 4, background: 'rgba(16,22,18,.55)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 16, padding: 4 }}>
-                {[['net', 'Net'], ['gross', 'Gross'], ['money', 'Money']].map(([id, label]) => {
+                {[['net', 'Net'], ['gross', 'Gross'], ['money', 'Money'], ['scorecard', 'Scorecard']].map(([id, label]) => {
                   const on = lbView === id
-                  return <button key={id} onClick={() => setLbView(id)} style={{ flex: 1, minHeight: 42, borderRadius: 12, border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 800, background: on ? ACCENT : 'transparent', color: on ? ACCENT_DARK : 'rgba(255,255,255,.62)', boxShadow: on ? `0 4px 12px ${hexA(ACCENT, 0.4)}` : 'none' }}>{label}</button>
+                  return <button key={id} onClick={() => setLbView(id)} style={{ flex: 1, minHeight: 42, borderRadius: 12, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 800, background: on ? ACCENT : 'transparent', color: on ? ACCENT_DARK : 'rgba(255,255,255,.62)', boxShadow: on ? `0 4px 12px ${hexA(ACCENT, 0.4)}` : 'none' }}>{label}</button>
                 })}
               </div>
             </div>
@@ -1221,7 +1338,9 @@ export default function ScoringPage() {
             {/* scrollable body */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '2px 16px 14px' }}>
 
-              {leaderModel.empty ? (
+              {lbView === 'scorecard' && scorecardModel ? (
+                <ScorecardView model={scorecardModel} />
+              ) : leaderModel.empty ? (
                 <div style={{ ...S.panel, textAlign: 'center', padding: 22, marginTop: 10, marginBottom: 16 }}>
                   <div style={{ fontSize: 18, fontWeight: 800, color: '#fff' }}>No scores entered yet.</div>
                 </div>
@@ -1476,6 +1595,172 @@ function Sheet({ title, onClose, children }) {
           <button onClick={onClose} style={{ fontSize: 14, fontWeight: 800, color: ACCENT, background: 'none', border: 'none', minHeight: 44, cursor: 'pointer' }}>Done</button>
         </div>
         <div style={{ overflowY: 'auto' }}>{children}</div>
+      </div>
+    </div>
+  )
+}
+
+function ScorecardView({ model }) {
+  const through = Math.max(0, ...model.rows.map((row) => row.thru))
+  const value = (n) => n == null || n === '' ? DASH : n
+  const holeMap = (row) => new Map(row.cells.map((cell) => [cell.hole, cell]))
+  const baseCell = {
+    minHeight: 31,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderLeft: '1px solid rgba(255,255,255,.08)',
+    borderTop: '1px solid rgba(255,255,255,.08)',
+    minWidth: 0,
+    padding: '0 2px',
+    fontSize: 11,
+    fontWeight: 800,
+    color: 'rgba(255,255,255,.84)',
+    boxSizing: 'border-box',
+  }
+  const totalCell = {
+    ...baseCell,
+    color: '#fff',
+    background: 'rgba(255,255,255,.06)',
+  }
+  const labelCell = {
+    ...baseCell,
+    justifyContent: 'flex-start',
+    gap: 6,
+    padding: '0 7px',
+    borderLeft: 'none',
+    overflow: 'hidden',
+    color: 'rgba(255,255,255,.62)',
+    background: 'rgba(15,24,18,.72)',
+  }
+  const renderStrokeMarks = (count) => {
+    if (!count) return null
+    const dots = Array.from({ length: Math.min(3, count) })
+    return (
+      <span style={{ position: 'absolute', left: 0, right: 0, bottom: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+        {dots.map((_, i) => (
+          <span key={i} style={{ width: 3, height: 3, borderRadius: '50%', background: ACCENT, boxShadow: `0 0 6px ${hexA(ACCENT, 0.8)}` }} />
+        ))}
+        {count > 3 && <span style={{ marginLeft: 1, fontSize: 7, fontWeight: 900, color: ACCENT }}>+{count - 3}</span>}
+      </span>
+    )
+  }
+  const renderSection = (title, holes, totalLabel, totalKey) => {
+    if (!holes.length) return null
+    const grid = {
+      display: 'grid',
+      gridTemplateColumns: `minmax(82px, 1.7fr) repeat(${holes.length}, minmax(0, 1fr)) 34px`,
+      width: '100%',
+    }
+    const renderCourseRow = (row) => {
+      const byHole = holeMap(row)
+      return (
+        <div key={`${title}-${row.id}`} style={grid}>
+          <div style={{ ...labelCell, fontSize: 10.5, letterSpacing: 0.8 }}>{row.label}</div>
+          {holes.map((hole) => (
+            <div key={hole} style={{ ...baseCell, color: row.id === 'par' ? '#fff' : 'rgba(255,255,255,.55)' }}>
+              {value(byHole.get(hole)?.value)}
+            </div>
+          ))}
+          <div style={totalCell}>{row.blankTotals ? '' : value(row[totalKey])}</div>
+        </div>
+      )
+    }
+    const renderPlayerRow = (row) => {
+      const byHole = holeMap(row)
+      return (
+        <div key={`${title}-${row.id}`} style={grid}>
+          <div style={{ ...labelCell, minHeight: 42, borderTop: `1px solid ${row.isMe ? hexA(ACCENT, 0.42) : 'rgba(255,255,255,.08)'}` }}>
+            <span style={{ ...S.avatar, width: 24, height: 24, fontSize: 11, background: row.color, boxShadow: `0 0 0 2px ${row.isMe ? hexA(ACCENT, 0.9) : 'rgba(255,255,255,.18)'}` }}>{initial(row.name)}</span>
+            <span style={{ minWidth: 0 }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
+                <span style={{ display: 'block', maxWidth: 72, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#fff', fontSize: 12, fontWeight: 900 }}>{row.name}</span>
+                {row.isMe && <span style={{ ...youBadge, padding: '1px 5px', fontSize: 8.5 }}>YOU</span>}
+              </span>
+              <span style={{ display: 'block', marginTop: 1, color: 'rgba(255,255,255,.48)', fontSize: 9.5, fontWeight: 700 }}>{row.sub}</span>
+            </span>
+          </div>
+          {holes.map((hole) => {
+            const cell = byHole.get(hole)
+            return (
+              <div key={hole} style={{ ...baseCell, position: 'relative', minHeight: 42, color: cell?.gross == null ? 'rgba(255,255,255,.34)' : '#fff', fontSize: 13 }}>
+                {cell?.gross ?? DASH}
+                {renderStrokeMarks(cell?.strokes ?? 0)}
+              </div>
+            )
+          })}
+          <div style={{ ...totalCell, minHeight: 42 }}>{value(row[totalKey])}</div>
+        </div>
+      )
+    }
+
+    return (
+      <div style={{ overflow: 'hidden', border: '1px solid rgba(255,255,255,.13)', borderRadius: 16, background: 'rgba(20,28,24,.52)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', boxShadow: '0 10px 28px rgba(0,0,0,.28)', marginBottom: 10 }}>
+        <div style={{ ...grid, background: 'rgba(255,255,255,.06)' }}>
+          <div style={{ ...labelCell, minHeight: 34, color: ACCENT, background: 'rgba(25,36,27,.9)', fontSize: 11, fontWeight: 900 }}>{title}</div>
+          {holes.map((hole) => <div key={hole} style={{ ...baseCell, minHeight: 34, color: ACCENT }}>{hole}</div>)}
+          <div style={{ ...totalCell, minHeight: 34, color: ACCENT }}>{totalLabel}</div>
+        </div>
+        {model.courseRows.map(renderCourseRow)}
+        {model.rows.map(renderPlayerRow)}
+      </div>
+    )
+  }
+  const totalColumns = [
+    'minmax(104px, 1fr)',
+    '42px',
+    ...(model.backHoles.length ? ['42px'] : []),
+    '46px',
+    ...(model.showNet ? ['46px'] : []),
+    '44px',
+  ].join(' ')
+  const renderTotalsRow = (row) => (
+    <div key={row.id} style={{ display: 'grid', gridTemplateColumns: totalColumns, width: '100%' }}>
+      <div style={{ ...labelCell, minHeight: 40, borderTop: `1px solid ${row.isMe ? hexA(ACCENT, 0.42) : 'rgba(255,255,255,.08)'}` }}>
+        <span style={{ ...S.avatar, width: 24, height: 24, fontSize: 11, background: row.color, boxShadow: 'none' }}>{initial(row.name)}</span>
+        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#fff', fontSize: 12, fontWeight: 900 }}>{row.name}</span>
+      </div>
+      <div style={{ ...totalCell, minHeight: 40 }}>{value(row.out)}</div>
+      {model.backHoles.length > 0 && <div style={{ ...totalCell, minHeight: 40 }}>{value(row.in)}</div>}
+      <div style={{ ...totalCell, minHeight: 40 }}>{value(row.gross)}</div>
+      {model.showNet && <div style={{ ...totalCell, minHeight: 40 }}>{value(row.net)}</div>}
+      <div style={{ ...totalCell, minHeight: 40, color: row.toPar == null ? 'rgba(255,255,255,.42)' : ncd(row.toPar) }}>{row.toPar == null ? DASH : vpl(row.toPar)}</div>
+    </div>
+  )
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ ...S.panel, padding: 15, marginBottom: 12, border: `1px solid ${hexA(ACCENT, 0.28)}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11, fontWeight: 900, letterSpacing: 1.4, color: ACCENT }}>
+              <Icon name="scorecard" size={14} color={ACCENT} /> GOLO SCORECARD
+            </div>
+            <div style={{ marginTop: 5, color: '#fff', fontSize: 18, fontWeight: 900, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {model.courseName}
+            </div>
+            {model.metaLine && <div style={{ marginTop: 3, color: 'rgba(255,255,255,.56)', fontSize: 12, fontWeight: 700 }}>{model.metaLine}</div>}
+          </div>
+          <div style={{ flex: '0 0 auto', textAlign: 'right' }}>
+            <div style={{ color: ACCENT, fontSize: 22, fontWeight: 900, lineHeight: 1 }}>{through}</div>
+            <div style={{ color: 'rgba(255,255,255,.48)', fontSize: 10, fontWeight: 800, letterSpacing: 1 }}>THRU</div>
+          </div>
+        </div>
+      </div>
+
+      {renderSection('OUT', model.frontHoles, 'OUT', 'out')}
+      {renderSection('IN', model.backHoles, 'IN', 'in')}
+
+      <div style={{ overflow: 'hidden', border: '1px solid rgba(255,255,255,.13)', borderRadius: 16, background: 'rgba(20,28,24,.52)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', boxShadow: '0 10px 28px rgba(0,0,0,.28)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: totalColumns, width: '100%', background: 'rgba(255,255,255,.06)' }}>
+          <div style={{ ...labelCell, minHeight: 34, color: ACCENT, background: 'rgba(25,36,27,.9)', fontSize: 11, fontWeight: 900 }}>TOTALS</div>
+          <div style={{ ...totalCell, minHeight: 34, color: ACCENT }}>OUT</div>
+          {model.backHoles.length > 0 && <div style={{ ...totalCell, minHeight: 34, color: ACCENT }}>IN</div>}
+          <div style={{ ...totalCell, minHeight: 34, color: ACCENT }}>TOT</div>
+          {model.showNet && <div style={{ ...totalCell, minHeight: 34, color: ACCENT }}>NET</div>}
+          <div style={{ ...totalCell, minHeight: 34, color: ACCENT }}>+/-</div>
+        </div>
+        {model.rows.map(renderTotalsRow)}
       </div>
     </div>
   )

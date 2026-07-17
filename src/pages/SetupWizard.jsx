@@ -12,6 +12,7 @@ import { fetchCourses } from '../lib/db/courses'
 import { fetchGameTypeVisibility } from '../lib/db/games'
 import { searchVerifiedPlayers, fetchPlayerContact } from '../lib/db/players'
 import { searchNcrdbCourses, getNcrdbTees } from '../lib/ncrdb'
+import { getHoleData, yardageMapFromTees, holeCardFromTees } from '../lib/scorecardData'
 import { courseFromNcrdb } from '../lib/courseValidation'
 import { getCourseImage } from '../lib/courseImages'
 import { defaultHomeCourse } from '../lib/homeCourse'
@@ -966,6 +967,56 @@ export default function SetupWizard() {
   // Per-course tees when defined, else the global fallback set.
   const tees = course.tees ?? TEES
   const tee = tees[Math.min(st.teeIdx, tees.length - 1)]
+
+  // Prefetch per-hole yardage (GolfCourseAPI, cached server-side) for the
+  // selected course so commit() can stamp round.yardages without an async hop
+  // and the review can flag when hole-by-hole yardage is in. NCRDB supplies par
+  // + stroke index; this is the only source of yardage. Best-effort: a miss (no
+  // match, offline, local-only) just leaves it empty. Kept in state (not a ref)
+  // so a late-arriving fetch re-renders the review indicator.
+  const [scorecardTees, setScorecardTees] = useState({ courseId: null, teesData: null })
+  useEffect(() => {
+    const id = course?.id
+    const name = course?.name
+    if (!id || !name || scorecardTees.courseId === id) return
+    let cancelled = false
+    getHoleData({ id, name }).then((teesData) => {
+      if (!cancelled) setScorecardTees({ courseId: id, teesData })
+    })
+    return () => { cancelled = true }
+  }, [course?.id, course?.name, scorecardTees.courseId])
+
+  // When the selected course has no per-hole pars of its own — a bundled course
+  // without a scorecard (Pinehurst/Harbor/Lincoln) or an NCRDB course whose
+  // scorecard table wasn't parseable — every hole would otherwise fall back to
+  // par 4. Fill par (and a valid stroke index) from GolfCourseAPI once its data
+  // resolves. Gated to the untouched all-par-4 default, so it never clobbers a
+  // course's real card or a manual edit, and re-applies if you switch back.
+  useEffect(() => {
+    if (!course?.id || course.pars || scorecardTees.courseId !== course.id) return
+    const holeNums = Array.from({ length: st.holes }, (_, i) => i + 1)
+    const allDefaultPar4 = holeNums.every((h) => (st.pars?.[h] ?? 4) === 4)
+    if (!allDefaultPar4) return
+    const card = holeCardFromTees(scorecardTees.teesData, tee?.name, 'male', tee?.yards)
+    if (!card || !holeNums.every((h) => card.pars[h] != null)) return
+    // A real course always has par-3s/5s; an all-par-4 card would equal the
+    // default and, since each fill writes a fresh st.pars object, re-trigger this
+    // effect forever — so skip it (nothing to fill anyway).
+    if (holeNums.every((h) => card.pars[h] === 4)) return
+    // Only adopt the stroke index if it's a complete valid 1..N permutation and
+    // the course didn't bring its own — never clobber a real course stroke index.
+    const siVals = holeNums.map((h) => card.strokeIndex[h])
+    const siValid = siVals.every((v) => v >= 1 && v <= st.holes) && new Set(siVals).size === st.holes
+    setSt((s) => {
+      const nextPars = { ...s.pars }
+      holeNums.forEach((h) => { nextPars[h] = card.pars[h] })
+      const nextSi = siValid && !course.strokeIndex
+        ? { ...s.strokeIndex, ...Object.fromEntries(holeNums.map((h) => [h, card.strokeIndex[h]])) }
+        : s.strokeIndex
+      return { ...s, pars: nextPars, strokeIndex: nextSi, bets: betsWithNormalizedLdHole(s.bets, nextPars) }
+    })
+  }, [scorecardTees, course?.id, course?.pars, course?.strokeIndex, st.pars, st.holes, tee?.name, tee?.yards])
+
   const isScramble = st.format === 'scramble'
   const ids = st.players.map((p) => p.id)
   const holeNumbers = Array.from({ length: st.holes }, (_, i) => i + 1)
@@ -1293,6 +1344,13 @@ export default function SetupWizard() {
 
   const commit = () => {
     const existing = useRoundStore.getState().round
+    // Per-hole yardage for the chosen tee. Only touch it once the prefetch has
+    // resolved for this course: a resolved-but-empty result writes {} (clearing
+    // stale yardage on an edit), while an in-flight fetch leaves it untouched.
+    const yardages =
+      scorecardTees.courseId === course.id
+        ? (yardageMapFromTees(scorecardTees.teesData, tee.name, 'male', tee.yards) ?? {})
+        : null
     const data = {
       courseId: course.id,
       course: course.name,
@@ -1303,6 +1361,7 @@ export default function SetupWizard() {
       scoringType: st.format,
       scoring: st.scoring,
       tee: { name: tee.name, yards: tee.yards, par: tee.par, rating: tee.rating, slope: tee.slope },
+      ...(yardages ? { yardages } : {}),
     }
     if (existing && existing.status !== 'complete') updateRoundSetup(data)
     else createRound(data)
@@ -2429,9 +2488,17 @@ export default function SetupWizard() {
   }
 
   function renderReview() {
+    // Per-hole yardage in for the selected tee? Flag it on the TEES row so the
+    // organizer knows this round carries hole-by-hole distances.
+    const reviewHoleYards =
+      scorecardTees.courseId === course.id
+        ? yardageMapFromTees(scorecardTees.teesData, tee.name, 'male', tee.yards)
+        : null
+    const hasHoleYards = reviewHoleYards ? holeNumbers.every((h) => reviewHoleYards[h] != null) : false
+
     const reviewLines = [
       { label: 'COURSE', value: course.name, sub: course.loc },
-      { label: 'TEES', value: `${tee.name} tees`, sub: `${comma(tee.yards)} yds · Par ${tee.par}` },
+      { label: 'TEES', value: `${tee.name} tees`, sub: `${comma(tee.yards)} yds · Par ${tee.par}`, tag: hasHoleYards ? 'HOLE YARDS' : null },
       { label: 'FORMAT', value: FORMATS.find((f) => f.id === st.format).label, sub: `${st.scoring === 'net' ? 'Net' : 'Gross'} scoring` },
       { label: 'HOLES', value: `${st.holes} holes`, sub: new Date(st.date + 'T00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) },
     ]
@@ -2442,7 +2509,12 @@ export default function SetupWizard() {
             <div key={r.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, padding: '14px 0', borderTop: i === 0 ? 'none' : '1px solid rgba(255,255,255,.09)' }}>
               <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.2, color: 'rgba(255,255,255,.5)' }}>{r.label}</span>
               <div style={{ textAlign: 'right', minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>{r.value}</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 7 }}>
+                  {r.tag && (
+                    <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.8, color: ACCENT, background: hexA(ACCENT, 0.14), border: `1px solid ${hexA(ACCENT, 0.35)}`, borderRadius: 999, padding: '2px 7px', whiteSpace: 'nowrap' }}>{r.tag}</span>
+                  )}
+                  <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>{r.value}</div>
+                </div>
                 <div style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', marginTop: 1 }}>{r.sub}</div>
               </div>
             </div>
