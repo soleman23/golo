@@ -26,6 +26,7 @@ import useNotificationStore from '../store/notificationStore'
 import { getPressEligibility, findOverallPurseBet, MAX_ACTIVE_PRESSES } from '../engines/pressBets'
 import PressSheet from '../components/scoring/PressSheet'
 import PlayerScoreRow from '../components/scoring/PlayerScoreRow'
+import ScorecardGrid from '../components/scoring/ScorecardGrid'
 
 /**
  * ScoringPage — the live round, "Scoring (Immersive)".
@@ -155,8 +156,9 @@ export default function ScoringPage() {
   const createPressBet = useRoundStore((s) => s.createPressBet)
 
   const [sheet, setSheet] = useState(null) // 'leaderboard' | 'bets' | 'finish' | 'press' | null
-  const [keypadFor, setKeypadFor] = useState(null) // entity id | null
-  const [lbView, setLbView] = useState(() => (round?.scoring === 'gross' ? 'gross' : 'net')) // 'net' | 'gross' | 'money'
+  const [keypadFor, setKeypadFor] = useState(null) // { id, hole } | null
+  const [lbView, setLbView] = useState(() => (round?.scoring === 'gross' ? 'gross' : 'net')) // 'net' | 'gross' | 'money' | 'card'
+  const [cardNine, setCardNine] = useState('front') // scorecard view: 'front' | 'back'
   const [copiedInvite, setCopiedInvite] = useState(false)
   const [liveLoading, setLiveLoading] = useState(false)
   const [headerCollapsed, setHeaderCollapsed] = useState(() => players.length >= 4)
@@ -821,7 +823,7 @@ export default function ScoringPage() {
         dense={useFoursomeDense}
         onMinus={() => adjust(e.id, -1)}
         onPlus={() => adjust(e.id, +1)}
-        onScoreTap={() => setKeypadFor(e.id)}
+        onScoreTap={() => setKeypadFor({ id: e.id, hole: currentHole })}
       />
     )
   }
@@ -866,7 +868,7 @@ export default function ScoringPage() {
           ) : (
             <>
               <button onClick={() => adjust(e.id, -1)} aria-label={`${e.name} minus`} style={S.minusBtn}>−</button>
-              <button onClick={() => setKeypadFor(e.id)} aria-label={`${e.name} score`} style={S.numBtn}>
+              <button onClick={() => setKeypadFor({ id: e.id, hole: currentHole })} aria-label={`${e.name} score`} style={S.numBtn}>
                 {gross == null ? '–' : gross}
               </button>
               <button onClick={() => adjust(e.id, +1)} aria-label={`${e.name} plus`} style={S.plusBtn}>+</button>
@@ -1208,20 +1210,60 @@ export default function ScoringPage() {
               </div>
             </div>
 
-            {/* Net / Gross / Money */}
+            {/* Net / Gross / Money / Card */}
             <div style={{ flex: '0 0 auto', padding: '4px 16px 8px' }}>
               <div style={{ display: 'flex', gap: 4, background: 'rgba(16,22,18,.55)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 16, padding: 4 }}>
-                {[['net', 'Net'], ['gross', 'Gross'], ['money', 'Money']].map(([id, label]) => {
+                {[['net', 'Net'], ['gross', 'Gross'], ['money', 'Money'], ['card', 'Card']].map(([id, label]) => {
                   const on = lbView === id
-                  return <button key={id} onClick={() => setLbView(id)} style={{ flex: 1, minHeight: 42, borderRadius: 12, border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 800, background: on ? ACCENT : 'transparent', color: on ? ACCENT_DARK : 'rgba(255,255,255,.62)', boxShadow: on ? `0 4px 12px ${hexA(ACCENT, 0.4)}` : 'none' }}>{label}</button>
+                  // Opening the card lands on the nine you're playing.
+                  const pick = () => {
+                    setLbView(id)
+                    if (id === 'card') setCardNine(currentHole > 9 ? 'back' : 'front')
+                  }
+                  return <button key={id} onClick={pick} style={{ flex: 1, minHeight: 42, borderRadius: 12, border: 'none', cursor: 'pointer', fontSize: 13.5, fontWeight: 800, background: on ? ACCENT : 'transparent', color: on ? ACCENT_DARK : 'rgba(255,255,255,.62)', boxShadow: on ? `0 4px 12px ${hexA(ACCENT, 0.4)}` : 'none' }}>{label}</button>
                 })}
               </div>
+
+              {/* Front / Back — only a full round has a back nine to page to. */}
+              {lbView === 'card' && totalHoles > 9 && (
+                <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
+                  {[['front', 'Front 9'], ['back', 'Back 9']].map(([id, label]) => {
+                    const on = cardNine === id
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => setCardNine(id)}
+                        style={{ flex: 1, minHeight: 34, borderRadius: 9999, cursor: 'pointer', fontSize: 12, fontWeight: 800, letterSpacing: 0.6, background: on ? hexA(ACCENT, 0.16) : 'rgba(255,255,255,.06)', border: `1px solid ${on ? hexA(ACCENT, 0.55) : 'rgba(255,255,255,.14)'}`, color: on ? ACCENT : 'rgba(255,255,255,.6)' }}
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
 
             {/* scrollable body */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '2px 16px 14px' }}>
 
-              {leaderModel.empty ? (
+              {lbView === 'card' ? (
+                /* Scorecard renders even before a score lands — an empty card is
+                 * still the fastest way to enter one on a hole you've passed. */
+                <ScorecardGrid
+                  entities={entities}
+                  scores={scores}
+                  pars={pars}
+                  strokeIndex={round?.strokeIndex ?? {}}
+                  allocations={allocations}
+                  totalHoles={totalHoles}
+                  nine={cardNine}
+                  meEntityId={meEntityId}
+                  readOnly={readOnly}
+                  onCellTap={(id, hole) => setKeypadFor({ id, hole })}
+                />
+              ) : leaderModel.empty ? (
                 <div style={{ ...S.panel, textAlign: 'center', padding: 22, marginTop: 10, marginBottom: 16 }}>
                   <div style={{ fontSize: 18, fontWeight: 800, color: '#fff' }}>No scores entered yet.</div>
                 </div>
@@ -1280,8 +1322,8 @@ export default function ScoringPage() {
                 </>
               )}
 
-              {/* money on the line */}
-              {pills.length > 0 && (
+              {/* money on the line — the card wants the full height for holes */}
+              {lbView !== 'card' && pills.length > 0 && (
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '18px 4px 9px' }}>
                     <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: 'rgba(255,255,255,.5)' }}>MONEY ON THE LINE</span>
@@ -1420,10 +1462,10 @@ export default function ScoringPage() {
 
       {keypadFor && (
         <Keypad
-          entity={entities.find((e) => e.id === keypadFor)}
-          holeLabel={`Hole ${currentHole} · Par ${par}`}
+          entity={entities.find((e) => e.id === keypadFor.id)}
+          holeLabel={`Hole ${keypadFor.hole} · Par ${pars[keypadFor.hole] ?? 4}`}
           onPick={(n) => {
-            recordScore(keypadFor, currentHole, n)
+            recordScore(keypadFor.id, keypadFor.hole, n)
             setKeypadFor(null)
           }}
           onClose={() => setKeypadFor(null)}
