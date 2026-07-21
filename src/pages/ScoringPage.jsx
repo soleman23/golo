@@ -765,7 +765,7 @@ export default function ScoringPage() {
   const holeDetail = [
     `Par ${par}`,
     si != null ? `H ${si}` : null,
-    round?.holeYards?.[currentHole] ? `${round.holeYards[currentHole]}y` : null,
+    round?.yardages?.[currentHole] ? `${round.yardages[currentHole]}y` : null,
   ].filter(Boolean).join(' · ')
 
   const useCompactRows = entities.length >= 3

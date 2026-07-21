@@ -36,9 +36,12 @@ export async function searchNcrdbCourses({ clubName, clubCity, clubState, clubCo
 
 /**
  * Get all tee sets with rating/slope for an NCRDB courseID.
+ * The descriptor lets the edge function conservatively match GolfCourseAPI and
+ * enrich the NCRDB rows with validated hole pars, stroke indexes, and yardage.
  * @param {number} courseId
- * @returns {Promise<{ data: { tees: Array<{ name, gender, par, courseRating, bogeyRating, slope, yards, teeId }> } | null, error: Error | null }>}
+ * @param {{ name?: string, facility?: string, course?: string, city?: string, state?: string }} [course]
+ * @returns {Promise<{ data: { tees: Array<object>, enrichment?: object } | null, error: Error | null }>}
  */
-export async function getNcrdbTees(courseId) {
-  return invoke({ action: 'tees', courseId })
+export async function getNcrdbTees(courseId, course) {
+  return invoke({ action: 'tees', courseId, course })
 }

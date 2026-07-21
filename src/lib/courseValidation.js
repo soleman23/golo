@@ -17,6 +17,28 @@ const asNumber = (value) => {
 const isBlank = (value) => String(value ?? '').trim().length === 0
 const isValidPar = (value) => Number.isInteger(value) && value >= 3 && value <= 6
 const isValidStrokeIndex = (value) => Number.isInteger(value) && value >= 1 && value <= 18
+const isValidYardage = (value) => Number.isFinite(value) && value > 0 && value < 1000
+
+export function normalizeHoleRows(rows) {
+  const holes = []
+  for (const [index, row] of (Array.isArray(rows) ? rows : []).entries()) {
+    const hole = asNumber(row?.hole ?? row?.number ?? row?.holeNumber ?? index + 1)
+    const par = asNumber(row?.par)
+    const strokeIndex = asNumber(row?.strokeIndex ?? row?.handicap)
+    const yardage = asNumber(row?.yardage ?? row?.yards)
+    if (!Number.isInteger(hole) || hole < 1 || hole > 18 || !isValidPar(par)) continue
+    holes.push({
+      hole,
+      par,
+      ...(isValidStrokeIndex(strokeIndex) ? { strokeIndex } : {}),
+      ...(isValidYardage(yardage) ? { yardage } : {}),
+    })
+  }
+  const expected = rows?.length === 9 ? 9 : 18
+  return holes.length === expected && new Set(holes.map((row) => row.hole)).size === expected
+    ? holes.sort((a, b) => a.hole - b.hole)
+    : null
+}
 
 function completeHoleMap(values, validator) {
   const out = {}
@@ -75,14 +97,18 @@ export function normalizeCourseForSave(course) {
     if (rank != null) strokeIndex[hole] = rank
   })
 
-  const tees = (course.tees ?? []).map((tee) => ({
-    name: String(tee.name ?? '').trim(),
-    color: String(tee.color ?? '').trim() || '#1f2937',
-    yards: asNumber(tee.yards),
-    rating: asNumber(tee.rating),
-    slope: asNumber(tee.slope),
-    par: asNumber(tee.par),
-  }))
+  const tees = (course.tees ?? []).map((tee) => {
+    const holes = normalizeHoleRows(tee.holes)
+    return {
+      name: String(tee.name ?? '').trim(),
+      color: String(tee.color ?? '').trim() || '#1f2937',
+      yards: asNumber(tee.yards),
+      rating: asNumber(tee.rating),
+      slope: asNumber(tee.slope),
+      par: asNumber(tee.par),
+      ...(holes ? { holes } : {}),
+    }
+  })
 
   const ghinTeeSets = Object.fromEntries(
     Object.entries(course.ghinTeeSets ?? {})
@@ -177,12 +203,16 @@ export function courseFromNcrdb(ncrdbCourse, tees, genderFilter = 'M') {
     ghinCourseId: ncrdbCourse?.courseID != null ? String(ncrdbCourse.courseID) : '',
     ghinTeeSets,
     ...scorecard,
-    tees: filteredTees.map((tee) => ({
-      name: tee.name,
-      rating: tee.courseRating,
-      slope: tee.slope,
-      par: tee.par,
-      yards: tee.yards,
-    })),
+    tees: filteredTees.map((tee) => {
+      const holes = normalizeHoleRows(tee.holes)
+      return {
+        name: tee.name,
+        rating: tee.courseRating,
+        slope: tee.slope,
+        par: tee.par,
+        yards: tee.yards,
+        ...(holes ? { holes } : {}),
+      }
+    }),
   }
 }

@@ -11,6 +11,12 @@ import { hasContact, displayName, playerKey } from '../lib/identity'
 import { fetchCourses } from '../lib/db/courses'
 import { searchVerifiedPlayers, fetchPlayerContact } from '../lib/db/players'
 import { searchNcrdbCourses, getNcrdbTees } from '../lib/ncrdb'
+import {
+  getHoleData,
+  holeCardFromTees,
+  yardageMapFromCourseTee,
+  yardageMapFromTees,
+} from '../lib/scorecardData'
 import { courseFromNcrdb } from '../lib/courseValidation'
 import { getCourseImage } from '../lib/courseImages'
 import { defaultHomeCourse } from '../lib/homeCourse'
@@ -632,6 +638,22 @@ export default function SetupWizard() {
   const [ncrdbLoading, setNcrdbLoading] = useState(false)
   const [ncrdbError, setNcrdbError] = useState('')
   const [ncrdbSelectingId, setNcrdbSelectingId] = useState(null)
+  // Compatibility scorecard lookup for catalogue courses. NCRDB imports arrive
+  // already enriched by the same shared resolver, so they never land here.
+  const [scorecardLookup, setScorecardLookup] = useState({
+    courseId: null,
+    status: 'idle', // idle | loading | matched | unavailable
+    teesData: null,
+    enrichment: null,
+  })
+  // The course whose card the user hand-edited; its provenance is theirs, not
+  // the provider's, so nothing may overwrite it afterwards.
+  const [manualCardCourseId, setManualCardCourseId] = useState(null)
+  // One lookup per course, and one card application per course/tee/hole-count —
+  // both survive Strict Mode's double effect run without cancelling the request.
+  const scorecardRequestRef = useRef(null)
+  const scorecardGenRef = useRef(0)
+  const appliedCardKeyRef = useRef(null)
   const [accountSearch, setAccountSearch] = useState('')
   const [accountSearchResults, setAccountSearchResults] = useState([])
   const [accountSearchLoading, setAccountSearchLoading] = useState(false)
@@ -947,6 +969,134 @@ export default function SetupWizard() {
   // Per-course tees when defined, else the global fallback set.
   const tees = course.tees ?? TEES
   const tee = tees[Math.min(st.teeIdx, tees.length - 1)]
+  const courseHasTeeHoles = course?.tees?.some((item) => Array.isArray(item?.holes))
+  // A real card: bundled scorecard data, or per-tee holes the resolver validated.
+  const courseHasVerifiedPars = !!course?.pars || courseHasTeeHoles
+  // NCRDB imports carry the resolver's verdict on the course itself.
+  const explicitScorecardStatus = course?.scorecardStatus
+  const lookupForCourse = scorecardLookup.courseId === course?.id ? scorecardLookup : null
+  const cardIsManual = manualCardCourseId != null && manualCardCourseId === course?.id
+  // Only courses without a card of their own wait on the lookup — for the rest it
+  // just adds yardage, so a provider miss there must not downgrade the card.
+  const scorecardStatus = cardIsManual
+    ? 'manual'
+    : explicitScorecardStatus
+      ?? (courseHasVerifiedPars ? 'matched' : lookupForCourse?.status ?? 'loading')
+  const scorecardLoading = scorecardStatus === 'loading'
+  const scorecardUnavailable = scorecardStatus === 'unavailable'
+  const scorecardCached = !!(course?.scorecardCached ?? lookupForCourse?.enrichment?.cached)
+
+  // Catalogue courses that did not enter through NCRDB use the compatibility
+  // wrapper. NCRDB imports already awaited the same shared resolver server-side.
+  const courseLookupKey = course?.id ?? ''
+  const courseLookupName = course?.name ?? ''
+  const courseLookupLoc = course?.loc ?? ''
+  useEffect(() => {
+    if (!courseLookupKey || !courseLookupName) return
+    if (courseHasTeeHoles || explicitScorecardStatus) return
+    // Strict Mode runs this twice. The ref keeps the first request alive instead
+    // of cancelling it and then skipping the retry.
+    if (scorecardRequestRef.current === courseLookupKey) return
+    scorecardRequestRef.current = courseLookupKey
+
+    const gen = ++scorecardGenRef.current
+    setScorecardLookup({ courseId: courseLookupKey, status: 'loading', teesData: null, enrichment: null })
+    getHoleData({ id: courseLookupKey, name: courseLookupName, loc: courseLookupLoc }).then(
+      ({ teesData, enrichment }) => {
+        if (gen !== scorecardGenRef.current) return
+        setScorecardLookup({
+          courseId: courseLookupKey,
+          status: enrichment?.matched && teesData ? 'matched' : 'unavailable',
+          teesData,
+          enrichment: enrichment ?? { matched: false, reason: 'no_matching_course' },
+        })
+      },
+    )
+  }, [courseLookupKey, courseLookupName, courseLookupLoc, courseHasTeeHoles, explicitScorecardStatus])
+
+  const lookupStatus = lookupForCourse?.status
+  const lookupTeesData = lookupForCourse?.teesData
+  const teeName = tee?.name
+  const teeYards = tee?.yards
+
+  // Seed the card from the selected tee once the lookup lands. Bundled and NCRDB
+  // cards already hold real pars, so only synthetic par-4 cards get filled.
+  useEffect(() => {
+    if (lookupStatus !== 'matched' || !lookupTeesData) return
+    if (cardIsManual || courseHasVerifiedPars) return
+    const applyKey = `${courseLookupKey}|${teeName ?? ''}|${st.holes}`
+    if (appliedCardKeyRef.current === applyKey) return
+
+    const holes = Array.from({ length: st.holes }, (_, index) => index + 1)
+    const card = holeCardFromTees(lookupTeesData, teeName, 'male', teeYards)
+    if (!card || !holes.every((hole) => card.pars[hole] != null)) return
+    appliedCardKeyRef.current = applyKey
+
+    setSt((state) => {
+      if (state.courseId !== courseLookupKey) return state
+      const siValues = holes.map((hole) => card.strokeIndex[hole])
+      const validSi =
+        siValues.every((value) => value >= 1 && value <= st.holes) &&
+        new Set(siValues).size === st.holes
+      const pars = { ...state.pars, ...card.pars }
+      return {
+        ...state,
+        pars,
+        strokeIndex: validSi ? { ...state.strokeIndex, ...card.strokeIndex } : state.strokeIndex,
+        bets: betsWithNormalizedLdHole(state.bets, pars),
+      }
+    })
+  }, [
+    lookupStatus,
+    lookupTeesData,
+    cardIsManual,
+    courseHasVerifiedPars,
+    courseLookupKey,
+    teeName,
+    teeYards,
+    st.holes,
+  ])
+
+  // A definitive miss on a course with no card of its own leaves the manual
+  // editor as the only honest option — open it rather than pass off par 4s.
+  useEffect(() => {
+    if (!scorecardUnavailable || courseHasVerifiedPars) return
+    setSt((state) => (state.showCard ? state : { ...state, showCard: true }))
+  }, [scorecardUnavailable, courseHasVerifiedPars, courseLookupKey])
+
+  // Per-hole yardage for the tee actually being played: validated NCRDB tee holes
+  // first, then the compatibility lookup's payload.
+  const selectedTeeYardages =
+    yardageMapFromCourseTee(tee) ??
+    (lookupStatus === 'matched' ? yardageMapFromTees(lookupTeesData, teeName, 'male', teeYards) : null)
+
+  // Where this course's card came from, said plainly. The card drives handicap
+  // strokes and every game, so a guessed one has to look different from a real one.
+  const scorecardNote = (() => {
+    if (scorecardStatus === 'loading') {
+      return { label: 'CHECKING CARD', tone: 'rgba(255,255,255,.62)', detail: 'Loading a verified scorecard for this course.' }
+    }
+    if (scorecardStatus === 'manual') {
+      return { label: 'MANUAL CARD', tone: '#facc15', detail: 'You edited this card — the round will use it exactly as entered.' }
+    }
+    if (scorecardStatus === 'unavailable') {
+      return {
+        label: 'UNVERIFIED CARD',
+        tone: '#fb7185',
+        detail: 'No scorecard matched this course. Check par and stroke index below before you start.',
+      }
+    }
+    const source = course?.scorecardSource === 'golfcourseapi' || lookupStatus === 'matched'
+      ? 'GolfCourseAPI'
+      : 'the built-in scorecard'
+    const yardage = selectedTeeYardages ? ` Yardage shown for the ${teeName} tees.` : ''
+    return {
+      label: 'VERIFIED CARD',
+      tone: ACCENT,
+      detail: `Par and stroke index from ${source}${scorecardCached ? ' (cached)' : ''}.${yardage}`,
+    }
+  })()
+
   const isScramble = st.format === 'scramble'
   const ids = st.players.map((p) => p.id)
   const holeNumbers = Array.from({ length: st.holes }, (_, i) => i + 1)
@@ -1121,14 +1271,21 @@ export default function SetupWizard() {
 
     setNcrdbSelectingId(courseId)
     setNcrdbError('')
-    const { data, error } = await getNcrdbTees(Number(courseId))
+    const normalized = normalizedNcrdbCourse(hit)
+    const { data, error } = await getNcrdbTees(Number(courseId), {
+      name: normalized.fullName,
+      facility: ncrdbValue(hit, 'facilityName', 'clubName', 'FacilityName') ?? '',
+      course: ncrdbValue(hit, 'courseName', 'CourseName') ?? '',
+      city: normalized.city,
+      state: normalized.stateDisplay,
+    })
     setNcrdbSelectingId(null)
     if (error) {
       setNcrdbError(error.message)
       return
     }
 
-    const imported = courseFromNcrdb(normalizedNcrdbCourse(hit), data?.tees ?? [])
+    const imported = courseFromNcrdb(normalized, data?.tees ?? [])
     if (!imported.tees.length) {
       setNcrdbError("No rated men's tees were found for that course.")
       return
@@ -1151,6 +1308,10 @@ export default function SetupWizard() {
       id: `ncrdb-${courseId}`,
       holes: 18,
       bg: getCourseImage({ id: `ncrdb-${courseId}`, name: imported.name }),
+      scorecardStatus: data?.enrichment?.matched ? 'matched' : 'unavailable',
+      scorecardSource: data?.enrichment?.matched ? 'golfcourseapi' : 'fallback',
+      scorecardReason: data?.enrichment?.reason ?? null,
+      scorecardCached: !!data?.enrichment?.cached,
       ...(latitude != null && longitude != null ? { latitude, longitude } : {}),
     }
     userPickedCourse.current = true
@@ -1170,6 +1331,7 @@ export default function SetupWizard() {
         teeIdx: 0,
         pars: card.pars,
         strokeIndex: card.strokeIndex,
+        showCard: !data?.enrichment?.matched,
         bets: betsWithNormalizedLdHole(s.bets, card.pars),
       }
     })
@@ -1179,12 +1341,14 @@ export default function SetupWizard() {
   const setPar = (hole, par) => {
     const pars = { ...st.pars, [hole]: par }
     patch({ pars, bets: betsWithNormalizedLdHole(st.bets, pars) })
+    setManualCardCourseId(course.id)
   }
   const setSi = (hole, raw) => {
     if (raw === '') return
     const n = Math.max(1, Math.min(st.holes, Math.round(Number(raw))))
     if (Number.isNaN(n)) return
     patch({ strokeIndex: { ...st.strokeIndex, [hole]: n } })
+    setManualCardCourseId(course.id)
   }
   // Rebuild the card when the hole count changes (keeps it a valid 1..N set).
   const setHoles = (n) => {
@@ -1234,7 +1398,8 @@ export default function SetupWizard() {
   const isReview = st.step === 4
   // The progress dots let you jump straight to Review, so Start must re-check the
   // players and games steps — not just the review step, which is always valid.
-  const valid = isReview ? validStep(1) && validStep(3) : validStep(st.step)
+  const valid = (isReview ? validStep(1) && validStep(3) : validStep(st.step))
+    && !(isReview && scorecardLoading)
   let hintText = ''
   if (!valid && st.step === 1) {
     if (!organizer || !organizer.name?.trim()) hintText = 'Add your name to continue.'
@@ -1254,7 +1419,11 @@ export default function SetupWizard() {
         : 'Each active game needs at least 2 players.'
   }
   if (!valid && isReview) {
-    hintText = !validStep(1) ? 'Add players before starting the round.' : 'Finish the games step before starting.'
+    hintText = scorecardLoading
+      ? 'Loading a verified course card before you start.'
+      : !validStep(1)
+        ? 'Add players before starting the round.'
+        : 'Finish the games step before starting.'
   }
 
   /* ---- navigation / commit ---- */
@@ -1276,7 +1445,13 @@ export default function SetupWizard() {
     }
     if (existing && existing.status !== 'complete') updateRoundSetup(data)
     else createRound(data)
-    setCourseConfig({ pars: st.pars, strokeIndex: st.strokeIndex })
+    // Always pass yardages, empty included, so switching to a course we have no
+    // hole data for clears the previous round's yardage instead of keeping it.
+    setCourseConfig({
+      pars: st.pars,
+      strokeIndex: st.strokeIndex,
+      yardages: selectedTeeYardages ?? {},
+    })
 
     const players = readyPlayers.map((p) => ({
       id: p.id,
@@ -1713,6 +1888,15 @@ export default function SetupWizard() {
           )
         })}
 
+        {/* where the par/stroke-index card came from */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${hexA(scorecardNote.tone.startsWith('#') ? scorecardNote.tone : '#ffffff', 0.3)}`, borderRadius: 14, padding: '12px 13px', marginTop: 4 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', flex: '0 0 auto', marginTop: 5, background: scorecardNote.tone }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: scorecardNote.tone }}>{scorecardNote.label}</div>
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,.62)', marginTop: 3, lineHeight: 1.45 }}>{scorecardNote.detail}</div>
+          </div>
+        </div>
+
         {/* extras: holes (round date is stamped automatically at start) */}
         {sectionLabel('ROUND', { margin: '18px 0 10px' })}
         <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
@@ -1724,8 +1908,10 @@ export default function SetupWizard() {
           })}
         </div>
 
-        {/* extras: editable course card — admin-only, hidden until roles ship */}
-        {SHOW_COURSE_CARD_EDIT && (
+        {/* extras: editable course card. Admin-only in the normal case, but always
+            available when no verified card was found — otherwise the round would
+            quietly run on synthetic par 4s. */}
+        {(SHOW_COURSE_CARD_EDIT || scorecardUnavailable || cardIsManual) && (
           <>
             <button onClick={() => patch({ showCard: !st.showCard })} style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 48, borderRadius: 12, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.14)', color: 'rgba(255,255,255,.82)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', padding: '0 14px' }}>
               <span>Course card · par &amp; stroke index</span>
@@ -2350,6 +2536,12 @@ export default function SetupWizard() {
       { label: 'TEES', value: `${tee.name} tees`, sub: `${comma(tee.yards)} yds · Par ${tee.par}` },
       { label: 'FORMAT', value: FORMATS.find((f) => f.id === st.format).label, sub: `${st.scoring === 'net' ? 'Net' : 'Gross'} scoring` },
       { label: 'HOLES', value: `${st.holes} holes`, sub: new Date(st.date + 'T00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) },
+      {
+        label: 'CARD',
+        value: scorecardNote.label.replace(' CARD', '').toLowerCase().replace(/^./, (c) => c.toUpperCase()),
+        sub: selectedTeeYardages ? 'Par, stroke index & yardage' : 'Par & stroke index',
+        tone: scorecardNote.tone,
+      },
     ]
     return (
       <div>
@@ -2358,7 +2550,7 @@ export default function SetupWizard() {
             <div key={r.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, padding: '14px 0', borderTop: i === 0 ? 'none' : '1px solid rgba(255,255,255,.09)' }}>
               <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.2, color: 'rgba(255,255,255,.5)' }}>{r.label}</span>
               <div style={{ textAlign: 'right', minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>{r.value}</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: r.tone ?? '#fff' }}>{r.value}</div>
                 <div style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', marginTop: 1 }}>{r.sub}</div>
               </div>
             </div>
