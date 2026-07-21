@@ -10,6 +10,7 @@ import { saveRound as dbSaveRound } from '../lib/db/rounds'
 import { completeLiveRound, liveRoundUserMessage } from '../lib/db/liveRounds'
 import { teardownLiveSync } from '../lib/liveRoundSync'
 import { fetchCourseGhinMapping } from '../lib/db/courses'
+import { GHIN_ENABLED } from '../lib/featureFlags'
 import { postRoundToGhin } from '../lib/ghin/client'
 import { canPostToGhin, isGhinConnected } from '../lib/ghin/eligibility'
 import { getCourseImage } from '../lib/courseImages'
@@ -54,6 +55,15 @@ const FORMAT_LABEL = {
 }
 
 /* ------------------------------------------------------------------- helpers */
+
+/**
+ * Post-to-GHIN eligibility. Resolved at module scope so that with the flag off
+ * the bundler drops `canPostToGhin` — and its user-facing reason strings —
+ * rather than shipping copy for a surface nobody can reach.
+ */
+const evaluateGhinEligibility = GHIN_ENABLED
+  ? canPostToGhin
+  : () => ({ ok: false, reasons: [], gross: null })
 
 const initial = (name) => (name || '').trim().charAt(0).toUpperCase() || '?'
 // cents — avoids half-up sign asymmetry & matches History/You. Normalises -0 so
@@ -296,7 +306,7 @@ export default function PayoutsPage() {
 
   useEffect(() => {
     const courseId = round?.courseId
-    if (!courseId || !authEnabled) return
+    if (!GHIN_ENABLED || !courseId || !authEnabled) return
     let cancelled = false
     fetchCourseGhinMapping(courseId).then((mapping) => {
       if (!cancelled) setCourseGhinResult({ courseId, mapping })
@@ -306,7 +316,7 @@ export default function PayoutsPage() {
 
   const ghinEligibility = useMemo(
     () =>
-      canPostToGhin({
+      evaluateGhinEligibility({
         round,
         teams,
         scores,
@@ -319,7 +329,7 @@ export default function PayoutsPage() {
   )
 
   const handlePostToGhin = async () => {
-    if (!round?.roundId || !defaultMeId || ghinPosting || ghinPostedAt) return
+    if (!GHIN_ENABLED || !round?.roundId || !defaultMeId || ghinPosting || ghinPostedAt) return
     setGhinPosting(true)
     setCurrentGhinPostError(null)
     try {
@@ -835,7 +845,7 @@ export default function PayoutsPage() {
 
         {/* footer --------------------------------------------------------- */}
         <div style={S.footer}>
-          {authEnabled && (
+          {GHIN_ENABLED && authEnabled && (
             <div style={{ marginBottom: 10 }}>
               {ghinPostedAt ? (
                 <div style={{ ...S.ghinBanner, borderColor: hexA(ACCENT, 0.45) }}>
@@ -904,7 +914,7 @@ export default function PayoutsPage() {
       )}
 
       {/* CONFIRM · post to GHIN */}
-      {ghinConfirm && (
+      {GHIN_ENABLED && ghinConfirm && (
         <div style={{ ...S.modalWrap, zIndex: 60 }} role="dialog" aria-modal="true" aria-label="Post to GHIN">
           <div onClick={() => !ghinPosting && setGhinConfirm(false)} style={S.modalScrim} />
           <div style={S.modalCard}>

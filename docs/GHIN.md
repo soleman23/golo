@@ -1,5 +1,11 @@
 # GHIN integration (USGA GPA)
 
+> **STATUS: hidden behind `GHIN_ENABLED=false`; edge functions not deployed; awaiting USGA approval.**
+> To re-enable: deploy functions per this doc, then flip the flag to `true` in
+> [`src/lib/featureFlags.js`](../src/lib/featureFlags.js). No code was removed —
+> the client, eligibility rules, DB columns and migrations are all still in place.
+> While it's off, players enter their Handicap Index by hand on **You → Handicap**.
+
 GoLo syncs official Handicap Index values from [GHIN](https://www.ghin.com/) and lets golfers post eligible individual stroke-play rounds back to GHIN. This uses the **USGA Golfer Product Access (GPA)** program — GHIN is **not** a public API.
 
 ## Apply for GPA access
