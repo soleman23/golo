@@ -5,6 +5,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import useRoundStore from '../store/roundStore'
 import useLiveRoundStore, { useLiveRoundRole } from '../store/liveRoundStore'
 import { buildLeaderboard } from '../engines/scoring'
+import { formatHandicap } from '../engines/handicap'
 import {
   buildStablefordLeaderboard,
   calculateStablefordPoints,
@@ -55,6 +56,12 @@ const ACCENT = '#d4f23a'
 const ACCENT_DARK = '#13250a'
 const COURSE_FALLBACK_BG = 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)'
 const DASH = '–'
+
+const displayHandicap = (entity, empty = '0') => (
+  entity?.courseHandicap != null
+    ? formatHandicap(entity.courseHandicap, { precision: 0, empty })
+    : formatHandicap(entity?.handicapIndex, { precision: 1, empty })
+)
 
 const BET_ICONS = {
   skins: '🎯',
@@ -595,8 +602,8 @@ export default function ScoringPage() {
     }
 
     const subFor = (e, s) => {
-      const h = e.courseHandicap ?? e.handicapIndex
-      const hp = h != null && !useGrossScoring ? ` · Hdcp ${h}` : ''
+      const hasHandicap = e.courseHandicap != null || e.handicapIndex != null
+      const hp = hasHandicap && !useGrossScoring ? ` · Hdcp ${displayHandicap(e)}` : ''
       const scoreStr = isStableford
         ? `${s.points} pts`
         : useGrossScoring
@@ -799,7 +806,7 @@ export default function ScoringPage() {
       ? 'Best ball'
       : useGrossScoring
         ? 'Gross scoring'
-        : `Hdcp ${e.courseHandicap ?? e.handicapIndex ?? 0}`
+        : `Hdcp ${displayHandicap(e)}`
     return { gross, net, toPar, pts, isWolf, subtitle }
   }
 
