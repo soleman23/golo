@@ -1,4 +1,5 @@
 import { hexA } from '../lib/colors'
+import { authErrorMessage } from '../lib/authErrorMessage'
 import { useState } from 'react'
 import useAuthStore from '../store/authStore'
 import { GoloWordmark } from '../components/shared/Logo'
@@ -65,7 +66,7 @@ export default function AuthPage() {
       setNotice(null)
       try {
         const { error: err } = await resetPassword(safeEmail)
-        if (err) setError(err.message || 'Could not send reset email. Try again.')
+        if (err) setError(authErrorMessage(err, 'Could not send reset email. Try again.'))
         else setNotice('Check your inbox for a password reset link.')
       } catch {
         setError('Something went wrong. Try again.')
@@ -83,7 +84,7 @@ export default function AuthPage() {
       const fn = isCreate ? signUp : signIn
       const { data, error: err } = await fn({ email: safeEmail, password: safePassword })
       if (err) {
-        setError(err.message || 'Something went wrong. Try again.')
+        setError(authErrorMessage(err))
         return
       }
       // Sign-up with email confirmation returns no session — tell the user.

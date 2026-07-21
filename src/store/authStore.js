@@ -39,9 +39,11 @@ const useAuthStore = create((set, get) => ({
   // Create an account. Returns { error } so the form can show backend messages.
   signUp: async ({ email, password }) => {
     if (!isSupabaseConfigured) return { error: new Error('Auth backend is not configured.') }
+    const emailRedirectTo = typeof window !== 'undefined' ? `${window.location.origin}/` : undefined
     const { data, error } = await supabase.auth.signUp({
       email: email.trim().toLowerCase(),
       password,
+      options: emailRedirectTo ? { emailRedirectTo } : undefined,
     })
     if (!error) set({ session: data.session ?? null, user: data.session?.user ?? null })
     return { data, error }

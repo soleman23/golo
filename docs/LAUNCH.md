@@ -146,7 +146,7 @@ After `npm run build && npm run preview`, open `http://localhost:4173` and confi
 
 ## After crew week
 
-1. Branded email templates in Supabase
+1. Branded email templates in Supabase — see [supabase-auth-email-setup.md](./supabase-auth-email-setup.md)
 2. Terms + Privacy pages
 3. Custom domain on Netlify
 4. Avatars on Home/History rosters

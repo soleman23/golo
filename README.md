@@ -33,7 +33,8 @@ shared database:
    GHIN sync/posting setup: [docs/GHIN.md](docs/GHIN.md).
 4. Authentication uses **email + password**. By default Supabase requires email
    confirmation; toggle that under **Authentication -> Providers -> Email** to
-   suit your testing.
+   suit your testing. For production branded mail (custom SMTP + templates from
+   `golo.golf`), see [docs/supabase-auth-email-setup.md](docs/supabase-auth-email-setup.md).
 5. Restart `npm run dev`. The app now gates on a real session, syncs profile and
    round history to Supabase, and loads courses from the database. Existing
    local data is migrated to your account on first login.
