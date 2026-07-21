@@ -1,5 +1,5 @@
 import { hexA } from '../lib/colors'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useRoundStore from '../store/roundStore'
 import useHistoryStore from '../store/historyStore'
@@ -686,70 +686,73 @@ export default function SetupWizard() {
     courseQueryRef.current = st.courseQuery
   }, [st.courseQuery])
 
-  const fetchNearbyNcrdb = async (region, { force = false } = {}) => {
-    if (!isSupabaseConfigured || courseQueryRef.current.trim()) return null
-    const enriched = enrichRegionWithCatalog(region, catalogRef.current, COURSES)
-    const city = String(enriched?.city ?? '').trim()
-    const state = String(enriched?.stateCode ?? enriched?.state ?? '').trim()
-    if (!city && !state && enriched?.lat == null) return null
+  const fetchNearbyNcrdb = useCallback(async (region, { force = false } = {}) => {
+    async function runAttempt(targetRegion, forced) {
+      if (!isSupabaseConfigured || courseQueryRef.current.trim()) return null
+      const enriched = enrichRegionWithCatalog(targetRegion, catalogRef.current, COURSES)
+      const city = String(enriched?.city ?? '').trim()
+      const state = String(enriched?.stateCode ?? enriched?.state ?? '').trim()
+      if (!city && !state && enriched?.lat == null) return null
 
-    const key = `${city}|${state}|${catalogRef.current.length}`
-    if (!force && nearbyFetchedKey.current === key) return null
+      const key = `${city}|${state}|${catalogRef.current.length}`
+      if (!forced && nearbyFetchedKey.current === key) return null
 
-    const gen = ++nearbyFetchGen.current
-    setNearbyLoading(true)
+      const gen = ++nearbyFetchGen.current
+      setNearbyLoading(true)
 
-    const hits = []
-    const seen = new Set()
-    const addHits = (rows) => {
-      for (const row of rows ?? []) {
-        const id = String(row?.courseID ?? row?.courseId ?? '').trim()
-        if (!id || seen.has(id)) continue
-        seen.add(id)
-        hits.push(row)
+      const hits = []
+      const seen = new Set()
+      const addHits = (rows) => {
+        for (const row of rows ?? []) {
+          const id = String(row?.courseID ?? row?.courseId ?? '').trim()
+          if (!id || seen.has(id)) continue
+          seen.add(id)
+          hits.push(row)
+        }
       }
-    }
 
-    const queries = buildNearbySearchQueries(enriched, catalogRef.current)
+      const queries = buildNearbySearchQueries(enriched, catalogRef.current)
+      const results = await Promise.all(
+        queries.map((params) => searchNcrdbCourses(params).then(({ data, error }) => (error ? [] : data?.courses ?? []))),
+      )
+      // Superseded: leave nearbyLoading alone so the newer request still owns it.
+      if (gen !== nearbyFetchGen.current) return null
+      if (courseQueryRef.current.trim()) {
+        setNearbyLoading(false)
+        return null
+      }
+      for (const rows of results) addHits(rows)
 
-    const results = await Promise.all(
-      queries.map((params) => searchNcrdbCourses(params).then(({ data, error }) => (error ? [] : data?.courses ?? []))),
-    )
-    // Superseded: leave nearbyLoading alone so the newer request still owns it.
-    if (gen !== nearbyFetchGen.current) return null
-    if (courseQueryRef.current.trim()) {
+      const regionalHits = sortNcrdbHitsByRegion(
+        city || state ? hits.filter((hit) => ncrdbHitMatchesRegion(hit, enriched)) : hits,
+        enriched,
+      ).slice(0, 15)
+
+      // First empty response is often a cold edge-function miss — auto-retry once.
+      if (regionalHits.length === 0 && nearbyRetryCount.current < 1) {
+        nearbyRetryCount.current += 1
+        setNearbyLoading(false)
+        return runAttempt(enriched, true)
+      }
+
+      setNearbyNcrdb(regionalHits)
       setNearbyLoading(false)
-      return null
-    }
-    for (const rows of results) addHits(rows)
-
-    const regionalHits = sortNcrdbHitsByRegion(
-      city || state ? hits.filter((hit) => ncrdbHitMatchesRegion(hit, enriched)) : hits,
-      enriched,
-    ).slice(0, 15)
-
-    // First empty response is often a cold edge-function miss — auto-retry once.
-    if (regionalHits.length === 0 && nearbyRetryCount.current < 1) {
-      nearbyRetryCount.current += 1
-      setNearbyLoading(false)
-      return fetchNearbyNcrdb(enriched, { force: true })
+      // Only lock when we got results — empty must not block later auto/catalog retries.
+      if (regionalHits.length > 0) nearbyFetchedKey.current = key
+      return { key, count: regionalHits.length }
     }
 
-    setNearbyNcrdb(regionalHits)
-    setNearbyLoading(false)
-    // Only lock when we got results — empty must not block later auto/catalog retries.
-    if (regionalHits.length > 0) nearbyFetchedKey.current = key
-    return { key, count: regionalHits.length }
-  }
+    return runAttempt(region, force)
+  }, [])
 
-  const scheduleNearbyFetch = (region, opts = {}) => {
+  const scheduleNearbyFetch = useCallback((region, opts = {}) => {
     if (nearbyTimerRef.current) clearTimeout(nearbyTimerRef.current)
     nearbyTimerRef.current = setTimeout(() => {
       fetchNearbyNcrdb(region, opts)
     }, 400)
-  }
+  }, [fetchNearbyNcrdb])
 
-  const fallbackNearbyRegion = () => {
+  const fallbackNearbyRegion = useCallback(() => {
     const homeCourse = defaultHomeCourse(catalogRef.current, {
       homeClub: homeClubRef.current,
       rounds: historyRoundsRef.current,
@@ -758,7 +761,7 @@ export default function SetupWizard() {
       ? catalogRef.current.find((course) => course.id === courseIdRef.current)
       : null
     return regionFromCourse(homeCourse) ?? regionFromCourse(selectedCourse)
-  }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -837,7 +840,7 @@ export default function SetupWizard() {
       cancelled = true
       if (nearbyTimerRef.current) clearTimeout(nearbyTimerRef.current)
     }
-  }, [])
+  }, [fallbackNearbyRegion, scheduleNearbyFetch])
   useEffect(() => {
     let active = true
     fetchCourses().then((rows) => {
@@ -871,8 +874,7 @@ export default function SetupWizard() {
     }
     scheduleNearbyFetch(enriched)
     return undefined
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalog, coursesFromDb, geoStatus, geoRegion?.lat, geoRegion?.city, geoRegion?.stateCode, geoRegion?.state])
+  }, [catalog, coursesFromDb, geoStatus, geoRegion, scheduleNearbyFetch])
 
   useEffect(() => {
     const q = st.courseQuery.trim()
