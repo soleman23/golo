@@ -1,4 +1,5 @@
 import { corsHeaders, jsonResponse } from '../_shared/http.ts'
+import { enrichNcrdbTees, type CourseHint } from '../_shared/golfCourseApi.ts'
 
 const NCRDB_BASE = 'https://ncrdb.usga.org'
 const NCRDB_TIMEOUT_MS = 10_000
@@ -53,6 +54,10 @@ type Scorecard = {
   pars: Record<number, number>
   strokeIndex?: Record<number, number>
 }
+
+// Defensive legacy parser only. The current public NCRDB tee page exposes
+// aggregate tee rows, not a hole-by-hole scorecard; GolfCourseAPI enrichment
+// below is the primary source for pars, stroke index, and hole yardage.
 
 const capInput = (value: unknown) => String(value ?? '').trim().slice(0, 100)
 
@@ -443,7 +448,17 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: 'invalid_request', message: 'courseId must be a positive number.' }, 400)
       }
       const tees = await fetchTees(courseId)
-      return jsonResponse({ tees })
+      const rawHint = (body.course ?? {}) as Record<string, unknown>
+      const hint: CourseHint = {
+        cacheKey: `ncrdb-${courseId}`,
+        name: capInput(rawHint.name),
+        facility: capInput(rawHint.facility),
+        course: capInput(rawHint.course),
+        city: capInput(rawHint.city),
+        state: capInput(rawHint.state),
+      }
+      const enriched = await enrichNcrdbTees(tees, hint)
+      return jsonResponse(enriched)
     }
 
     return jsonResponse({ error: 'invalid_request', message: 'action must be "search" or "tees".' }, 400)
