@@ -8,6 +8,7 @@ import useAuthStore from '../store/authStore'
 import { uploadAvatar, removeAvatar } from '../lib/db/avatars'
 import { fetchProfile } from '../lib/db/profiles'
 import useAdmin from '../hooks/useAdmin'
+import { parseHandicapIndex, MIN_HANDICAP_INDEX, MAX_HANDICAP_INDEX } from '../engines/handicap'
 import { GHIN_ENABLED } from '../lib/featureFlags'
 import { startGhinConnect, syncGhinHandicap, isGhinConfiguredResponse } from '../lib/ghin/client'
 import { isGhinConnected } from '../lib/ghin/eligibility'
@@ -83,22 +84,6 @@ const lockerTitle = (name) => {
 
 const myPlace = (r, key, name) =>
   r.leaderboard?.find((e) => entryMatches(e, key, name))?.rank ?? null
-
-/** Widest index Setup's per-player stepper accepts — keep the two in step. */
-const MAX_INDEX = 54
-
-/**
- * Validate a typed Handicap Index. Returns `{ value }` or `{ error }`. Plus
- * handicaps aren't accepted because Setup clamps a round's handicap to 0–54;
- * allowing one here would let you save an index no round could use.
- */
-const parseHandicap = (raw) => {
-  const text = (raw ?? '').trim()
-  const value = Number(text)
-  if (!text || !Number.isFinite(value)) return { error: 'Enter a number like 12.4.' }
-  if (value < 0 || value > MAX_INDEX) return { error: `Index must be between 0 and ${MAX_INDEX}.` }
-  return { value: Math.round(value * 10) / 10 }
-}
 
 /* --------------------------------------------------------------- component */
 
@@ -303,13 +288,14 @@ export default function YouPage() {
   const stepHandicap = (delta) => {
     const typed = Number(handicapDraft)
     const base = handicapDraft.trim() && Number.isFinite(typed) ? typed : (profileHandicap ?? 12)
-    const next = Math.max(0, Math.min(MAX_INDEX, Math.round((base + delta) * 10) / 10))
+    const stepped = Math.round((base + delta) * 10) / 10
+    const next = Math.max(MIN_HANDICAP_INDEX, Math.min(MAX_HANDICAP_INDEX, stepped))
     setHandicapDraft(String(next))
     setHandicapError(null)
   }
 
   const saveHandicap = () => {
-    const { value, error } = parseHandicap(handicapDraft)
+    const { value, error } = parseHandicapIndex(handicapDraft)
     if (error) {
       setHandicapError(error)
       return

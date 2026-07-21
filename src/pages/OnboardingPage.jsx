@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import useProfileStore from '../store/profileStore'
 import useAuthStore from '../store/authStore'
 import { hasContact } from '../lib/identity'
+import { parseHandicapIndex } from '../engines/handicap'
 import { GoloWordmark } from '../components/shared/Logo'
 import { CheckIcon } from '../components/shared/GoloIcons'
 
@@ -37,13 +38,10 @@ const initial = (name) => (name || '').trim().charAt(0).toUpperCase() || '⛳'
 /**
  * Parse handicap index for profile storage; blank or out-of-range → null.
  * Allows plus-handicaps (entered as a negative index, e.g. "-2.4") down to -10.
+ * Shares its rules with the Handicap editor on You — see engines/handicap.
  */
 function parseHandicap(raw) {
-  const s = String(raw ?? '').trim()
-  if (!s) return null
-  const n = Number(s)
-  if (!Number.isFinite(n) || n < -10 || n > 54) return null
-  return Math.round(n * 10) / 10
+  return parseHandicapIndex(raw).value ?? null
 }
 
 /* ----------------------------------------------------------- provider icons */

@@ -7,6 +7,37 @@
  */
 
 /**
+ * Bounds for a stored Handicap Index. The low end is negative because a "plus"
+ * handicap — better than scratch, written +2.4 by golfers — is stored as -2.4.
+ */
+export const MIN_HANDICAP_INDEX = -10
+export const MAX_HANDICAP_INDEX = 54
+
+/**
+ * Parse a typed Handicap Index into a stored value.
+ *
+ * Shared by Onboarding and You so the two can't drift: both accept the same
+ * range and round to the same precision. Callers that want the old silent
+ * behaviour (blank or out-of-range clears the field) can read `.value ?? null`;
+ * callers with somewhere to show a message read `.error`.
+ *
+ * @param {string|number|null|undefined} raw - Whatever the user typed.
+ * @returns {{ value: number, error?: undefined } | { value?: undefined, error: string }}
+ */
+export function parseHandicapIndex(raw) {
+  const text = String(raw ?? '').trim()
+  if (!text) return { error: 'Enter a number like 12.4.' }
+
+  const n = Number(text)
+  if (!Number.isFinite(n)) return { error: 'Enter a number like 12.4.' }
+  if (n < MIN_HANDICAP_INDEX || n > MAX_HANDICAP_INDEX) {
+    return { error: `Index must be ${MIN_HANDICAP_INDEX} to ${MAX_HANDICAP_INDEX} (a plus 2.4 is -2.4).` }
+  }
+
+  return { value: Math.round(n * 10) / 10 }
+}
+
+/**
  * Calculate a player's course handicap from their handicap index.
  *
  * Full WHS formula: Course Handicap = round(index * slope/113 + (rating - par)).
