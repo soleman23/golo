@@ -13,6 +13,7 @@
     "check:edge": "deno check --node-modules-dir=auto supabase/functions/ncrdb-course-search/index.ts supabase/functions/golfcourseapi-holes/index.ts",
     "verify:engines": "node scripts/verify-medium-fixes.mjs",
     "verify:course-data": "node scripts/verify-course-data.mjs",
+    "verify:course-enrichment": "node scripts/verify-course-enrichment.mjs",
     "verify:prod": "node scripts/verify-production.mjs",
     "verify:live-role": "node scripts/verify-live-role.mjs",
     "verify:press-bets": "node scripts/verify-press-bets.mjs",
