@@ -19,14 +19,30 @@ shared database:
 
    `.env.local` is gitignored. The anon key is public (protected by row-level
    security) and safe to ship in the client bundle.
-3. Run the SQL migrations in order (Supabase Dashboard -> SQL Editor, or the
-   Supabase CLI):
-   - `supabase/migrations/0001_init.sql` - tables, row-level security, helpers.
-   - `supabase/migrations/0002_seed_courses.sql` - seeds the course catalogue.
-   - `supabase/migrations/0003_avatars.sql` - profile photos + `avatars` storage bucket.
-   - `supabase/migrations/0004_profile_handicap.sql` - `handicap_index` on profiles.
-   - `supabase/migrations/0005_ghin.sql` - GHIN connection, course mapping, score post status.
-   - `supabase/migrations/0011_admin_course_management.sql` - admin-only course catalogue management.
+3. Apply **every** file in `supabase/migrations/` in filename order. Use the CLI
+   against a linked project:
+
+   ```bash
+   npx --no-install supabase db push --linked
+   ```
+
+   Prefer this over pasting migrations into the SQL Editor. The editor applies
+   the SQL but doesn't record it in the migration history, and the resulting
+   drift has to be repaired by hand later.
+
+   The set grows over time — don't work from a hand-copied list. The milestones,
+   for orientation only:
+
+   | Migration | What it adds |
+   |-----------|--------------|
+   | `0001_init.sql` | Tables, row-level security, helpers |
+   | `0002_seed_courses.sql` | Seeds the course catalogue |
+   | `0003_avatars.sql` | Profile photos + `avatars` storage bucket |
+   | `0012_admin_course_management.sql` | Admin-only course catalogue management |
+   | `0018`–`0021` | Security hardening (security-invoker views, function search paths, revoked anon grants) |
+   | `0022`–`0024` | Notifications + push delivery |
+   | `0025`–`0028` | Betting terms and payment requests |
+   | `0029`–`0031` | Course scorecard cache |
 
    Verify a linked project with `node scripts/verify-production.mjs` (reads
    `.env.local`). See [docs/LAUNCH.md](docs/LAUNCH.md) for the full crew launch checklist.
@@ -39,7 +55,7 @@ shared database:
    local data is migrated to your account on first login.
 
 To manage courses, bootstrap your owner account once in the Supabase SQL
-editor (after applying `0011_admin_course_management.sql`):
+editor (after applying `0012_admin_course_management.sql`):
 
 ```
 update public.profiles set is_admin = true where email = 'YOUR_EMAIL@example.com';
