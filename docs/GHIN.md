@@ -4,7 +4,16 @@
 > To re-enable: deploy functions per this doc, then flip the flag to `true` in
 > [`src/lib/featureFlags.js`](../src/lib/featureFlags.js). No code was removed —
 > the client, eligibility rules, DB columns and migrations are all still in place.
-> While it's off, players enter their Handicap Index by hand on **You → Handicap**.
+> While it's off, players enter their Handicap Index by hand on **You → Handicap**,
+> and no GHIN UI renders anywhere in the app.
+
+**Two different flags share the name `GHIN_ENABLED`.** They are not connected —
+re-enabling GHIN means setting both:
+
+- The **const** in [`src/lib/featureFlags.js`](../src/lib/featureFlags.js) decides
+  whether the app renders any GHIN UI or calls the functions at all.
+- The **Supabase secret** (Edge Functions → Secrets, below) decides whether the
+  deployed functions do real work or return `{ configured: false }`.
 
 GoLo syncs official Handicap Index values from [GHIN](https://www.ghin.com/) and lets golfers post eligible individual stroke-play rounds back to GHIN. This uses the **USGA Golfer Product Access (GPA)** program — GHIN is **not** a public API.
 
@@ -22,7 +31,7 @@ Do **not** scrape GHIN or use unofficial wrappers — that violates USGA terms a
 
 ## Architecture
 
-- **Client (Vite SPA):** Connect / sync UI on You, “Post to GHIN” on Payouts for eligible rounds.
+- **Client (Vite SPA):** Connect / sync UI on You, “Post to GHIN” on Payouts for eligible rounds. All of it is behind the `GHIN_ENABLED` const and renders only once that is `true`.
 - **Supabase Edge Functions:** OAuth, handicap sync, score posting. GHIN client secrets never ship to the browser.
 - **Database:** `ghin_connections` stores OAuth tokens (service-role only). `profiles` stores connection metadata the client may read.
 
@@ -103,4 +112,6 @@ Side games (skins, wolf, etc.) do not block posting — only the gross stroke to
 
 ## Local development
 
-With `GHIN_ENABLED=false`, edge functions return `{ configured: false }` and the UI shows “GHIN integration pending.” Enable sandbox credentials when USGA provides them.
+With the **const** off (today's default) there is no GHIN UI to exercise — You shows the manual Handicap Index editor instead.
+
+Set the const to `true` to bring the UI back. With the **secret** still `false`, the deployed functions return `{ configured: false }` and the UI shows “GHIN integration pending” — that is the state to develop against until USGA provides sandbox credentials.
