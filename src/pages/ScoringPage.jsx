@@ -1232,6 +1232,8 @@ export default function ScoringPage() {
                     return (
                       <button
                         key={id}
+                        type="button"
+                        aria-pressed={on}
                         onClick={() => setCardNine(id)}
                         style={{ flex: 1, minHeight: 34, borderRadius: 9999, cursor: 'pointer', fontSize: 12, fontWeight: 800, letterSpacing: 0.6, background: on ? hexA(ACCENT, 0.16) : 'rgba(255,255,255,.06)', border: `1px solid ${on ? hexA(ACCENT, 0.55) : 'rgba(255,255,255,.14)'}`, color: on ? ACCENT : 'rgba(255,255,255,.6)' }}
                       >

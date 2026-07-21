@@ -111,12 +111,17 @@ function ScoreBox({ gross, par, strokes }) {
   )
 }
 
-/** One grid cell — a real button only while a scorer can edit it. */
+/** One grid cell — a real button only while a scorer can edit it.
+ *
+ *  Nine columns across a 390px canvas force a 28px cell, under the 48px tap
+ *  target the design system asks for, so the row is as tall as it can be to
+ *  claw back area. The keypad names the player and hole it opened for, which
+ *  is what actually catches a mis-tap before a number is committed. */
 function Cell({ gross, par, strokes, label, onTap }) {
   const box = <ScoreBox gross={gross} par={par} strokes={strokes} />
   const frame = {
     width: CELL_W,
-    height: 40,
+    height: 44,
     flex: '0 0 auto',
     display: 'flex',
     alignItems: 'center',
