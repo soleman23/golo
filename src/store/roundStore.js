@@ -38,6 +38,9 @@ const useRoundStore = create(
             currentHole: 1,
             pars: {},
             strokeIndex: {},
+            // Selected tee's per-hole yardage. Empty whenever the course card
+            // came from a provider miss or a manual edit.
+            yardages: {},
             ...roundData,
           },
           players: [],
@@ -113,7 +116,9 @@ const useRoundStore = create(
         }),
 
       // Bulk-set the whole course card at once (e.g. from a setup grid).
-      setCourseConfig: ({ pars, strokeIndex } = {}) =>
+      // Passing yardages: {} deliberately clears stale yardage from a previous
+      // course, so it is written whenever the key is present.
+      setCourseConfig: ({ pars, strokeIndex, yardages } = {}) =>
         set((state) => {
           if (!state.round) return {}
           return {
@@ -121,6 +126,7 @@ const useRoundStore = create(
               ...state.round,
               pars: pars ?? state.round.pars,
               strokeIndex: strokeIndex ?? state.round.strokeIndex,
+              yardages: yardages ?? state.round.yardages ?? {},
             },
           }
         }),

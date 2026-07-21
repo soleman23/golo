@@ -1,4 +1,19 @@
 import { corsHeaders, jsonResponse } from '../_shared/http.ts'
+import { enrichNcrdbTees, type CourseHint, type NcrdbTee } from '../_shared/golfCourseApi.ts'
+
+/**
+ * USGA NCRDB proxy.
+ *
+ * NCRDB is authoritative for tee names, ratings, slopes and tee ids — the
+ * numbers that drive course handicap. It does NOT publish a hole-by-hole
+ * scorecard: the public courseTeeInfo page carries one aggregate row per tee
+ * and nothing more. An earlier version of this function scraped for par and
+ * stroke-index tables that are never present, which is why imported courses
+ * used to arrive as synthetic par 4s.
+ *
+ * Per-hole par, stroke index and yardage now come from GolfCourseAPI through
+ * the shared resolver, applied to NCRDB's tee rows before they reach the client.
+ */
 
 const NCRDB_BASE = 'https://ncrdb.usga.org'
 const NCRDB_TIMEOUT_MS = 10_000
@@ -41,17 +56,6 @@ type SearchParams = {
   clubCity?: string
   clubState?: string
   clubCountry?: string
-}
-
-type ParsedTable = {
-  rows: string[][]
-}
-
-type Scorecard = {
-  teeName?: string
-  gender?: string
-  pars: Record<number, number>
-  strokeIndex?: Record<number, number>
 }
 
 const capInput = (value: unknown) => String(value ?? '').trim().slice(0, 100)
@@ -120,214 +124,17 @@ const toFloat = (text: string) => {
   return Number.isFinite(n) ? n : null
 }
 
-const normalizeText = (text: string) =>
+const normalizeHeader = (text: string) =>
   String(text ?? '')
+    .replace(/[™®]/g, '')
     .replace(/\s+/g, ' ')
     .trim()
-
-const normalizeKey = (text: string) =>
-  normalizeText(text)
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
 
-const validPar = (value: number | null) => Number.isInteger(value) && value >= 3 && value <= 6
-const validStrokeIndex = (value: number | null) => Number.isInteger(value) && value >= 1 && value <= 18
-
-function completeMap(values: Record<number, number>, validator: (value: number | null) => boolean) {
-  const complete: Record<number, number> = {}
-  for (let hole = 1; hole <= 18; hole += 1) {
-    const value = values[hole]
-    if (!validator(value)) return null
-    complete[hole] = value
-  }
-  return complete
-}
-
-function parseTables(html: string): ParsedTable[] {
-  const tables: ParsedTable[] = []
-  const tableRe = /<table\b[^>]*>([\s\S]*?)<\/table>/gi
-  let match: RegExpExecArray | null
-  while ((match = tableRe.exec(html))) {
-    const rows = (match[1].match(/<tr\b[\s\S]*?<\/tr>/gi) ?? [])
-      .map((row) => (row.match(/<t[dh]\b[^>]*>[\s\S]*?<\/t[dh]>/gi) ?? []).map(stripTags))
-      .filter((cells) => cells.length > 0)
-    if (rows.length) tables.push({ rows })
-  }
-  return tables
-}
-
-function holeColumns(cells: string[]) {
-  const columns = new Map<number, number>()
-  cells.forEach((cell, index) => {
-    const key = normalizeKey(cell)
-    const match = key.match(/^(?:hole )?([1-9]|1[0-8])$/)
-    if (!match) return
-    columns.set(index, Number(match[1]))
-  })
-  return columns
-}
-
-function valuesByHole(cells: string[], columns: Map<number, number>) {
-  const values: Record<number, number> = {}
-  for (const [index, hole] of columns) {
-    const value = toInt(cells[index] ?? '')
-    if (value != null) values[hole] = value
-  }
-  return values
-}
-
-function isMaleRow(label: string) {
-  const key = normalizeKey(label)
-  const words = key.split(' ')
-  return words.includes('men') || words.includes('mens') || words.includes('male') || key === 'm'
-}
-
-function isFemaleRow(label: string) {
-  const key = normalizeKey(label)
-  const words = key.split(' ')
-  return words.includes('women') || words.includes('womens') || words.includes('ladies') || words.includes('female') || key === 'f'
-}
-
-function isParRow(label: string) {
-  const key = normalizeKey(label)
-  return key === 'par' || key.endsWith(' par')
-}
-
-function isStrokeIndexRow(label: string) {
-  const key = normalizeKey(label)
-  return (
-    key.includes('stroke index') ||
-    key.includes('handicap') ||
-    key.includes('hdcp') ||
-    key.includes('hcp') ||
-    key.includes('allocation')
-  )
-}
-
-function firstHeaderColumn(headers: string[], matcher: (header: string) => boolean) {
+function findHeaderColumn(headers: string[], matcher: (header: string) => boolean) {
   const index = headers.findIndex((header) => matcher(normalizeHeader(header)))
-  return index >= 0 ? index : null
-}
-
-function parseRowScorecard(table: ParsedTable): Scorecard | null {
-  for (let headerIndex = 0; headerIndex < table.rows.length; headerIndex += 1) {
-    const columns = holeColumns(table.rows[headerIndex])
-    if (columns.size < 9) continue
-
-    let pars: Record<number, number> | null = null
-    let maleStrokeIndex: Record<number, number> | null = null
-    let fallbackStrokeIndex: Record<number, number> | null = null
-
-    for (const cells of table.rows.slice(headerIndex + 1)) {
-      const label = cells.find((cell) => normalizeText(cell)) ?? ''
-      const values = valuesByHole(cells, columns)
-      if (isParRow(label) && !pars) {
-        pars = completeMap(values, validPar)
-      }
-      if (isStrokeIndexRow(label)) {
-        const strokeIndex = completeMap(values, validStrokeIndex)
-        if (strokeIndex && isMaleRow(label)) maleStrokeIndex = strokeIndex
-        else if (strokeIndex && !isFemaleRow(label) && !fallbackStrokeIndex) fallbackStrokeIndex = strokeIndex
-      }
-    }
-
-    if (pars) {
-      return { pars, strokeIndex: maleStrokeIndex ?? fallbackStrokeIndex ?? undefined }
-    }
-  }
-  return null
-}
-
-function parseColumnScorecards(table: ParsedTable): Scorecard[] {
-  const scorecards: Scorecard[] = []
-  const headerIndex = table.rows.findIndex((cells) => cells.some((cell) => normalizeHeader(cell) === 'hole'))
-  if (headerIndex < 0) return scorecards
-
-  const headers = table.rows[headerIndex]
-  const holeColumn = firstHeaderColumn(headers, (header) => header === 'hole')
-  const parColumn = firstHeaderColumn(headers, (header) => header === 'par')
-  if (holeColumn == null || parColumn == null) return scorecards
-
-  const teeColumn = firstHeaderColumn(headers, (header) => header.startsWith('tee name') || header === 'tee')
-  const genderColumn = firstHeaderColumn(headers, (header) => header.includes('gender'))
-  const strokeColumn = firstHeaderColumn(headers, (header) =>
-    header.includes('stroke index') ||
-    header.includes('handicap') ||
-    header.includes('hdcp') ||
-    header.includes('hcp') ||
-    header.includes('allocation')
-  )
-
-  const groups = new Map<string, {
-    teeName?: string
-    gender?: string
-    pars: Record<number, number>
-    strokeIndex: Record<number, number>
-  }>()
-
-  for (const cells of table.rows.slice(headerIndex + 1)) {
-    const hole = toInt(cells[holeColumn] ?? '')
-    const par = toInt(cells[parColumn] ?? '')
-    if (!Number.isInteger(hole) || hole < 1 || hole > 18 || !validPar(par)) continue
-
-    const teeName = teeColumn == null ? undefined : normalizeText(cells[teeColumn] ?? '')
-    const gender = genderColumn == null ? undefined : normalizeText(cells[genderColumn] ?? '')
-    const key = `${normalizeKey(teeName ?? '')}|${normalizeKey(gender ?? '')}`
-    const group = groups.get(key) ?? { teeName, gender, pars: {}, strokeIndex: {} }
-    group.pars[hole] = par as number
-
-    if (strokeColumn != null) {
-      const strokeIndex = toInt(cells[strokeColumn] ?? '')
-      if (validStrokeIndex(strokeIndex)) group.strokeIndex[hole] = strokeIndex as number
-    }
-
-    groups.set(key, group)
-  }
-
-  for (const group of groups.values()) {
-    const pars = completeMap(group.pars, validPar)
-    if (!pars) continue
-    const strokeIndex = completeMap(group.strokeIndex, validStrokeIndex) ?? undefined
-    scorecards.push({ teeName: group.teeName, gender: group.gender, pars, strokeIndex })
-  }
-
-  return scorecards
-}
-
-function parseScorecards(html: string): Scorecard[] {
-  const scorecards: Scorecard[] = []
-  for (const table of parseTables(html)) {
-    const rowScorecard = parseRowScorecard(table)
-    if (rowScorecard) scorecards.push(rowScorecard)
-    scorecards.push(...parseColumnScorecards(table))
-  }
-  return scorecards
-}
-
-function scorecardKey(teeName?: string, gender?: string) {
-  return `${normalizeKey(teeName ?? '')}|${normalizeKey(gender ?? '')}`
-}
-
-function scorecardForTee(scorecards: Scorecard[], tee: { name: string, gender: string }) {
-  return (
-    scorecards.find((card) => card.teeName && scorecardKey(card.teeName, card.gender) === scorecardKey(tee.name, tee.gender)) ??
-    scorecards.find((card) => card.teeName && normalizeKey(card.teeName) === normalizeKey(tee.name)) ??
-    scorecards.find((card) => !card.teeName) ??
-    null
-  )
-}
-
-function holesFromScorecard(scorecard: Scorecard | null) {
-  if (!scorecard) return null
-  return Array.from({ length: 18 }, (_, index) => {
-    const hole = index + 1
-    return {
-      hole,
-      par: scorecard.pars[hole],
-      ...(scorecard.strokeIndex?.[hole] != null ? { strokeIndex: scorecard.strokeIndex[hole] } : {}),
-    }
-  })
+  if (index < 0) throw new Error(TEE_TABLE_STRUCTURE_ERROR)
+  return index
 }
 
 /**
@@ -335,7 +142,7 @@ function holesFromScorecard(scorecard: Scorecard | null) {
  * Columns are mapped from the header row so USGA column insertions do not
  * silently corrupt tee ids, slopes, or yardages.
  */
-function parseTeeTable(html: string) {
+function parseTeeTable(html: string): NcrdbTee[] {
   const table = html.match(/<table\b[^>]*\bid=["']?gvTee["']?[^>]*>([\s\S]*?)<\/table>/i)
   if (!table) throw new Error(TEE_TABLE_STRUCTURE_ERROR)
 
@@ -365,42 +172,24 @@ function parseTeeTable(html: string) {
     yards: findHeaderColumn(headerCells, (header) => header.includes('length')),
   }
 
-  const tees = []
+  const tees: NcrdbTee[] = []
   const lastRequiredColumn = Math.max(...Object.values(column))
-  const scorecards = parseScorecards(html)
   for (const cells of parsedRows.slice(headerRowIndex + 1)) {
     if (cells.length <= lastRequiredColumn) continue
     const name = cells[column.name]
     if (!name) continue
-    const gender = cells[column.gender]
-    const scorecard = scorecardForTee(scorecards, { name, gender })
-    const holes = holesFromScorecard(scorecard)
     tees.push({
       name,
-      gender,
+      gender: cells[column.gender],
       par: toInt(cells[column.par]),
       courseRating: toFloat(cells[column.courseRating]),
       bogeyRating: toFloat(cells[column.bogeyRating]),
       slope: toInt(cells[column.slope]),
       yards: toInt(cells[column.yards]),
       teeId: toInt(cells[column.teeId]),
-      ...(holes ? { holes, pars: scorecard?.pars, strokeIndex: scorecard?.strokeIndex } : {}),
     })
   }
   return tees
-}
-
-const normalizeHeader = (text: string) =>
-  String(text ?? '')
-    .replace(/[™®]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase()
-
-function findHeaderColumn(headers: string[], matcher: (header: string) => boolean) {
-  const index = headers.findIndex((header) => matcher(normalizeHeader(header)))
-  if (index < 0) throw new Error(TEE_TABLE_STRUCTURE_ERROR)
-  return index
 }
 
 async function fetchTees(courseId: number) {
@@ -443,7 +232,21 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: 'invalid_request', message: 'courseId must be a positive number.' }, 400)
       }
       const tees = await fetchTees(courseId)
-      return jsonResponse({ tees })
+      // The descriptor is what lets the resolver reject a same-named club in
+      // another state. Without it, enrichment falls back to name alone.
+      const rawHint = (body.course ?? {}) as Record<string, unknown>
+      const hint: CourseHint = {
+        cacheKey: `ncrdb-${courseId}`,
+        name: capInput(rawHint.name),
+        facility: capInput(rawHint.facility),
+        course: capInput(rawHint.course),
+        city: capInput(rawHint.city),
+        state: capInput(rawHint.state),
+      }
+      // Fails open: on any provider problem this returns the raw NCRDB tees
+      // with enrichment.matched false, and the client offers the manual card.
+      const enriched = await enrichNcrdbTees(tees, hint)
+      return jsonResponse(enriched)
     }
 
     return jsonResponse({ error: 'invalid_request', message: 'action must be "search" or "tees".' }, 400)
