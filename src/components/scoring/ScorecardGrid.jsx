@@ -1,5 +1,6 @@
 import { hexA } from '../../lib/colors'
 import { ncd, vpl } from '../../lib/scoreDisplay'
+import { calculateStablefordPoints } from '../../engines/stableford'
 
 const ACCENT = '#d4f23a'
 const OVER = '#fb7185'
@@ -173,6 +174,7 @@ export default function ScorecardGrid({
   nine = 'front',
   meEntityId = null,
   readOnly = false,
+  isStableford = false,
   onCellTap,
 }) {
   const holes = holesForNine(nine, totalHoles)
@@ -200,7 +202,21 @@ export default function ScorecardGrid({
       {/* hole numbers */}
       {cols(
         <>
-          <span style={{ width: NAME_W, flex: '0 0 auto' }} />
+          {/* Labels the whole grid. Cells, OUT/IN and each player's sub-line are
+            * all gross, which can otherwise read as a contradiction beside a net
+            * leaderboard — the saved-round page stacks the two. */}
+          <span
+            style={{
+              width: NAME_W,
+              flex: '0 0 auto',
+              fontSize: 9,
+              fontWeight: 800,
+              letterSpacing: 1,
+              color: 'rgba(255,255,255,.4)',
+            }}
+          >
+            GROSS
+          </span>
           {holes.map((h) => (
             <span
               key={h}
@@ -327,17 +343,21 @@ export default function ScorecardGrid({
         const label = shortLabel(e.name)
         const nineTotal = holes.reduce((sum, h) => sum + (num(sc[h]) ?? 0), 0)
 
-        // Gross to par across every hole played — the sub-line under the name.
-        // Raw totals would read ambiguously next to the OUT/IN column. Walk the
-        // round's own holes so a shortened round ignores stale scores.
+        // The sub-line under the name: to-par normally, points in Stableford —
+        // where nobody thinks in strokes over par. Raw totals would read
+        // ambiguously next to the OUT/IN column, so both carry their sign or
+        // unit. Walk the round's own holes so a shortened round ignores stale
+        // scores.
         let played = 0
         let vsPar = 0
+        let points = 0
         for (let h = 1; h <= totalHoles; h += 1) {
           const g = num(sc[h])
           const p = num(pars[h])
           if (g == null || p == null) continue
           played += 1
           vsPar += g - p
+          if (isStableford) points += calculateStablefordPoints(g, p, num(alloc[h]) ?? 0)
         }
 
         return (
@@ -379,10 +399,14 @@ export default function ScorecardGrid({
                     style={{
                       fontSize: 10,
                       fontWeight: 800,
-                      color: played ? ncd(vsPar) : 'rgba(255,255,255,.35)',
+                      color: !played
+                        ? 'rgba(255,255,255,.35)'
+                        : isStableford
+                          ? ACCENT // more points is better — the one case where up is good
+                          : ncd(vsPar),
                     }}
                   >
-                    {played ? vpl(vsPar) : DASH}
+                    {!played ? DASH : isStableford ? `${points} pts` : vpl(vsPar)}
                   </span>
                 </span>
                 {holes.map((h) => {
