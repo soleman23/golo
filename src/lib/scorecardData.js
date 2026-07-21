@@ -1,67 +1,28 @@
-import { supabase, isSupabaseConfigured } from './supabaseClient'
-import { normalizeHoleRows } from './courseValidation'
+// Explicit extension: the verification scripts import this module from Node.
+import { normalizeHoleRows } from './courseValidation.js'
 
-async function invoke(body) {
-  if (!isSupabaseConfigured || !supabase) {
-    return { data: null, error: new Error('Backend not configured') }
-  }
-  const { data, error } = await supabase.functions.invoke('golfcourseapi-holes', { body })
-  if (error) {
-    let message = error.message
-    try {
-      const payload = await error.context?.json()
-      if (payload?.message) message = payload.message
-      else if (payload?.error) message = payload.error
-    } catch {
-      // Keep the generic FunctionsHttpError message when no JSON payload exists.
-    }
-    return { data: null, error: new Error(message) }
-  }
-  return { data, error: null }
-}
+/**
+ * Turning provider tee payloads into the app's per-hole card.
+ *
+ * Pure data shaping — no network, no Supabase — so the verification scripts can
+ * exercise it directly. The network client lives in ./golfCourseApi.
+ *
+ * The guiding rule: a card that is wrong is worse than no card at all, because
+ * par and stroke index drive handicap strokes and every game's settlement. So a
+ * tee is only accepted when something corroborates it, and a hole map is only
+ * accepted when it is complete.
+ */
 
-function locationHint(location) {
+/**
+ * "Bend, OR" -> { city: 'Bend', state: 'OR' }. A location with no comma yields
+ * blanks: a bare city is not worth guessing a state from, and a wrong state
+ * hint is worse than none because the resolver scores against it.
+ */
+export function locationHint(location) {
   const parts = String(location ?? '').split(',').map((part) => part.trim()).filter(Boolean)
   return {
     city: parts.length > 1 ? parts.at(-2) : '',
     state: parts.length > 1 ? parts.at(-1) : '',
-  }
-}
-
-/**
- * Resolve a bundled/catalog course through the compatibility edge function.
- * NCRDB imports already arrive enriched and do not use this second call.
- */
-export async function getHoleData(course) {
-  const id = String(course?.id ?? '').trim()
-  const name = String(course?.name ?? '').trim()
-  if (!id || !name) {
-    return { teesData: null, enrichment: { matched: false, reason: 'invalid_course' } }
-  }
-
-  const location = locationHint(course?.loc)
-  const { data, error } = await invoke({
-    action: 'holes',
-    courseId: id,
-    courseName: name,
-    facility: course?.facility,
-    course: course?.course,
-    city: course?.city ?? location.city,
-    state: course?.state ?? location.state,
-  })
-  if (error) {
-    console.warn('[scorecardData] holes fetch failed for', name, '-', error.message)
-    return { teesData: null, enrichment: { matched: false, reason: error.message } }
-  }
-  return {
-    teesData: data?.tees ?? null,
-    enrichment: {
-      matched: !!data?.matched,
-      reason: data?.reason,
-      cached: !!data?.cached,
-      source: 'golfcourseapi',
-      matchScore: data?.matchScore,
-    },
   }
 }
 
@@ -87,8 +48,9 @@ function closestTeeByYards(teeList, targetYards) {
 }
 
 /**
- * Match a provider tee only when name or total yardage corroborates it. Returning
- * null is safer than silently using the longest/first tee from a wrong course.
+ * Match a provider tee only when name or total yardage corroborates it.
+ * Returning null is safer than silently using the longest or first tee, which
+ * is how a mismatched course used to end up looking like real data.
  */
 export function getHolesForTee(teesData, teeName, gender = 'male', targetYards = null) {
   if (!teesData) return null
@@ -130,10 +92,12 @@ function cardFromRows(rows) {
   return { pars, strokeIndex, yardages }
 }
 
+/** Card for a provider tee set, chosen by name/yardage. Null when nothing matches. */
 export function holeCardFromTees(teesData, teeName, gender = 'male', targetYards = null) {
   return cardFromRows(getHolesForTee(teesData, teeName, gender, targetYards))
 }
 
+/** Card for a tee the resolver already validated and attached to the course. */
 export function holeCardFromCourseTee(tee) {
   return cardFromRows(tee?.holes)
 }

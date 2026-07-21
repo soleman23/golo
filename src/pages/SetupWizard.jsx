@@ -11,8 +11,8 @@ import { hasContact, displayName, playerKey } from '../lib/identity'
 import { fetchCourses } from '../lib/db/courses'
 import { searchVerifiedPlayers, fetchPlayerContact } from '../lib/db/players'
 import { searchNcrdbCourses, getNcrdbTees } from '../lib/ncrdb'
+import { getHoleData } from '../lib/golfCourseApi'
 import {
-  getHoleData,
   holeCardFromTees,
   yardageMapFromCourseTee,
   yardageMapFromTees,
