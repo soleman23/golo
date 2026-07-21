@@ -8,6 +8,8 @@ import useAuthStore from '../store/authStore'
 import { uploadAvatar, removeAvatar } from '../lib/db/avatars'
 import { fetchProfile } from '../lib/db/profiles'
 import useAdmin from '../hooks/useAdmin'
+import { parseHandicapIndex, clampHandicapIndex } from '../engines/handicap'
+import { GHIN_ENABLED } from '../lib/featureFlags'
 import { startGhinConnect, syncGhinHandicap, isGhinConfiguredResponse } from '../lib/ghin/client'
 import { isGhinConnected } from '../lib/ghin/eligibility'
 import { GoloWordmark, GoloBall } from '../components/shared/Logo'
@@ -118,7 +120,7 @@ export default function YouPage() {
   const authUserId = useAuthStore((s) => s.user?.id ?? null)
   const signOut = useAuthStore((s) => s.signOut)
   const [searchParams, setSearchParams] = useSearchParams()
-  const initialGhinStatus = searchParams.get('ghin')
+  const initialGhinStatus = GHIN_ENABLED ? searchParams.get('ghin') : null
 
   const [editing, setEditing] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -136,6 +138,9 @@ export default function YouPage() {
     if (initialGhinStatus === 'error') return 'GHIN connection failed — try again'
     return null
   })
+  const [handicapOpen, setHandicapOpen] = useState(false)
+  const [handicapDraft, setHandicapDraft] = useState('')
+  const [handicapError, setHandicapError] = useState(null)
   const [venmoDraft, setVenmoDraft] = useState('')
   const [copiedVenmo, setCopiedVenmo] = useState(false)
   const [view, setView] = useState('season')
@@ -172,9 +177,10 @@ export default function YouPage() {
     null
   const meHandle = handleOf(profile)
   const venmoHandle = venmo ? (venmo.startsWith('@') ? venmo : `@${venmo}`) : null
-  const ghinLinked = isGhinConnected({ ghinConnectedAt })
+  const ghinLinked = GHIN_ENABLED && isGhinConnected({ ghinConnectedAt })
 
   useEffect(() => {
+    if (!GHIN_ENABLED) return
     const status = searchParams.get('ghin')
     if (!status) return
     const next = new URLSearchParams(searchParams)
@@ -207,7 +213,7 @@ export default function YouPage() {
   }
 
   const handleGhinConnect = async () => {
-    if (!authEnabled || !authUserId) return
+    if (!GHIN_ENABLED || !authEnabled || !authUserId) return
     setGhinBusy(true)
     setGhinError(null)
     try {
@@ -228,7 +234,7 @@ export default function YouPage() {
   }
 
   const handleGhinSync = async () => {
-    if (!authEnabled) return
+    if (!GHIN_ENABLED || !authEnabled) return
     setGhinBusy(true)
     setGhinError(null)
     try {
@@ -266,6 +272,40 @@ export default function YouPage() {
       : ghinSync
         ? 'Auto-sync on · not connected'
         : 'Connect for official handicap'
+
+  // Manual index — the only handicap path while GHIN is shelved. Setup seeds
+  // each round's organizer card from this, and writes it back when you finish.
+  const handicapSub = profileHandicap != null
+    ? `Index ${Number(profileHandicap).toFixed(1)} · seeds every round`
+    : 'Set your index to seed every round'
+
+  const openHandicap = () => {
+    setHandicapDraft(profileHandicap != null ? String(profileHandicap) : '')
+    setHandicapError(null)
+    setHandicapOpen(true)
+  }
+
+  const stepHandicap = (delta) => {
+    const typed = Number(handicapDraft)
+    const base = handicapDraft.trim() && Number.isFinite(typed) ? typed : (profileHandicap ?? 12)
+    setHandicapDraft(String(clampHandicapIndex(base + delta)))
+    setHandicapError(null)
+  }
+
+  const saveHandicap = () => {
+    const { value, error } = parseHandicapIndex(handicapDraft)
+    if (error) {
+      setHandicapError(error)
+      return
+    }
+    setHandicapIndex(value)
+    setHandicapOpen(false)
+  }
+
+  const clearHandicap = () => {
+    setHandicapIndex(null)
+    setHandicapOpen(false)
+  }
 
   const model = useMemo(() => {
     if (!meKey) return null
@@ -952,14 +992,28 @@ export default function YouPage() {
               badge={venmo ? { label: 'Linked', on: true } : { label: 'Link', on: false }}
               divider
             />
-            <SettingRow
-              icon="🚩"
-              title="Handicap"
-              sub={ghinSub}
-              onClick={openGhin}
-              badge={ghinLinked ? { label: 'Synced', on: true } : ghinPending ? { label: 'Pending', on: false } : { label: 'Connect', on: false }}
-              divider
-            />
+            {GHIN_ENABLED ? (
+              <SettingRow
+                icon="🚩"
+                title="Handicap"
+                sub={ghinSub}
+                onClick={openGhin}
+                badge={ghinLinked ? { label: 'Synced', on: true } : ghinPending ? { label: 'Pending', on: false } : { label: 'Connect', on: false }}
+                divider
+              />
+            ) : (
+              <SettingRow
+                icon="🚩"
+                title="Handicap"
+                sub={handicapSub}
+                onClick={openHandicap}
+                badge={{
+                  label: profileHandicap != null ? Number(profileHandicap).toFixed(1) : 'Set',
+                  on: profileHandicap != null,
+                }}
+                divider
+              />
+            )}
             <SettingRow
               icon="🔔"
               title="Notifications"
@@ -1030,7 +1084,23 @@ export default function YouPage() {
           />
         )}
 
-        {ghinOpen && (
+        {handicapOpen && (
+          <HandicapSheet
+            value={handicapDraft}
+            hasIndex={profileHandicap != null}
+            error={handicapError}
+            onChange={(v) => {
+              setHandicapDraft(v)
+              setHandicapError(null)
+            }}
+            onStep={stepHandicap}
+            onSave={saveHandicap}
+            onClear={clearHandicap}
+            onCancel={() => setHandicapOpen(false)}
+          />
+        )}
+
+        {GHIN_ENABLED && ghinOpen && (
           <GhinSheet
             linked={ghinLinked}
             pending={ghinPending}
@@ -1051,7 +1121,7 @@ export default function YouPage() {
         {copiedVenmo && venmoHandle && (
           <div style={S.toast}>Copied {venmoHandle}</div>
         )}
-        {ghinToast && (
+        {GHIN_ENABLED && ghinToast && (
           <div style={S.toast}>{ghinToast}</div>
         )}
       </div>
@@ -1133,6 +1203,49 @@ function GhinSheet({
         </button>
         <button type="button" onClick={onCancel} style={S.sheetSecondary}>Close</button>
       </div>
+    </div>
+  )
+}
+
+function HandicapSheet({ value, hasIndex, error, onChange, onStep, onSave, onClear, onCancel }) {
+  return (
+    <div style={S.sheetLayer} role="dialog" aria-modal="true" aria-labelledby="you-hdcp-title">
+      <button aria-label="Close handicap editor" onClick={onCancel} style={S.sheetScrim} />
+      <form
+        style={S.actionSheet}
+        onSubmit={(e) => {
+          e.preventDefault()
+          onSave()
+        }}
+      >
+        <div style={S.grab} />
+        <div id="you-hdcp-title" style={S.sheetTitle}>Handicap Index</div>
+        <div style={S.sheetBody}>
+          Every round you set up starts from this, and finishing a round saves any
+          change back here.
+        </div>
+        <label htmlFor="you-hdcp-input" style={S.sheetLabel}>YOUR INDEX</label>
+        <div style={S.stepperRow}>
+          <button type="button" onClick={() => onStep(-0.1)} aria-label="Lower index" style={S.stepBtn}>−</button>
+          <input
+            id="you-hdcp-input"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            inputMode="decimal"
+            placeholder="12.4"
+            autoComplete="off"
+            autoFocus
+            style={S.stepperInput}
+          />
+          <button type="button" onClick={() => onStep(0.1)} aria-label="Raise index" style={S.stepBtn}>+</button>
+        </div>
+        {error && <div style={S.sheetError}>{error}</div>}
+        <button type="submit" style={S.sheetPrimary}>Save index</button>
+        {hasIndex && (
+          <button type="button" onClick={onClear} style={{ ...S.sheetSecondary, color: '#fb7185' }}>Clear index</button>
+        )}
+        <button type="button" onClick={onCancel} style={S.sheetSecondary}>Cancel</button>
+      </form>
     </div>
   )
 }
@@ -1346,6 +1459,9 @@ const S = {
   sheetBody: { fontSize: 14, color: 'rgba(255,255,255,.6)', lineHeight: 1.45, marginTop: 7 },
   sheetLabel: { display: 'block', fontSize: 10, fontWeight: 800, letterSpacing: 0.8, color: 'rgba(255,255,255,.5)', marginTop: 18 },
   sheetError: { marginTop: 12, padding: '10px 12px', borderRadius: 12, background: 'rgba(251,113,133,.12)', border: '1px solid rgba(251,113,133,.3)', color: '#fecdd3', fontSize: 12.5, fontWeight: 700 },
+  stepperRow: { display: 'flex', alignItems: 'center', gap: 12, marginTop: 10 },
+  stepBtn: { width: 56, height: 56, flex: '0 0 auto', borderRadius: 16, background: 'rgba(255,255,255,.09)', border: '1px solid rgba(255,255,255,.18)', color: '#fff', fontSize: 26, fontWeight: 800, lineHeight: 1, cursor: 'pointer' },
+  stepperInput: { flex: 1, minWidth: 0, height: 56, padding: '0 12px', borderRadius: 16, background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.18)', color: '#fff', fontFamily: 'inherit', fontSize: 30, fontWeight: 800, letterSpacing: '-0.5px', textAlign: 'center', outline: 'none', boxSizing: 'border-box' },
   sheetPrimary: { marginTop: 16, width: '100%', minHeight: 52, borderRadius: 15, border: 'none', background: ACCENT, color: ACCENT_DARK, fontSize: 16, fontWeight: 800, cursor: 'pointer' },
   sheetSecondary: { marginTop: 8, width: '100%', minHeight: 48, borderRadius: 14, background: 'transparent', border: 'none', fontSize: 14, fontWeight: 800, color: 'rgba(255,255,255,.65)', cursor: 'pointer' },
   toast: { position: 'fixed', left: '50%', bottom: 'max(18px, env(safe-area-inset-bottom))', transform: 'translateX(-50%)', zIndex: 100, background: '#14532d', color: '#fff', padding: '8px 16px', borderRadius: 9999, fontSize: 14, fontWeight: 700, boxShadow: '0 10px 30px rgba(0,0,0,.35)' },

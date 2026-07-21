@@ -40,7 +40,7 @@ Verify locally:
 npm run verify:prod
 ```
 
-**GHIN (optional):** Deploy edge functions and set Supabase secrets per [docs/GHIN.md](docs/GHIN.md). Until USGA GPA approval, `GHIN_ENABLED=false` and the UI shows “pending.”
+**GHIN:** Shelved until USGA GPA approval — the edge functions are not deployed and no GHIN UI ships. Nothing to configure for crew week. Players set their Handicap Index by hand on **You → Handicap**. To bring it back later, see [docs/GHIN.md](docs/GHIN.md).
 
 **If 0004 fails**, run in SQL Editor:
 

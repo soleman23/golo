@@ -7,6 +7,7 @@ import useHistoryStore from '../store/historyStore'
 import useSyncStore from '../store/syncStore'
 import { isSupabaseConfigured } from './supabaseClient'
 import { fetchProfile, upsertProfile, isMissingColumnError } from './db/profiles'
+import { GHIN_ENABLED } from './featureFlags'
 import { syncGhinHandicap, isGhinConfiguredResponse } from './ghin/client'
 import { isGhinConnected } from './ghin/eligibility'
 import { fetchRounds, saveRound as dbSaveRound } from './db/rounds'
@@ -126,8 +127,10 @@ export async function syncOnLogin(userId, { force = false } = {}) {
     useHistoryStore.getState().setRounds(finalRounds)
 
     // Optional: pull official handicap when GHIN is connected and auto-sync is on.
+    // Skipped while GHIN is shelved — the edge function isn't deployed, so this
+    // would be a failed invoke on every login for anyone holding stale GHIN state.
     const prof = useProfileStore.getState()
-    if (prof.ghinSync && isGhinConnected(prof)) {
+    if (GHIN_ENABLED && prof.ghinSync && isGhinConnected(prof)) {
       try {
         const { data, error } = await syncGhinHandicap()
         if (!error && isGhinConfiguredResponse(data)) {

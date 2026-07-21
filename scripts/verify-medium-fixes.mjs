@@ -2,7 +2,7 @@
  * Runtime checks for medium-severity bug fixes.
  */
 import { calculateStablefordPoints } from '../src/engines/stableford.js'
-import { allocateStrokes } from '../src/engines/handicap.js'
+import { allocateStrokes, parseHandicapIndex, clampHandicapIndex } from '../src/engines/handicap.js'
 import { buildLeaderboard } from '../src/engines/scoring.js'
 import { getPressEligibility } from '../src/engines/pressBets.js'
 import { buildMatchPairings, buildMatchplayLeaderboard } from '../src/engines/matchplay.js'
@@ -33,6 +33,28 @@ const alloc = allocateStrokes(54, 18, Object.fromEntries(Array.from({ length: 18
 const maxStrokes = Math.max(...Object.values(alloc))
 assert('allocateStrokes max 2 per hole', maxStrokes <= 2)
 assert('allocateStrokes distributes high handicap without infinite loop', Object.values(alloc).reduce((s, n) => s + n, 0) > 0)
+
+// Handicap Index parsing — shared by Onboarding and the You editor, so the two
+// can't drift apart on what they accept (they did once: You rejected the plus
+// handicaps Onboarding allowed).
+assert('parseHandicapIndex accepts a typical index', parseHandicapIndex('12.4').value === 12.4)
+assert('parseHandicapIndex accepts scratch', parseHandicapIndex('0').value === 0)
+assert('parseHandicapIndex accepts a plus handicap as a negative', parseHandicapIndex('-2.4').value === -2.4)
+assert('parseHandicapIndex accepts the bounds', parseHandicapIndex('-10').value === -10 && parseHandicapIndex('54').value === 54)
+assert('parseHandicapIndex rounds to one decimal', parseHandicapIndex('12.44').value === 12.4)
+assert('parseHandicapIndex trims whitespace', parseHandicapIndex('  8.1  ').value === 8.1)
+assert('parseHandicapIndex rejects out of range', !!parseHandicapIndex('99').error && !!parseHandicapIndex('-11').error)
+assert('parseHandicapIndex rejects blank', !!parseHandicapIndex('').error && !!parseHandicapIndex(null).error)
+assert('parseHandicapIndex rejects non-numeric', !!parseHandicapIndex('abc').error)
+assert('parseHandicapIndex never returns both value and error', Object.hasOwn(parseHandicapIndex('12.4'), 'error') === false)
+
+// The Setup stepper clamps with this; it must not destroy a plus handicap that
+// You and Onboarding both accept.
+assert('clampHandicapIndex keeps a plus handicap', clampHandicapIndex(-2.4) === -2.4)
+assert('clampHandicapIndex steps a plus handicap without snapping to scratch', clampHandicapIndex(-2.4 + 1) === -1.4)
+assert('clampHandicapIndex holds the floor', clampHandicapIndex(-11) === -10)
+assert('clampHandicapIndex holds the ceiling', clampHandicapIndex(99) === 54)
+assert('clampHandicapIndex agrees with parseHandicapIndex bounds', clampHandicapIndex(-10) === parseHandicapIndex('-10').value && clampHandicapIndex(54) === parseHandicapIndex('54').value)
 
 // #12 leaderboard tiebreak by holes played
 const players = [{ id: 'a', name: 'Ann' }, { id: 'b', name: 'Bob' }]

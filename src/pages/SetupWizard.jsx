@@ -6,7 +6,7 @@ import useHistoryStore from '../store/historyStore'
 import useProfileStore from '../store/profileStore'
 import useAuthStore from '../store/authStore'
 import useLiveRoundStore from '../store/liveRoundStore'
-import { calculateCourseHandicap } from '../engines/handicap'
+import { calculateCourseHandicap, clampHandicapIndex } from '../engines/handicap'
 import { hasContact, displayName, playerKey } from '../lib/identity'
 import { fetchCourses } from '../lib/db/courses'
 import { searchVerifiedPlayers, fetchPlayerContact } from '../lib/db/players'
@@ -1120,8 +1120,13 @@ export default function SetupWizard() {
   /* ---- player mutations ---- */
   const updatePlayer = (id, p) =>
     patch({ players: st.players.map((pl) => (pl.id === id ? { ...pl, ...p } : pl)) })
+  // Bounds match the Handicap Index editors on You and Onboarding, so stepping a
+  // seeded plus handicap doesn't silently snap it to scratch. The engines already
+  // floor negatives when allocating strokes.
   const incHdcp = (id, d) =>
-    updatePlayer(id, { hdcp: Math.max(0, Math.min(54, st.players.find((p) => p.id === id).hdcp + d)) })
+    updatePlayer(id, {
+      hdcp: clampHandicapIndex(st.players.find((p) => p.id === id).hdcp + d),
+    })
   const addRoundPlayer = (fields) => {
     if (st.players.length >= MAX_PLAYERS) return
     const id = crypto.randomUUID()
