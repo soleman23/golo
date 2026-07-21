@@ -4,6 +4,7 @@ import {
   cacheIsFresh,
   cardFromGcaTee,
   courseMatchScore,
+  distinctiveName,
   GCA_CACHE_TTL_MS,
   GCA_NO_MATCH_TTL_MS,
   matchGcaTee,
@@ -58,6 +59,17 @@ Deno.test('normalizeCourseText folds punctuation and case', () => {
   assertEquals(normalizeCourseText('Pinehurst  No. 2 '), 'pinehurst no 2')
   assertEquals(normalizeCourseText("St. Andrew's Links"), 'st andrew s links')
   assertEquals(normalizeCourseText(null), '')
+})
+
+Deno.test('distinctiveName strips the words every club shares', () => {
+  // The provider lists this club as "Lost Tracks Golf Club"; our catalogue says
+  // "Golf Course". Searching the distinctive words finds it either way.
+  assertEquals(distinctiveName('Lost Tracks Golf Course'), 'lost tracks')
+  assertEquals(distinctiveName('Lost Tracks Golf Club'), 'lost tracks')
+  assertEquals(distinctiveName('Pebble Beach GL'), 'pebble beach')
+  assertEquals(distinctiveName('Tetherow Golf Club'), 'tetherow')
+  // Nothing distinctive left to search on.
+  assertEquals(distinctiveName('Golf Club'), '')
 })
 
 Deno.test('nameSimilarity ignores golf stop words', () => {

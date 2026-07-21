@@ -140,6 +140,14 @@ function nameTokens(value: unknown) {
     .filter((token) => token && !STOP_WORDS.has(token) && !/^\d+$/.test(token))
 }
 
+/**
+ * The distinctive part of a course name, with the words every club shares
+ * removed. "Lost Tracks Golf Course" -> "lost tracks".
+ */
+export function distinctiveName(value: unknown) {
+  return nameTokens(value).join(' ')
+}
+
 /** Jaccard overlap of significant name tokens, 0..1. */
 export function nameSimilarity(a: unknown, b: unknown) {
   const left = new Set(nameTokens(a))

@@ -4,10 +4,12 @@ import {
   cacheIsFresh,
   cardFromGcaTee,
   courseMatchScore,
+  distinctiveName,
   GCA_CACHE_VERSION,
   matchGcaTee,
   MIN_COURSE_SCORE,
   negativeCacheIsActive,
+  normalizeCourseText,
   GCA_NO_MATCH_TTL_MS,
   type CourseHint,
   type GcaCourse,
@@ -184,6 +186,22 @@ function searchQuery(hint: CourseHint) {
   )
 }
 
+/**
+ * Queries to try, in order. The provider's own search is a literal text match,
+ * so a club it lists as "Lost Tracks Golf Club" returns nothing for our
+ * catalogue's "Lost Tracks Golf Course". Retrying on the distinctive words
+ * alone finds it. Casting a wider net is safe here because the scoring that
+ * follows is what actually decides — and the retry only costs a request on the
+ * miss path, which is then negative-cached.
+ */
+function searchQueries(hint: CourseHint) {
+  const primary = searchQuery(hint)
+  const distinctive = distinctiveName(primary)
+  return distinctive && distinctive !== normalizeCourseText(primary)
+    ? [primary, distinctive]
+    : [primary]
+}
+
 export async function resolveGolfCourse(
   hint: CourseHint,
   admin: AdminClient | null = createGolfCourseAdminClient(),
@@ -230,9 +248,12 @@ export async function resolveGolfCourse(
     }
   }
 
-  const query = searchQuery(hint)
-  const search = await gcaFetch(`/search?search_query=${encodeURIComponent(query)}`, apiKey)
-  const best = bestCourseMatch(hint, Array.isArray(search?.courses) ? search.courses : [])
+  let best: ReturnType<typeof bestCourseMatch> = null
+  for (const query of searchQueries(hint)) {
+    const search = await gcaFetch(`/search?search_query=${encodeURIComponent(query)}`, apiKey)
+    best = bestCourseMatch(hint, Array.isArray(search?.courses) ? search.courses : [])
+    if (best) break
+  }
   if (!best) {
     await writeNegativeCache(admin, hint.cacheKey)
     return { matched: false, reason: 'no_matching_course', cached: false }
