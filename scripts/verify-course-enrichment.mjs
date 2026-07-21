@@ -117,11 +117,16 @@ assert(second.json?.enrichment?.cached === true, 'the repeat request was served 
 
 console.log('\nFailing open')
 
+// Fixed cache keys, so repeat runs overwrite these two rows instead of leaving
+// a new one behind each time. After the first run these are served from the
+// negative cache, which is the behaviour we want anyway — the matcher rules
+// themselves are covered by the Deno tests.
+
 // The right club name in the wrong state must not resolve. Same-name clubs in
 // different states are the most likely way to attach a stranger's scorecard.
 const wrongState = await invokeEdgeFunction(env, 'golfcourseapi-holes', {
   action: 'holes',
-  courseId: `smoke-wrong-state-${Date.now()}`,
+  courseId: 'smoke-wrong-state',
   courseName: 'Tetherow Golf Club',
   facility: 'Tetherow Golf Club',
   city: 'Bend',
@@ -133,7 +138,7 @@ assert(wrongState.json?.tees == null, 'no tee data was attached from another cou
 
 const nonsense = await invokeEdgeFunction(env, 'golfcourseapi-holes', {
   action: 'holes',
-  courseId: `smoke-nonsense-${Date.now()}`,
+  courseId: 'smoke-nonsense',
   courseName: 'Zzyzx Phantom Links Xyzzy',
   facility: 'Zzyzx Phantom Links Xyzzy',
   city: 'Nowhere',
