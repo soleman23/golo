@@ -14,6 +14,21 @@ export const MIN_HANDICAP_INDEX = -10
 export const MAX_HANDICAP_INDEX = 54
 
 /**
+ * Clamp a Handicap Index into range, rounded to one decimal.
+ *
+ * For steppers, which nudge an existing value rather than accept typed input.
+ * Shares its bounds with `parseHandicapIndex` so a value one surface accepts
+ * can't be silently destroyed by another.
+ *
+ * @param {number} n
+ * @returns {number}
+ */
+export function clampHandicapIndex(n) {
+  const bounded = Math.max(MIN_HANDICAP_INDEX, Math.min(MAX_HANDICAP_INDEX, n))
+  return Math.round(bounded * 10) / 10
+}
+
+/**
  * Parse a typed Handicap Index into a stored value.
  *
  * Shared by Onboarding and You so the two can't drift: both accept the same

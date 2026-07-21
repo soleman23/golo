@@ -8,7 +8,7 @@ import useAuthStore from '../store/authStore'
 import { uploadAvatar, removeAvatar } from '../lib/db/avatars'
 import { fetchProfile } from '../lib/db/profiles'
 import useAdmin from '../hooks/useAdmin'
-import { parseHandicapIndex, MIN_HANDICAP_INDEX, MAX_HANDICAP_INDEX } from '../engines/handicap'
+import { parseHandicapIndex, clampHandicapIndex } from '../engines/handicap'
 import { GHIN_ENABLED } from '../lib/featureFlags'
 import { startGhinConnect, syncGhinHandicap, isGhinConfiguredResponse } from '../lib/ghin/client'
 import { isGhinConnected } from '../lib/ghin/eligibility'
@@ -288,9 +288,7 @@ export default function YouPage() {
   const stepHandicap = (delta) => {
     const typed = Number(handicapDraft)
     const base = handicapDraft.trim() && Number.isFinite(typed) ? typed : (profileHandicap ?? 12)
-    const stepped = Math.round((base + delta) * 10) / 10
-    const next = Math.max(MIN_HANDICAP_INDEX, Math.min(MAX_HANDICAP_INDEX, stepped))
-    setHandicapDraft(String(next))
+    setHandicapDraft(String(clampHandicapIndex(base + delta)))
     setHandicapError(null)
   }
 
