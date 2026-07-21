@@ -1473,9 +1473,11 @@ export default function SetupWizard() {
     setPlayers(players)
 
     if (isScramble) {
+      // Palette hexes, not CSS keywords: hexA() parses hex only, so a 'green'
+      // here silently tints every team glow white (scoring cards, payout hero).
       const teams = [
-        { id: 'teamA', name: 'Team A', color: 'green', playerIds: readyPlayers.filter((p) => p.team === 'A').map((p) => p.id) },
-        { id: 'teamB', name: 'Team B', color: 'blue', playerIds: readyPlayers.filter((p) => p.team === 'B').map((p) => p.id) },
+        { id: 'teamA', name: 'Team A', color: PALETTE[0], playerIds: readyPlayers.filter((p) => p.team === 'A').map((p) => p.id) },
+        { id: 'teamB', name: 'Team B', color: PALETTE[1], playerIds: readyPlayers.filter((p) => p.team === 'B').map((p) => p.id) },
       ].filter((t) => t.playerIds.length > 0)
       setTeams(teams)
     } else {
