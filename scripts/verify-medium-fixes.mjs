@@ -82,15 +82,19 @@ assert('leaderboard tie on net ranks more holes played first', board[0].player.i
   }
   const eagleOnly = calculateBonusSkins(four, bonusScores, bonusPars, { valuePerSkin: 10, eagle: true })
   const birdieOnly = calculateBonusSkins(four, bonusScores, bonusPars, { valuePerSkin: 10, birdie: true })
-  assert('both eagles on a shared hole are paid', eagleOnly.lines.filter((l) => l.startsWith('Hole 3')).length === 2)
+  assert('both eagles on a shared hole are paid', eagleOnly.lines.filter((l) => l.startsWith('Hole 3:')).length === 2)
   // Under the old carry rule the hole-3 tie banked a skin and this paid $60.
   assert('an eagle tie does not carry to the next hole', eagleOnly.holeTotals[4] === 30)
   assert('eagle payouts net to zero', Object.values(eagleOnly.payouts).reduce((s, v) => s + v, 0) === 0)
-  assert('eagle pays exactly like birdie at the same value', JSON.stringify(eagleOnly.payouts) === JSON.stringify(birdieOnly.payouts))
+  assert(
+    'eagle pays exactly like birdie at the same value',
+    JSON.stringify(eagleOnly.payouts) === JSON.stringify(birdieOnly.payouts) &&
+      JSON.stringify(eagleOnly.holeTotals) === JSON.stringify(birdieOnly.holeTotals)
+  )
 
   // An eagle clears the birdie margin too, so both tiers pay on the same hole.
   const both = calculateBonusSkins(four, bonusScores, bonusPars, { valuePerSkin: 5, birdie: true, eagle: true })
-  assert('an eagle also collects the birdie skin', both.lines.filter((l) => l.startsWith('Hole 1')).length === 2)
+  assert('an eagle also collects the birdie skin', both.lines.filter((l) => l.startsWith('Hole 1:')).length === 2)
   assert('the two tiers stack rather than replace', both.holeTotals[1] === 30)
 }
 
