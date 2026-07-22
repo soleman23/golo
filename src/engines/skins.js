@@ -1,5 +1,7 @@
-import { calculateCTP } from './ctp'
-import { calculateLongestDrive } from './longestDrive'
+// Extensions here (unlike the other engines) so the verify scripts can load this
+// module under plain node, not just vite.
+import { calculateCTP } from './ctp.js'
+import { calculateLongestDrive } from './longestDrive.js'
 
 /**
  * skins.js — Pure Skins betting math.
@@ -158,8 +160,9 @@ export function calculateSkins(players, scores, pars, strokeAllocations, betConf
 /**
  * Automatic bonus skins derived directly from gross score.
  *
- * Birdie pays every birdie-or-better player independently. Eagle carries hole by
- * hole until exactly one player makes eagle-or-better, then resets.
+ * Birdie and Eagle work the same way: each pays every player who clears its
+ * margin a flat skin, independently, with no carryover. An eagle clears both
+ * margins, so it pays both tiers when both are enabled.
  */
 export function calculateBonusSkins(players, scores, pars, config = {}) {
   const { valuePerSkin = 0, birdie = false, eagle = false } = config
@@ -178,36 +181,24 @@ export function calculateBonusSkins(players, scores, pars, config = {}) {
     .map(Number)
     .sort((a, b) => a - b)
   const nameOf = (id) => players.find((p) => p.id === id)?.name ?? '—'
-  let eagleCarry = 1
+  // Strokes under par each tier requires, in the order their lines should read.
+  const tiers = [
+    birdie && { label: 'Birdie', margin: 1 },
+    eagle && { label: 'Eagle', margin: 2 },
+  ].filter(Boolean)
 
   for (const hole of holes) {
     const par = Number(pars[hole])
     if (!Number.isFinite(par) || !completedHole(players, scores, hole)) continue
 
-    if (birdie) {
-      const birdies = players.filter((p) => grossScore(scores, p.id, hole) <= par - 1)
-      for (const p of birdies) {
+    for (const tier of tiers) {
+      const winners = players.filter((p) => grossScore(scores, p.id, hole) <= par - tier.margin)
+      for (const p of winners) {
         const value = addHeadToHeadPayout(players, payouts, p.id, valuePerSkin)
         if (value > 0) {
           holeTotals[hole] = (holeTotals[hole] ?? 0) + value
-          lines.push(`Hole ${hole}: ${nameOf(p.id)} Birdie +$${value}`)
+          lines.push(`Hole ${hole}: ${nameOf(p.id)} ${tier.label} +$${value}`)
         }
-      }
-    }
-
-    if (eagle) {
-      const eagles = players.filter((p) => grossScore(scores, p.id, hole) <= par - 2)
-      if (eagles.length === 1) {
-        const perOpponent = eagleCarry * valuePerSkin
-        const value = addHeadToHeadPayout(players, payouts, eagles[0].id, perOpponent)
-        if (value > 0) {
-          holeTotals[hole] = (holeTotals[hole] ?? 0) + value
-          lines.push(`Hole ${hole}: ${nameOf(eagles[0].id)} Eagle +$${value}${eagleCarry > 1 ? ` (${eagleCarry} skins)` : ''}`)
-        }
-        eagleCarry = 1
-      } else if (eagles.length > 1) {
-        // Sole eagle wins the carry; ties on eagle-or-better carry forward only.
-        eagleCarry += 1
       }
     }
   }
