@@ -357,7 +357,7 @@ const SKIN_TYPES = [
   { key: 'standardSkin', name: 'Standard Skin', tag: 'Low score wins', desc: 'Lowest unique score on a hole wins the skin; ties carry over.', base: true },
   { key: 'carryoverSkin', name: 'Carryover Skin', tag: 'Banked skins', desc: 'A tied hole stacks the skin onto the next, growing the payout until won outright.', base: false },
   { key: 'birdieBonusSkin', name: 'Birdie Skin', tag: 'Birdie+', desc: 'Every birdie-or-better wins its own flat skin, separate from the standard low-score skin.', base: true },
-  { key: 'eagleBonusSkin', name: 'Eagle Skin', tag: 'Carries', desc: 'Eagle-or-better carries hole to hole until exactly one player wins it outright.', base: true },
+  { key: 'eagleBonusSkin', name: 'Eagle Skin', tag: 'Eagle+', desc: 'Every eagle-or-better wins its own flat skin, separate from the standard low-score skin.', base: true },
   { key: 'greenie', name: 'Greenie', tag: 'Par 3s', desc: 'Par-3 CTP plus par or better. One winner; unclaimed Greenies carry to the next par 3. Cannot combine with CTP skin.', base: false },
   { key: 'sandie', name: 'Sandie', tag: 'Sand save', desc: 'Flag players who were in a bunker; each par-or-better sand save wins a flat skin.', base: false },
   { key: 'closestToPin', name: 'Closest to Pin', tag: 'Par 3s', desc: 'Nearest the flag on par 3s. Flag one winner per hole live during scoring; pays the base value head-to-head. Cannot combine with Greenie.', base: false },
