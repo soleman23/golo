@@ -164,6 +164,110 @@ export async function adminUpsertCourse(course) {
   return { course: data ? courseFromDb(data) : null, error }
 }
 
+/* ------------------------------------------------------------ course photos */
+
+const COURSE_IMAGE_BUCKET = 'course-images'
+// Landscape: these render as full-bleed page backdrops, not thumbnails.
+const COURSE_IMAGE_WIDTH = 1600
+const COURSE_IMAGE_HEIGHT = 1000
+const COURSE_IMAGE_QUALITY = 0.85
+
+/** Resize + center-crop to a landscape JPEG blob (cf. uploadAvatar in avatars.js). */
+async function toLandscapeJpeg(file) {
+  const url = URL.createObjectURL(file)
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const image = new Image()
+      image.onload = () => resolve(image)
+      image.onerror = reject
+      image.src = url
+    })
+
+    const targetRatio = COURSE_IMAGE_WIDTH / COURSE_IMAGE_HEIGHT
+    const sourceRatio = img.naturalWidth / img.naturalHeight
+    const cropW = sourceRatio > targetRatio ? img.naturalHeight * targetRatio : img.naturalWidth
+    const cropH = sourceRatio > targetRatio ? img.naturalHeight : img.naturalWidth / targetRatio
+
+    const canvas = document.createElement('canvas')
+    canvas.width = COURSE_IMAGE_WIDTH
+    canvas.height = COURSE_IMAGE_HEIGHT
+    canvas
+      .getContext('2d')
+      .drawImage(
+        img,
+        (img.naturalWidth - cropW) / 2,
+        (img.naturalHeight - cropH) / 2,
+        cropW,
+        cropH,
+        0,
+        0,
+        COURSE_IMAGE_WIDTH,
+        COURSE_IMAGE_HEIGHT
+      )
+
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', COURSE_IMAGE_QUALITY))
+    if (!blob) throw new Error('Could not process this image.')
+    return blob
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
+/**
+ * Upload a curated course photo and mark it `curated`, which stops the
+ * course-image edge function from ever replacing it with a fetched one.
+ */
+export async function adminUploadCourseImage(courseId, file) {
+  if (!isSupabaseConfigured) return { course: null, error: null }
+  if (!courseId) return { course: null, error: new Error('Save the course before adding a photo.') }
+  if (!file?.type?.startsWith('image/')) return { course: null, error: new Error('Please choose an image file.') }
+
+  let blob
+  try {
+    blob = await toLandscapeJpeg(file)
+  } catch (e) {
+    return { course: null, error: e instanceof Error ? e : new Error('Could not read that image.') }
+  }
+
+  const path = `${courseId}.jpg`
+  const { error: uploadError } = await supabase.storage
+    .from(COURSE_IMAGE_BUCKET)
+    .upload(path, blob, { upsert: true, contentType: 'image/jpeg', cacheControl: '3600' })
+  if (uploadError) {
+    callError('adminUploadCourseImage', uploadError)
+    return { course: null, error: uploadError }
+  }
+
+  // The object path is stable across re-uploads, so without a cache-buster the
+  // browser and CDN keep serving the photo this one just replaced.
+  const { data: pub } = supabase.storage.from(COURSE_IMAGE_BUCKET).getPublicUrl(path)
+  return adminSetCourseImage(courseId, `${pub.publicUrl}?v=${Date.now()}`)
+}
+
+/** Clear the photo. Leaves the storage object; the next upload overwrites it. */
+export async function adminRemoveCourseImage(courseId) {
+  return adminSetCourseImage(courseId, null)
+}
+
+export async function adminSetCourseImage(
+  id,
+  imageUrl,
+  source = 'curated',
+  attribution = null,
+  attributionUrl = null
+) {
+  if (!isSupabaseConfigured) return { course: null, error: null }
+  const { data, error } = await supabase.rpc('admin_set_course_image', {
+    p_id: id,
+    p_image_url: imageUrl,
+    p_source: imageUrl ? source : null,
+    p_attribution: attribution,
+    p_attribution_url: attributionUrl,
+  })
+  callError('adminSetCourseImage', error)
+  return { course: data ? courseFromDb(data) : null, error }
+}
+
 export async function adminSetCourseVisibility(id, visible) {
   if (!isSupabaseConfigured) return { course: null, error: null }
   const { data, error } = await supabase.rpc('admin_set_course_visibility', {

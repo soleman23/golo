@@ -10,7 +10,7 @@
     "test": "node scripts/verify-live-role.mjs && node scripts/verify-medium-fixes.mjs && node scripts/verify-press-bets.mjs && node scripts/verify-course-data.mjs",
     "ci": "npm test && npm run lint && npm run build",
     "test:edge": "deno test supabase/functions/_shared/",
-    "check:edge": "deno check --node-modules-dir=auto supabase/functions/ncrdb-course-search/index.ts supabase/functions/golfcourseapi-holes/index.ts",
+    "check:edge": "deno check --node-modules-dir=auto supabase/functions/ncrdb-course-search/index.ts supabase/functions/golfcourseapi-holes/index.ts supabase/functions/course-image/index.ts",
     "verify:engines": "node scripts/verify-medium-fixes.mjs",
     "verify:course-data": "node scripts/verify-course-data.mjs",
     "verify:course-enrichment": "node scripts/verify-course-enrichment.mjs",
@@ -21,6 +21,7 @@
     "verify:nearby-pipeline": "node scripts/verify-nearby-pipeline.mjs",
     "verify:nearby-ui": "node scripts/verify-nearby-ui.mjs",
     "db:courses": "node scripts/list-db-courses.mjs",
+    "backfill:course-images": "node scripts/backfill-course-images.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

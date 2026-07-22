@@ -17,8 +17,10 @@ import { buildBetResults, betGlyphName } from '../engines/betResults'
 import { skinsLongestDriveHole } from '../engines/skins'
 import useProfileStore from '../store/profileStore'
 import { playerKey } from '../lib/identity'
-import { getCourseImage } from '../lib/courseImages'
+import { getCourseImage, hasBundledImage } from '../lib/courseImages'
+import { fetchStoredCourseImage } from '../lib/db/courses'
 import AppHeader from '../components/shared/AppHeader'
+import CoursePhotoCredit from '../components/shared/CoursePhotoCredit'
 import { Icon } from '../components/shared/GoloIcons'
 import { fetchLiveRound, ensureLiveScorerAccess, liveRoundUserMessage, serializeRoundState } from '../lib/db/liveRounds'
 import { attachLiveSync, detachLiveSync, hydrateFromServer, subscribeToLiveRound, teardownLiveSync } from '../lib/liveRoundSync'
@@ -140,6 +142,26 @@ export default function ScoringPage() {
   const concededHoles = useRoundStore((s) => s.concededHoles)
   const storedHole = useRoundStore((s) => s.currentHole)
   const roundStatus = useRoundStore((s) => s.status)
+
+  // `round.courseBg` is frozen at commit time, so a photo that landed after the
+  // round started would never show. Re-read the course once on mount — but not
+  // when a bundled asset is going to win anyway, which would make the round-trip
+  // pure latency on the scoring screen's first paint.
+  const [freshCoursePhoto, setFreshCoursePhoto] = useState(null)
+  const roundCourseId = hasBundledImage(round) ? null : round?.courseId
+  useEffect(() => {
+    setFreshCoursePhoto(null)
+    if (!roundCourseId) return undefined
+    let cancelled = false
+    fetchStoredCourseImage(roundCourseId)
+      .then((photo) => {
+        if (!cancelled && photo) setFreshCoursePhoto(photo)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [roundCourseId])
 
   const updateScore = useRoundStore((s) => s.updateScore)
   const setCurrentHole = useRoundStore((s) => s.setCurrentHole)
@@ -679,7 +701,16 @@ export default function ScoringPage() {
     return <Navigate to="/setup" replace />
   }
 
-  const backdrop = getCourseImage(round)
+  const photoCourse = freshCoursePhoto
+    ? {
+        ...round,
+        image_url: freshCoursePhoto.imageUrl,
+        image_source: freshCoursePhoto.source,
+        image_attribution: freshCoursePhoto.attribution,
+        image_attribution_url: freshCoursePhoto.attributionUrl,
+      }
+    : round
+  const backdrop = getCourseImage(photoCourse)
   const courseLabel = round.course || round.tee?.name || ''
   const headerProps = {
     accent: ACCENT,
@@ -699,6 +730,7 @@ export default function ScoringPage() {
       <div style={S.root}>
         <div style={{ ...S.backdrop, background: COURSE_FALLBACK_BG, backgroundImage: `url(${backdrop}), ${COURSE_FALLBACK_BG}` }} />
         <div style={S.scrim} />
+        <CoursePhotoCredit course={photoCourse} />
         <div style={S.column}>
           <AppHeader {...headerProps} />
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
@@ -839,6 +871,7 @@ export default function ScoringPage() {
     <div style={S.root}>
       <div style={{ ...S.backdrop, background: COURSE_FALLBACK_BG, backgroundImage: `url(${backdrop}), ${COURSE_FALLBACK_BG}` }} />
       <div style={S.scrim} />
+      {sheet !== 'leaderboard' && <CoursePhotoCredit course={photoCourse} />}
 
       <div style={S.column}>
         <AppHeader {...headerProps} />
@@ -1064,6 +1097,7 @@ export default function ScoringPage() {
         <div style={{ position: 'absolute', inset: 0, zIndex: 35, display: 'flex', flexDirection: 'column', background: 'radial-gradient(120% 70% at 50% 0%, #2a7d4a 0%, #14532d 45%, #0a2418 85%)' }}>
           <div style={{ ...S.backdrop, background: COURSE_FALLBACK_BG, backgroundImage: `url(${backdrop}), ${COURSE_FALLBACK_BG}` }} />
           <div style={S.scrim} />
+          <CoursePhotoCredit course={photoCourse} />
           <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
 
             {/* utility row + progress */}
