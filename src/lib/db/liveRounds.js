@@ -271,6 +271,32 @@ export async function fetchLiveRoundEvents(liveRoundId, since = null) {
   return data ?? []
 }
 
+/**
+ * One round-trip for every active membership's event backlog.
+ * @param {string[]} liveRoundIds
+ * @returns {Promise<Map<string, Array<object>>>}
+ */
+export async function fetchLiveRoundEventsForRounds(liveRoundIds) {
+  const ids = [...new Set((liveRoundIds ?? []).filter(Boolean))]
+  const byRound = new Map(ids.map((id) => [id, []]))
+  if (!isSupabaseConfigured || !ids.length) return byRound
+
+  const { data, error } = await supabase
+    .from('live_round_events')
+    .select('id, live_round_id, type, payload, created_at')
+    .in('live_round_id', ids)
+    .order('created_at', { ascending: true })
+  if (error) {
+    console.error('[db] fetchLiveRoundEventsForRounds', error)
+    return byRound
+  }
+  for (const ev of data ?? []) {
+    const list = byRound.get(ev.live_round_id)
+    if (list) list.push(ev)
+  }
+  return byRound
+}
+
 /** Map Supabase/Postgres errors to actionable copy for toasts. */
 export function liveRoundUserMessage(err) {
   if (!err) return 'Something went wrong with the live round.'

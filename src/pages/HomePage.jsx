@@ -225,15 +225,24 @@ export default function HomePage() {
     setEndingLive(true)
     setEndLiveError(null)
     try {
+      const results = await Promise.allSettled(
+        targets.map((row) =>
+          completeLiveRound(row.id).then((res) => ({ id: row.id, error: res?.error ?? null })),
+        ),
+      )
+
       const endedIds = []
       let lastError = null
-      for (const row of targets) {
-        const { error } = await completeLiveRound(row.id)
-        if (error) {
-          lastError = error
-          break
+      for (const result of results) {
+        if (result.status === 'rejected') {
+          lastError = result.reason
+          continue
         }
-        endedIds.push(row.id)
+        if (result.value.error) {
+          lastError = result.value.error
+          continue
+        }
+        endedIds.push(result.value.id)
       }
 
       if (!endedIds.length && lastError) {

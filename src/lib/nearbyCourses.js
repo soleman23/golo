@@ -148,24 +148,35 @@ export function enrichRegionWithCatalog(region, catalog, fallbackCatalog) {
   return next
 }
 
+/** Max parallel NCRDB searches per nearby discovery (avoids 1→N fan-out). */
+export const MAX_NEARBY_SEARCH_QUERIES = 4
+
 /** Build NCRDB search payloads for regional nearby discovery. */
 export function buildNearbySearchQueries(region, catalog) {
   const city = String(region?.city ?? '').trim()
   const queries = []
+  const seen = new Set()
+  const push = (clubName) => {
+    const name = String(clubName ?? '').trim()
+    if (!name) return
+    const key = name.toLowerCase()
+    if (seen.has(key) || queries.length >= MAX_NEARBY_SEARCH_QUERIES) return
+    seen.add(key)
+    queries.push({ clubName: name, clubCountry: 'USA' })
+  }
+
   if (city) {
-    queries.push({ clubName: `${city} Golf`, clubCountry: 'USA' })
-    queries.push({ clubName: `${city} Golf Club`, clubCountry: 'USA' })
-    for (const term of extraRegionalSearchTerms(city)) {
-      queries.push({ clubName: term, clubCountry: 'USA' })
-    }
+    push(`${city} Golf`)
+    push(`${city} Golf Club`)
+    for (const term of extraRegionalSearchTerms(city)) push(term)
   }
   const nearest =
     region?.lat != null && region?.lng != null
-      ? sortCoursesByDistance(catalog, region.lat, region.lng).slice(0, 5)
-      : catalog.slice(0, 5)
+      ? sortCoursesByDistance(catalog, region.lat, region.lng)
+      : catalog
   for (const course of nearest) {
-    const name = String(course?.name ?? '').trim()
-    if (name) queries.push({ clubName: name, clubCountry: 'USA' })
+    if (queries.length >= MAX_NEARBY_SEARCH_QUERIES) break
+    push(course?.name)
   }
   return queries
 }

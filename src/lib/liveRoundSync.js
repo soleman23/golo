@@ -208,6 +208,46 @@ export function subscribeToLiveEvents(liveRoundId, onEvent) {
   }
 }
 
+/**
+ * Single Realtime channel for all active memberships (avoids N channel fan-out).
+ * Uses a unique channel key so overlapping effect re-runs cannot tear down
+ * each other's subscription via a shared map entry.
+ * @param {string[]} liveRoundIds
+ * @param {(ev: object) => void} onEvent
+ */
+export function subscribeToLiveEventsMany(liveRoundIds, onEvent) {
+  const ids = [...new Set((liveRoundIds ?? []).filter(Boolean))]
+  if (!isSupabaseConfigured || !ids.length) return () => {}
+
+  const filter =
+    ids.length === 1
+      ? `live_round_id=eq.${ids[0]}`
+      : `live_round_id=in.(${ids.join(',')})`
+
+  const key = `many-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+  const channel = supabase
+    .channel(`live-events-${key}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'live_round_events',
+        filter,
+      },
+      (payload) => {
+        if (payload.new) onEvent(payload.new)
+      }
+    )
+    .subscribe()
+
+  eventChannels.set(key, channel)
+
+  return () => {
+    removeEventChannel(key)
+  }
+}
+
 /** Stop scorer push + the current session's round-state channel only. */
 export function teardownLiveSync() {
   detachLiveSync()

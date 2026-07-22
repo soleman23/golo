@@ -149,6 +149,15 @@ const COURSES = [
 // lets us manage the catalogue.
 const VISIBLE_COURSE_IDS = ['tetherow', 'losttracks', 'pinehurst']
 const COURSE_PAGE_SIZE = 5
+const NEARBY_EXCLUDED_COURSE_IDS = new Set(['pinehurst', 'tetherow'])
+const NEARBY_EXCLUDED_COURSE_NAMES = new Set(['pinehurst no 2', 'sole cc', 'tetherow'])
+
+const nearbyCourseNameKey = (name) =>
+  String(name ?? '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+
+const isExcludedFromNearby = (id, name) =>
+  NEARBY_EXCLUDED_COURSE_IDS.has(String(id ?? '').trim().toLowerCase()) ||
+  NEARBY_EXCLUDED_COURSE_NAMES.has(nearbyCourseNameKey(name))
 
 const ncrdbValue = (course, ...keys) => {
   for (const key of keys) {
@@ -1867,6 +1876,7 @@ export default function SetupWizard() {
       : defaultHomeCourse(visible, { homeClub: profileHomeClub, rounds: historyRounds })
     let catalogMatches = visible.filter((candidate) => {
       if (homeCourse && candidate.id === homeCourse.id) return false
+      if (showNearby && isExcludedFromNearby(candidate.id, candidate.name)) return false
       return !q || `${candidate.name} ${candidate.loc ?? ''}`.toLowerCase().includes(q)
     })
     if (!q) {
@@ -1887,7 +1897,7 @@ export default function SetupWizard() {
           getId: ncrdbCourseId,
           getName: ncrdbCourseName,
           getLoc: ncrdbCourseLocation,
-        })
+        }).filter((hit) => !isExcludedFromNearby(ncrdbCourseId(hit), ncrdbCourseName(hit)))
       : []
     const mergedItems = [
       ...catalogMatches.map((item) => ({ kind: 'catalog', item })),

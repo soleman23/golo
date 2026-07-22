@@ -117,10 +117,18 @@ export async function syncOnLogin(userId, { force = false } = {}) {
     const remoteRounds = (await fetchRounds()) ?? []
     const remoteIds = new Set(remoteRounds.map((r) => r?.roundId))
     const toPush = localRounds.filter((r) => r?.roundId && !remoteIds.has(r.roundId))
-    for (const r of toPush) {
-      const { error } = await dbSaveRound(r, userId)
-      if (error) {
-        console.warn('[sync] skipped local round migration', r?.roundId, error)
+    // Cap concurrency so first-login migration isn't M sequential round-trips,
+    // without flooding Supabase with unbounded parallel upserts.
+    const MIGRATE_CONCURRENCY = 4
+    for (let i = 0; i < toPush.length; i += MIGRATE_CONCURRENCY) {
+      const chunk = toPush.slice(i, i + MIGRATE_CONCURRENCY)
+      const results = await Promise.all(
+        chunk.map((r) => dbSaveRound(r, userId).then((res) => ({ roundId: r.roundId, ...res }))),
+      )
+      for (const res of results) {
+        if (res.error) {
+          console.warn('[sync] skipped local round migration', res.roundId, res.error)
+        }
       }
     }
     const finalRounds = toPush.length ? ((await fetchRounds()) ?? remoteRounds) : remoteRounds

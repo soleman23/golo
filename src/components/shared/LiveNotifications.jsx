@@ -3,8 +3,8 @@ import useAuthStore from '../../store/authStore'
 import useProfileStore from '../../store/profileStore'
 import useLiveRoundStore from '../../store/liveRoundStore'
 import useNotificationStore from '../../store/notificationStore'
-import { fetchMyActiveLiveRounds, fetchLiveRoundEvents } from '../../lib/db/liveRounds'
-import { subscribeToLiveEvents } from '../../lib/liveRoundSync'
+import { fetchMyActiveLiveRounds, fetchLiveRoundEventsForRounds } from '../../lib/db/liveRounds'
+import { subscribeToLiveEventsMany } from '../../lib/liveRoundSync'
 import { isSupabaseConfigured } from '../../lib/supabaseClient'
 
 function eventCopy(type, payload, courseName) {
@@ -31,6 +31,28 @@ function shouldNotify(type, notifyLive, notifySettle) {
   return notifyLive
 }
 
+function processBacklog(r, backlog, { notifyLive, notifySettle, pushToast, markSeen }) {
+  const lastSeen = useNotificationStore.getState().lastSeenFor(r.id)
+
+  if (!lastSeen && backlog.length) {
+    markSeen(r.id, backlog[backlog.length - 1].id)
+    return
+  }
+
+  let afterMarker = !lastSeen
+  for (const ev of backlog) {
+    if (!afterMarker) {
+      if (ev.id === lastSeen) afterMarker = true
+      continue
+    }
+    if (!shouldNotify(ev.type, notifyLive, notifySettle)) continue
+    if (ev.type === 'round_started' && r.role === 'scorer') continue
+    const copy = eventCopy(ev.type, ev.payload, r.course_name)
+    pushToast({ ...copy, liveRoundId: r.id })
+    markSeen(r.id, ev.id)
+  }
+}
+
 /** Subscribes to live_round_events for active memberships; respects profile prefs. */
 export default function LiveNotifications() {
   const userId = useAuthStore((s) => s.user?.id ?? null)
@@ -46,50 +68,49 @@ export default function LiveNotifications() {
     if (!isSupabaseConfigured || !userId) return undefined
 
     let cancelled = false
-    const cleanups = []
+    let unsub = () => {}
 
     async function wire() {
       const rounds = await fetchMyActiveLiveRounds()
       if (cancelled) return
       roundsRef.current = rounds
+      if (!rounds.length) return
+
+      const byRound = await fetchLiveRoundEventsForRounds(rounds.map((r) => r.id))
+      if (cancelled) return
 
       for (const r of rounds) {
-        const lastSeen = useNotificationStore.getState().lastSeenFor(r.id)
-        const backlog = await fetchLiveRoundEvents(r.id)
         if (cancelled) return
-
-        if (!lastSeen && backlog.length) {
-          markSeen(r.id, backlog[backlog.length - 1].id)
-        } else {
-          let afterMarker = !lastSeen
-          for (const ev of backlog) {
-            if (!afterMarker) {
-              if (ev.id === lastSeen) afterMarker = true
-              continue
-            }
-            if (!shouldNotify(ev.type, notifyLive, notifySettle)) continue
-            if (ev.type === 'round_started' && r.role === 'scorer') continue
-            const copy = eventCopy(ev.type, ev.payload, r.course_name)
-            pushToast({ ...copy, liveRoundId: r.id })
-            markSeen(r.id, ev.id)
-          }
-        }
-
-        const unsub = subscribeToLiveEvents(r.id, (ev) => {
-          if (!shouldNotify(ev.type, notifyLive, notifySettle)) return
-          if (ev.type === 'round_started' && r.role === 'scorer') return
-          const copy = eventCopy(ev.type, ev.payload, r.course_name)
-          pushToast({ ...copy, liveRoundId: r.id })
-          markSeen(r.id, ev.id)
+        processBacklog(r, byRound.get(r.id) ?? [], {
+          notifyLive,
+          notifySettle,
+          pushToast,
+          markSeen,
         })
-        cleanups.push(unsub)
       }
+      if (cancelled) return
+
+      const roundById = Object.fromEntries(rounds.map((r) => [r.id, r]))
+      const nextUnsub = subscribeToLiveEventsMany(rounds.map((r) => r.id), (ev) => {
+        const r = roundById[ev.live_round_id]
+        if (!r) return
+        if (!shouldNotify(ev.type, notifyLive, notifySettle)) return
+        if (ev.type === 'round_started' && r.role === 'scorer') return
+        const copy = eventCopy(ev.type, ev.payload, r.course_name)
+        pushToast({ ...copy, liveRoundId: r.id })
+        markSeen(r.id, ev.id)
+      })
+      if (cancelled) {
+        nextUnsub()
+        return
+      }
+      unsub = nextUnsub
     }
 
     wire()
     return () => {
       cancelled = true
-      cleanups.forEach((fn) => fn())
+      unsub()
     }
   }, [userId, liveRoundId, notifyLive, notifySettle, pushToast, markSeen])
 
