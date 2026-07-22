@@ -12,8 +12,11 @@ import { createClient } from '@supabase/supabase-js'
 
 const url = import.meta.env.VITE_SUPABASE_URL
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+// Lets local visual tests exercise the offline path even when .env.local has a
+// live project configured. DEV is compile-time false in production builds.
+const forceLocalOnly = import.meta.env.DEV && import.meta.env.VITE_LOCAL_ONLY === 'true'
 
-export const isSupabaseConfigured = Boolean(url && anonKey)
+export const isSupabaseConfigured = !forceLocalOnly && Boolean(url && anonKey)
 
 if (!isSupabaseConfigured && import.meta.env.DEV) {
   console.warn(
