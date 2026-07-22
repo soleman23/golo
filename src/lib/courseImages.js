@@ -45,7 +45,12 @@ export function getCourseImage(courseOrRound, courseName) {
     return COURSE_IMAGE_BY_NORMALIZED_NAME[name.toLowerCase()]
   }
 
-  const savedImage = normalize(source.courseBg ?? source.bg ?? source.image ?? source.imageUrl)
+  // A fetched/curated photo (courses.image_url, camelCase imageUrl on merged
+  // catalogue rows) beats the legacy static `bg` asset — it's a real photo of
+  // that course rather than shared shipped art.
+  const savedImage = normalize(
+    source.image_url ?? source.imageUrl ?? source.courseBg ?? source.bg ?? source.image
+  )
   if (savedImage && isUsableImagePath(savedImage)) return savedImage
 
   return DEFAULT_COURSE_IMAGE
