@@ -220,37 +220,37 @@ These are the five skin types that can be active in any round. Each is independe
 
 **What triggers it:** Any player who makes a birdie (1 under par) or better on a hole.
 **When it's awarded:** Awarded regardless of whether they win the Standard Skin — this is its own independent skin.
-**Carryover:** Optional — groups can choose whether Birdie Skins carry over on ties or simply drop if two players birdie the same hole.
+**Carryover:** No — an unearned Birdie Skin simply doesn't pay; nothing banks to the next hole.
 
 | Scenario | Result |
 |---|---|
 | Alex makes birdie on Hole 5 (par 4, shoots 3) | Alex wins 1 Birdie Skin |
 | Alex also had the low score on Hole 5 | Alex wins both a Standard Skin AND a Birdie Skin |
-| Alex and Ben both birdie Hole 5 | Tie — Birdie Skin carries (if carryover on) or drops (if off) |
+| Alex and Ben both birdie Hole 5 | Both win a Birdie Skin — no tie, no carry |
 | Alex makes eagle on Hole 12 | Eagle Skin triggers (see below) — Birdie Skin also triggers if Birdie is enabled separately |
 
 **Payout Example (4 players, $5/birdie skin):** Alex pockets $5 × 3 players = **$15** just for the birdie, on top of any Standard Skin winnings.
 
-> **App Logic:** After recording each hole score, check: `if player_score === hole_par - 1`. If true, award a Birdie Skin. Run this check independently of the Standard Skin logic. Maintain a separate `birdie_carryover_count` if carryovers are enabled for this skin type.
+> **App Logic:** After recording each hole score, check: `if player_score <= hole_par - 1`. Award a Birdie Skin to every player who meets it, paid head-to-head against each opponent. Run this check independently of the Standard Skin logic, and keep no carryover counter.
 
 ***
 
 ### 3. 🦅 Eagle Skin
 
 **What triggers it:** Any player who makes an eagle (2 under par) or better on a hole.
-**When it's awarded:** Awarded as its own skin, independent of Standard and Birdie skins.
-**Carryover:** Yes — carries add to the pot until someone wins it outright.
+**When it's awarded:** Awarded as its own flat skin, independent of Standard and Birdie skins. Works exactly like the Birdie Skin, one tier deeper.
+**Carryover:** No — an unearned Eagle Skin simply doesn't pay; nothing banks to the next hole.
 
 | Scenario | Result |
 |---|---|
 | Carlos makes a 3 on a par 5 (eagle) | Carlos wins 1 Eagle Skin |
-| Nobody has made an eagle for 6 holes (6 carryovers) | Carlos wins 7 Eagle Skins |
-| Two players eagle the same hole | Tie — Eagle Skin carries forward |
+| Nobody eagles a hole | Nothing pays, and nothing carries to the next hole |
+| Two players eagle the same hole | Both win an Eagle Skin — no tie, no carry |
 | Hole-in-one on a par 3 | Eagle condition met (2 under par) — Eagle Skin + any Greenie Skin |
 
-**Payout Example (4 players, $10/eagle skin, 3 carryovers):** $10 × 4 skins × 3 players = **$120** — a single eagle can change the entire financial outcome of the round.
+**Payout Example (4 players, $10/eagle skin):** Carlos pockets $10 × 3 players = **$30** for the eagle, on top of his Birdie and Standard Skin winnings.
 
-> **App Logic:** Check: `if player_score <= hole_par - 2`. Eagle Skin is triggered. If Birdie Skin is also active, determine whether eagles also trigger birdie payouts (most groups say yes — eagle satisfies the birdie condition too). This is a configurable setting: `eagle_also_awards_birdie: true/false`.
+> **App Logic:** Check: `if player_score <= hole_par - 2`. Award an Eagle Skin to every player who meets it, paid head-to-head against each opponent. Run this check independently of the Standard Skin logic, and keep no carryover counter. An eagle also satisfies the birdie condition, so a player who eagles collects both skins when Birdie is enabled.
 
 ***
 
@@ -318,8 +318,8 @@ This is how a $5/$10/$3 game turns into a memorable payout from a single spectac
 | Skin Type | Trigger | Eligible Holes | Typical Value | Carryover? | Multi-Award per Hole? |
 |---|---|---|---|---|---|
 | **Standard** | Sole low score | All 18 | Set by group | ✅ Yes | No (1 winner) |
-| **Birdie** | Score = par − 1 or better | All 18 | Set by group | Optional | ✅ Yes (multiple birdies) |
-| **Eagle** | Score = par − 2 or better | All 18 | Set by group | ✅ Yes | ✅ Yes |
+| **Birdie** | Score = par − 1 or better | All 18 | Set by group | No | ✅ Yes (multiple birdies) |
+| **Eagle** | Score = par − 2 or better | All 18 | Set by group | No | ✅ Yes (multiple eagles) |
 | **Greenie** | CTP on par 3 + par or better | Par 3s only | Set by group | ✅ Yes (par 3 to par 3) | No (1 CTP per hole) |
 | **Sandie** | In bunker + par or better | All 18 | Set by group | Optional | ✅ Yes (multiple players) |
 

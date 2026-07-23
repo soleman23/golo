@@ -4,6 +4,7 @@
 import { calculateStablefordPoints } from '../src/engines/stableford.js'
 import { allocateStrokes, parseHandicapIndex, clampHandicapIndex } from '../src/engines/handicap.js'
 import { buildLeaderboard } from '../src/engines/scoring.js'
+import { calculateBonusSkins } from '../src/engines/skins.js'
 import { getPressEligibility } from '../src/engines/pressBets.js'
 import { buildMatchPairings, buildMatchplayLeaderboard } from '../src/engines/matchplay.js'
 import { isWolfField } from '../src/engines/wolf.js'
@@ -66,13 +67,36 @@ const pars = Object.fromEntries(Array.from({ length: 18 }, (_, i) => [i + 1, 4])
 const board = buildLeaderboard(players, scores, {}, pars, 18)
 assert('leaderboard tie on net ranks more holes played first', board[0].player.id === 'b')
 
-// #11 eagle carry: only ties increment (logic mirror)
-let eagleCarry = 1
-for (const eaglesLen of [0, 0, 2, 0]) {
-  if (eaglesLen === 1) eagleCarry = 1
-  else if (eaglesLen > 1) eagleCarry += 1
+// Eagle Skin pays flat like Birdie: no carry, and every eagle on a hole is paid.
+{
+  const four = [{ id: 'a', name: 'Ann' }, { id: 'b', name: 'Bob' }, { id: 'c', name: 'Cal' }, { id: 'd', name: 'Dee' }]
+  const bonusPars = { 1: 5, 2: 4, 3: 5, 4: 5 }
+  // Hole 1 sole eagle (Cal) · hole 2 nothing · hole 3 two eagles (Cal + Dee) ·
+  // hole 4 sole eagle again. No one ever makes a plain birdie, so a birdie-only
+  // run and an eagle-only run have to come out identical.
+  const bonusScores = {
+    a: { 1: 5, 2: 4, 3: 5, 4: 5 },
+    b: { 1: 5, 2: 4, 3: 5, 4: 5 },
+    c: { 1: 3, 2: 4, 3: 3, 4: 3 },
+    d: { 1: 5, 2: 4, 3: 3, 4: 5 },
+  }
+  const eagleOnly = calculateBonusSkins(four, bonusScores, bonusPars, { valuePerSkin: 10, eagle: true })
+  const birdieOnly = calculateBonusSkins(four, bonusScores, bonusPars, { valuePerSkin: 10, birdie: true })
+  assert('both eagles on a shared hole are paid', eagleOnly.lines.filter((l) => l.startsWith('Hole 3:')).length === 2)
+  // Under the old carry rule the hole-3 tie banked a skin and this paid $60.
+  assert('an eagle tie does not carry to the next hole', eagleOnly.holeTotals[4] === 30)
+  assert('eagle payouts net to zero', Object.values(eagleOnly.payouts).reduce((s, v) => s + v, 0) === 0)
+  assert(
+    'eagle pays exactly like birdie at the same value',
+    JSON.stringify(eagleOnly.payouts) === JSON.stringify(birdieOnly.payouts) &&
+      JSON.stringify(eagleOnly.holeTotals) === JSON.stringify(birdieOnly.holeTotals)
+  )
+
+  // An eagle clears the birdie margin too, so both tiers pay on the same hole.
+  const both = calculateBonusSkins(four, bonusScores, bonusPars, { valuePerSkin: 5, birdie: true, eagle: true })
+  assert('an eagle also collects the birdie skin', both.lines.filter((l) => l.startsWith('Hole 1:')).length === 2)
+  assert('the two tiers stack rather than replace', both.holeTotals[1] === 30)
 }
-assert('eagle carry unchanged across par holes, increments on eagle tie', eagleCarry === 2)
 
 // #15 carried skins: leaders split carry from each non-leader (settlement math)
 {
