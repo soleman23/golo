@@ -191,7 +191,7 @@ export default function NotificationsPage() {
       <div style={S.scrim} />
 
       <div style={S.column}>
-        <AppHeader accent={ACCENT} backTo={-1} logo="wordmark" rightAction="pin" kicker="INBOX" title="Notifications" showBell={false} />
+        <AppHeader accent={ACCENT} backTo={-1} logo="wordmark" rightAction="pin" kicker="INBOX" title="Notifications" currentPage="Notifications" />
 
         <div className="golo-scroll" style={S.scroll}>
           <div style={S.topRow}>

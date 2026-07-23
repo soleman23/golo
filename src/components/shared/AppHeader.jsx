@@ -70,7 +70,6 @@ export default function AppHeader({
   showTitle = true,
   titleCollapsed = false,
   showBack = true,
-  showBell = false,
   style,
 }) {
   const navigate = useNavigate()
@@ -83,6 +82,11 @@ export default function AppHeader({
   const menuItems = [
     { label: 'Home', to: '/' },
     { label: 'You', to: '/you' },
+    {
+      label: 'Notifications',
+      to: '/notifications',
+      ...(unread > 0 ? { badge: unread > 9 ? '9+ new' : `${unread} new` } : {}),
+    },
     { label: 'Contact support', to: '/contact' },
   ]
 
@@ -116,19 +120,6 @@ export default function AppHeader({
         </div>
 
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', minWidth: 0 }}>
-          {showBell && (
-            <button type="button" onClick={() => navigate('/notifications')} aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'} style={{ position: 'relative', flex: '0 0 auto', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4))' }} aria-hidden="true">
-                <path d="M12 3a5.5 5.5 0 0 0-5.5 5.5v3l-1.3 2.6a1 1 0 0 0 .9 1.4h11.8a1 1 0 0 0 .9-1.4l-1.3-2.6v-3A5.5 5.5 0 0 0 12 3Z" stroke={accent} strokeWidth="1.9" strokeLinejoin="round" />
-                <path d="M9.5 18.5a2.5 2.5 0 0 0 5 0" stroke={accent} strokeWidth="1.9" strokeLinecap="round" />
-              </svg>
-              {unread > 0 && (
-                <span style={{ position: 'absolute', top: 2, right: 2, minWidth: 16, height: 16, padding: '0 4px', boxSizing: 'border-box', borderRadius: 9999, background: accent, color: '#13250a', fontSize: 10, fontWeight: 800, lineHeight: '16px', textAlign: 'center', boxShadow: '0 0 0 2px rgba(10,20,14,.55)' }}>
-                  {unread > 9 ? '9+' : unread}
-                </span>
-              )}
-            </button>
-          )}
           <div style={{ flex: '0 0 auto', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {rightAction === 'help' && (
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4))' }} aria-hidden="true">
@@ -143,7 +134,13 @@ export default function AppHeader({
               </svg>
             )}
             {rightAction === 'pin' && (
-              <button type="button" onClick={() => setMenuOpen((v) => !v)} aria-label="Open menu" style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+              <button
+                type="button"
+                onClick={() => setMenuOpen((v) => !v)}
+                aria-label={unread > 0 ? `Open menu, ${unread} unread` : 'Open menu'}
+                aria-expanded={menuOpen}
+                style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+              >
                 <PinMark accent={accent} width={28} height={29} style={{ filter: 'drop-shadow(0 3px 9px rgba(0,0,0,.5))' }} />
               </button>
             )}
@@ -168,7 +165,14 @@ export default function AppHeader({
             {menuItems.map((item, i) => (
               <button key={item.label} type="button" onClick={() => goMenu(item.to)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '14px 16px', textDecoration: 'none', color: '#fff', fontSize: 14, fontWeight: 700, border: 'none', borderBottom: i < menuItems.length - 1 ? '1px solid rgba(255,255,255,.08)' : 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
                 {item.label}
-                <span style={{ color: accent, fontSize: 14, fontWeight: 800, display: item.label === currentPage ? 'inline' : 'none' }}>●</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, flex: '0 0 auto' }}>
+                  {item.badge && (
+                    <span style={{ minWidth: 42, padding: '3px 7px', borderRadius: 9999, background: unread > 0 ? accent : 'rgba(255,255,255,.1)', color: unread > 0 ? '#13250a' : 'rgba(255,255,255,.5)', fontSize: 10, fontWeight: 800, lineHeight: 1.2, textAlign: 'center' }}>
+                      {item.badge}
+                    </span>
+                  )}
+                  <span style={{ color: accent, fontSize: 14, fontWeight: 800, display: item.label === currentPage ? 'inline' : 'none' }}>●</span>
+                </span>
               </button>
             ))}
           </div>

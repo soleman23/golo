@@ -139,7 +139,7 @@ export default function HistoryPage() {
       <div style={S.scrim} />
 
       <div style={S.column}>
-        <AppHeader accent={ACCENT} backTo="/" logo="wordmark" rightAction="pin" kicker="YOUR ROUNDS" title="History" showBell />
+        <AppHeader accent={ACCENT} backTo="/" logo="wordmark" rightAction="pin" kicker="YOUR ROUNDS" title="History" />
         <div style={S.headerActions}>
           <span style={{ fontSize: 13, color: 'rgba(255,255,255,.6)' }}>
             {savedRounds.length} saved {savedRounds.length === 1 ? 'round' : 'rounds'}
