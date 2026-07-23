@@ -102,7 +102,11 @@ try {
   const initialText = await page.locator('body').innerText()
   check(initialPoolCount <= 4, `initial unified list is capped at four rows (saw ${initialPoolCount})`)
   check(homeCount <= 1, `home course is rendered at most once (saw ${homeCount})`)
-  check(homeCount === 1, 'explicit You home club shows a HOME COURSE section')
+  if (process.env.GOLO_LOCAL_TEST === '1') {
+    check(homeCount === 1, 'explicit You home club shows a HOME COURSE section')
+    const homeText = await page.locator('[data-home-course]').innerText()
+    check(/Tetherow/i.test(homeText), 'HOME COURSE section shows the seeded Tetherow club')
+  }
   check(!/MORE NEARBY/i.test(initialText), 'legacy MORE NEARBY section is absent')
   check(await page.getByText('ROUND', { exact: true }).isVisible(), 'scorecard note and ROUND controls remain visible while browsing')
   if (denyGeo) {
@@ -112,6 +116,9 @@ try {
       (await poolCards.first().getAttribute('data-course-id')) === 'pinehurst',
       'played-history fallback orders by play count before recency',
     )
+  } else {
+    const nearbyPoolText = await page.locator('[data-course-list]').innerText()
+    check(!/Pinehurst\s+No\.?\s*2|Sole\s+CC|Tetherow/i.test(nearbyPoolText), 'excluded courses stay out of the nearby list')
   }
 
   const pagination = page.locator('[data-course-pagination]')

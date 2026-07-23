@@ -150,6 +150,16 @@ const COURSES = [
 // lets us manage the catalogue.
 const VISIBLE_COURSE_IDS = ['tetherow', 'losttracks', 'pinehurst']
 const COURSE_PAGE_SIZE = 4
+// Demo / sample courses — keep for scorecard lookup, but never mix into nearby.
+const NEARBY_EXCLUDED_COURSE_IDS = new Set(['pinehurst', 'tetherow'])
+const NEARBY_EXCLUDED_COURSE_NAMES = new Set(['pinehurst no 2', 'sole cc', 'tetherow'])
+
+const nearbyCourseNameKey = (name) =>
+  String(name ?? '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+
+const isExcludedFromNearby = (id, name) =>
+  NEARBY_EXCLUDED_COURSE_IDS.has(String(id ?? '').trim().toLowerCase()) ||
+  NEARBY_EXCLUDED_COURSE_NAMES.has(nearbyCourseNameKey(name))
 
 const ncrdbValue = (course, ...keys) => {
   for (const key of keys) {
@@ -360,7 +370,7 @@ const SKIN_TYPES = [
   { key: 'standardSkin', name: 'Standard Skin', tag: 'Low score wins', desc: 'Lowest unique score on a hole wins the skin; ties carry over.', base: true },
   { key: 'carryoverSkin', name: 'Carryover Skin', tag: 'Banked skins', desc: 'A tied hole stacks the skin onto the next, growing the payout until won outright.', base: false },
   { key: 'birdieBonusSkin', name: 'Birdie Skin', tag: 'Birdie+', desc: 'Every birdie-or-better wins its own flat skin, separate from the standard low-score skin.', base: true },
-  { key: 'eagleBonusSkin', name: 'Eagle Skin', tag: 'Eagle+', desc: 'Every eagle-or-better wins its own flat skin, separate from the standard low-score skin.', base: true },
+  { key: 'eagleBonusSkin', name: 'Eagle Skin', tag: 'Carries', desc: 'Eagle-or-better carries hole to hole until exactly one player wins it outright.', base: true },
   { key: 'greenie', name: 'Greenie', tag: 'Par 3s', desc: 'Par-3 CTP plus par or better. One winner; unclaimed Greenies carry to the next par 3. Cannot combine with CTP skin.', base: false },
   { key: 'sandie', name: 'Sandie', tag: 'Sand save', desc: 'Flag players who were in a bunker; each par-or-better sand save wins a flat skin.', base: false },
   { key: 'closestToPin', name: 'Closest to Pin', tag: 'Par 3s', desc: 'Nearest the flag on par 3s. Flag one winner per hole live during scoring; pays the base value head-to-head. Cannot combine with Greenie.', base: false },
@@ -501,12 +511,17 @@ function initState() {
     COURSES.find((c) => c.name === round?.course)
 
   const profile = useProfileStore.getState()
-  const historyRounds = useHistoryStore.getState().rounds
-  const homeCourse = defaultHomeCourse(COURSES, {
-    homeClub: profile.homeClub,
-    rounds: historyRounds,
-  })
-  const initialCourse = courseMatch ?? homeCourse ?? COURSES.find((c) => c.id === 'pinehurst') ?? COURSES[0]
+  // Explicit You home club only — don't silently default to demo/history courses.
+  const homeCourse = profile.homeClub?.trim()
+    ? matchCourseInCatalog(COURSES, profile.homeClub.trim())
+    : null
+  const fallbackCourse =
+    VISIBLE_COURSE_IDS.map((id) => COURSES.find((c) => c.id === id))
+      .filter(Boolean)
+      .find((c) => !isExcludedFromNearby(c.id, c.name)) ??
+    COURSES.find((c) => !isExcludedFromNearby(c.id, c.name)) ??
+    COURSES[0]
+  const initialCourse = courseMatch ?? homeCourse ?? fallbackCourse
   const card = courseMatch
     ? defaultCard(holes, round?.pars, round?.strokeIndex)
     : cardForCourse(initialCourse, holes)
@@ -939,18 +954,15 @@ export default function SetupWizard() {
     }
   }, [st.showAccountPicker, accountSearch, liveRoundsEnabled])
 
-  // When the DB catalogue loads, default to home course if it wasn't in the bundled list.
+  // When the DB catalogue loads, default to the You home club if it wasn't in the bundled list.
   useEffect(() => {
     if (!coursesFromDb || userPickedCourse.current) return
     const { round } = useRoundStore.getState()
     if (round && round.status !== 'complete') return
 
     const profile = useProfileStore.getState()
-    const historyRounds = useHistoryStore.getState().rounds
-    const homeCourse = defaultHomeCourse(catalog, {
-      homeClub: profile.homeClub,
-      rounds: historyRounds,
-    })
+    if (!profile.homeClub?.trim()) return
+    const homeCourse = matchCourseInCatalog(catalog, profile.homeClub.trim())
     if (!homeCourse) return
 
     setSt((s) => {
@@ -966,6 +978,29 @@ export default function SetupWizard() {
       }
     })
   }, [coursesFromDb, catalog])
+
+  // If nearby is ready and the silent default is a hidden demo course, move off it.
+  useEffect(() => {
+    if (userPickedCourse.current) return
+    if (geoStatus !== GEO_STATUS.READY) return
+    const selected = catalog.find((c) => c.id === st.courseId)
+    if (!selected || !isExcludedFromNearby(selected.id, selected.name)) return
+    if (profileHomeClub?.trim() && matchCourseInCatalog([selected], profileHomeClub.trim())) return
+
+    const next =
+      catalog.find((c) => !isExcludedFromNearby(c.id, c.name)) ??
+      null
+    if (!next || next.id === st.courseId) return
+    const card = cardForCourse(next, st.holes)
+    setSt((s) => ({
+      ...s,
+      courseId: next.id,
+      teeIdx: 1,
+      pars: card.pars,
+      strokeIndex: card.strokeIndex,
+      bets: betsWithNormalizedLdHole(s.bets, card.pars),
+    }))
+  }, [geoStatus, catalog, st.courseId, st.holes, profileHomeClub])
 
   // Open every step at the top of the scroll, not wherever the previous step
   // left the shared scroll container.
@@ -1279,6 +1314,15 @@ export default function SetupWizard() {
       strokeIndex: card.strokeIndex,
       bets: betsWithNormalizedLdHole(st.bets, card.pars),
     })
+    if (geoStatus !== GEO_STATUS.READY) {
+      const fallback = regionFromCourse(c)
+      if (fallback) {
+        setGeoRegion(fallback)
+        setGeoStatus(GEO_STATUS.READY)
+        nearbyRetryCount.current = 0
+        scheduleNearbyFetch(fallback, { force: true })
+      }
+    }
     collapseCourseBrowser()
   }
 
@@ -1915,6 +1959,7 @@ export default function SetupWizard() {
       : matchCourseInCatalog(visible, profileHomeClub.trim())
     let catalogMatches = visible.filter((candidate) => {
       if (homeCourse && candidate.id === homeCourse.id) return false
+      if (showNearby && isExcludedFromNearby(candidate.id, candidate.name)) return false
       return !q || `${candidate.name} ${candidate.loc ?? ''}`.toLowerCase().includes(q)
     })
     if (!q) {
@@ -1935,7 +1980,7 @@ export default function SetupWizard() {
           getId: ncrdbCourseId,
           getName: ncrdbCourseName,
           getLoc: ncrdbCourseLocation,
-        })
+        }).filter((hit) => !isExcludedFromNearby(ncrdbCourseId(hit), ncrdbCourseName(hit)))
       : []
     const mergedItems = [
       ...catalogMatches.map((item) => ({ kind: 'catalog', item })),
