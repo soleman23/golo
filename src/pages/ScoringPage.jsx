@@ -162,7 +162,6 @@ export default function ScoringPage() {
   const [cardNine, setCardNine] = useState('front') // scorecard view: 'front' | 'back'
   const [copiedInvite, setCopiedInvite] = useState(false)
   const [liveLoading, setLiveLoading] = useState(false)
-  const [headerCollapsed, setHeaderCollapsed] = useState(() => players.length >= 4)
   const liveEndedHandled = useRef(false)
 
   const liveRole = useLiveRoundRole()
@@ -719,7 +718,9 @@ export default function ScoringPage() {
     title: 'Scoring',
     contextPill: courseLabel,
     pillAlign: 'right',
-    titleCollapsed: headerCollapsed,
+    // Keep header height stable while the score list scrolls. Tying this to
+    // scrollTop caused a resize -> scrollTop reset -> resize feedback loop.
+    titleCollapsed: players.length >= 4,
     currentPage: 'Play',
   }
 
@@ -813,12 +814,6 @@ export default function ScoringPage() {
     (ctpBet && !readOnly) ||
     (ldBet && !readOnly) ||
     (skinsActive && !readOnly)
-
-  // Collapse the header title row as the score list scrolls (hysteresis avoids flicker).
-  const onListScroll = (e) => {
-    const y = e.currentTarget.scrollTop
-    setHeaderCollapsed((c) => (c ? y >= 8 : y > 26))
-  }
 
   /* --------------------------------------------------------------- entity card */
 
@@ -997,7 +992,7 @@ export default function ScoringPage() {
               {entities.map(compactRow)}
             </div>
             {hasFoursomeSidePanels && (
-              <div className="golo-scroll" onScroll={onListScroll} style={S.scroll}>
+              <div className="golo-scroll" style={S.scroll}>
                 {isMatchplay && matchInfoList.length > 0 && !readOnly && matchInfoList.map((info) => (
                   <MatchPanel
                     key={`${info.side1.id}-${info.side2.id}`}
@@ -1057,7 +1052,7 @@ export default function ScoringPage() {
             )}
           </>
         ) : (
-        <div className="golo-scroll" onScroll={onListScroll} style={S.scroll}>
+        <div className="golo-scroll" style={S.scroll}>
           {isMatchplay && matchInfoList.length > 0 && !readOnly && matchInfoList.map((info) => (
             <MatchPanel
               key={`${info.side1.id}-${info.side2.id}`}
