@@ -26,10 +26,12 @@
 --     solely through SECURITY DEFINER RPCs (which run as the owner and bypass
 --     both). That covers live_round_slots, notification_deliveries,
 --     course_scorecard_cache, ghin_connections and ghin_oauth_states.
---   * `anon` gets NOTHING. Every route in App.jsx is behind a verified session
---     and no client call is made signed-out — the same reasoning as 0020.
+--   * `anon` gets nothing on any table below. Every route in App.jsx is behind a
+--     verified session and no client call is made signed-out — the same
+--     reasoning as 0020. (The `public_profiles` VIEW keeps the anon SELECT that
+--     0001/0018 deliberately gave it; that grant is out of scope here.)
 --   * Already-granted objects are left to the migration that owns them:
---     game_type_visibility (0027) and the public_profiles view (0018).
+--     game_type_visibility (0027) and the public_profiles view (0001/0018).
 --
 -- Re-runnable: GRANT is idempotent.
 

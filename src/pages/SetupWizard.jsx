@@ -1569,8 +1569,18 @@ export default function SetupWizard() {
           .filter((p) => p.userId && p.userId !== userId)
           .map((p) => p.userId)
         if (!inviteeIds.length) return
-        const { data } = await sendGameInvites(live.liveRoundId, inviteeIds)
-        if (!data) return
+        const { data, error } = await sendGameInvites(live.liveRoundId, inviteeIds)
+        if (error || !data) {
+          // Never let this fail silently — the organizer would assume their
+          // players were notified. The share link still works as a fallback.
+          useNotificationStore.getState().pushToast({
+            kicker: 'GAME INVITES',
+            title: 'Could not send invites',
+            body: 'Share the invite link instead — the round itself started fine.',
+            duration: 8000,
+          })
+          return
+        }
         const invited = data.invited ?? 0
         const alreadyIn = (data.skipped ?? []).filter((s) => s.reason === 'already_member').length
         patch({ inviteSummary: { invited, alreadyIn } })

@@ -9,6 +9,7 @@ import {
   fetchPreferences,
   upsertPreference,
   respondGameInvite,
+  fetchMyPendingInviteIds,
 } from '../lib/db/notifications'
 
 /**
@@ -68,11 +69,13 @@ export default function NotificationsPage() {
   const [prefs, setPrefs] = useState(null) // event_type → { in_app_enabled, push_enabled }
   const [invBusy, setInvBusy] = useState({}) // invite_id → true while its RPC is in flight
   const [invErr, setInvErr] = useState({})   // invite_id → error message
+  const [pendingInvites, setPendingInvites] = useState(null) // Set of invite ids awaiting my answer
 
   // Refresh from the server on mount (the inbox may already be hydrated by the
   // always-on LiveNotifications bridge, but a direct visit / hard refresh needs it).
   useEffect(() => {
     hydrateInbox()
+    fetchMyPendingInviteIds().then(setPendingInvites)
     fetchPreferences().then((rows) => {
       const map = {}
       for (const r of rows) map[r.event_type] = r
@@ -119,7 +122,9 @@ export default function NotificationsPage() {
       return
     }
     markRead(n.id)          // the server also cleared it; reflect it immediately
-    await hydrateInbox()    // pull the settled row (read → the buttons drop away)
+    // Re-read both: the invite is no longer pending, so its buttons drop away.
+    await Promise.all([hydrateInbox(), fetchMyPendingInviteIds().then(setPendingInvites)])
+    setInvBusy((b) => ({ ...b, [inviteId]: false }))
     const status = data?.status
     if (status === 'expired') {
       pushToast({ kicker: 'GAME INVITE', title: 'That game is no longer live.' })
@@ -129,16 +134,17 @@ export default function NotificationsPage() {
     } else {
       pushToast({ kicker: 'GAME INVITE', title: 'Organizer notified.' })
     }
-    setInvBusy((b) => ({ ...b, [inviteId]: false }))
   }
 
   // Plain render helpers (not components) so state isn't reset each render.
   const renderItem = (n) => {
-    // Actionable while the invite is still open: has a live round + not yet acted
-    // on (responding marks it read). round_id null = the round was deleted.
-    const actionableInvite =
-      n.type === 'game_invite_received' && n.payload?.invite_id && n.round_id && !n.read_at
+    // Actionable while the invite is genuinely still pending on the server —
+    // NOT merely unread. Marking a row read (tapping it, or "Mark all read")
+    // must never strand an invite the player can still answer. round_id null
+    // means the round was deleted, so there is nothing to join.
     const inviteId = n.payload?.invite_id
+    const actionableInvite =
+      n.type === 'game_invite_received' && inviteId && n.round_id && !!pendingInvites?.has(inviteId)
     const busy = actionableInvite ? !!invBusy[inviteId] : false
     const err = actionableInvite ? invErr[inviteId] : null
 

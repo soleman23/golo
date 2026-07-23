@@ -136,6 +136,31 @@ export async function respondGameInvite(inviteId, accept) {
   return { data, error }
 }
 
+/**
+ * Ids of invites addressed to me that are still awaiting a response.
+ *
+ * The inbox gates its Accept/Deny buttons on this rather than on the
+ * notification's read state: marking a row read (tapping the card, or "Mark all
+ * read") must not strand an invite that is still pending on the server.
+ * Readable directly — game_invites_select_party admits the invitee.
+ */
+export async function fetchMyPendingInviteIds() {
+  if (!isSupabaseConfigured) return new Set()
+  const { data: auth } = await supabase.auth.getUser()
+  const uid = auth?.user?.id
+  if (!uid) return new Set()
+  const { data, error } = await supabase
+    .from('game_invites')
+    .select('id')
+    .eq('invitee_id', uid)
+    .eq('status', 'pending')
+  if (error) {
+    console.error('[db] fetchMyPendingInviteIds', error)
+    return new Set()
+  }
+  return new Set((data ?? []).map((r) => r.id))
+}
+
 /** Invite roster + response status for a round (any member). No contact fields:
  *  each row is { invitee_id, name, status, responded_at }. */
 export async function fetchInviteStatus(roundId) {

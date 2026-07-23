@@ -164,6 +164,18 @@ try {
     'invite payload carries no contact PII')
   const inviteId = inviteNotif?.payload?.invite_id
 
+  // The inbox gates Accept/Deny on the invite's own status, not on the
+  // notification's read state — marking a row read must not strand a pending
+  // invite. Both halves of that contract are asserted here.
+  const { data: pendingBefore } = await B.select('game_invites', 'select=id,status&status=eq.pending')
+  assert(pendingBefore?.length === 1 && pendingBefore[0].id === inviteId,
+    'the invitee can read their own pending invite (backs the inbox buttons)')
+  await B.update('notifications', `id=eq.${inviteNotif.id}`, { read_at: new Date().toISOString() })
+  const { data: pendingAfterRead } = await B.select('game_invites', 'select=id&status=eq.pending')
+  assert(pendingAfterRead?.length === 1,
+    'marking the notification read leaves the invite pending and answerable')
+  await B.update('notifications', `id=eq.${inviteNotif.id}`, { read_at: null })
+
   // Re-inviting is a no-op skip, not an error or a duplicate.
   const { data: again } = await A.rpc('send_game_invites', { p_round_id: roundId, p_invitee_ids: [B.id] })
   assert(again?.invited === 0 && again?.skipped?.[0]?.reason === 'already_invited',
@@ -213,6 +225,10 @@ try {
   // Double-respond must not double-apply.
   const { data: dup, error: dupErr } = await B.rpc('respond_game_invite', { p_invite_id: inviteId, p_accept: true })
   assert(!dupErr && dup?.already === true, 'responding twice returns the settled state, not an error')
+
+  const { data: pendingAfterAccept } = await B.select('game_invites', 'select=id&status=eq.pending')
+  assert((pendingAfterAccept?.length ?? 0) === 0,
+    'once answered the invite leaves the pending set (buttons drop away)')
 
   // Already a member → skipped on a further invite.
   const { data: postJoin } = await A.rpc('send_game_invites', { p_round_id: roundId, p_invitee_ids: [B.id] })

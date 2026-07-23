@@ -310,7 +310,7 @@ deliberately *narrower* than the legacy Supabase default:
 | `notifications`, `live_rounds` | select, update |
 | `live_round_members`, `live_round_events`, `round_betting_terms`, `round_betting_acceptances`, `payment_requests`, `game_invites` | select |
 | `live_round_slots`, `notification_deliveries`, `course_scorecard_cache`, `ghin_connections`, `ghin_oauth_states` | **none** — server-only, definer RPCs |
-| `anon` | **nothing, anywhere** |
+| `anon` | **nothing on any of these tables** (the `public_profiles` view keeps its own anon SELECT from 0001/0018) |
 
 Each grant mirrors that table's RLS policies exactly. A useful consequence: the
 browser can no longer INSERT a `notification` or a `game_invite` even at the
