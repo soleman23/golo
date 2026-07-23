@@ -273,7 +273,39 @@ policy, or granting `notif_category` each make it fail.
 > two-account integration test can't run in CI, so the behavioural pass stays
 > manual — see below.
 
-**Manual/staging pass** (needs the migration applied + two accounts):
+**Built: `scripts/verify-invites-e2e.mjs`** (41 assertions, `npm run verify:invites-e2e`).
+The real two-account behavioural pass, against a **local** stack
+(`npx supabase start && npx supabase db reset --local`). It creates three auth
+users and calls every RPC as each of them, so `auth.uid()` and RLS are genuinely
+exercised. Talks to PostgREST/GoTrue over plain `fetch` — `@supabase/supabase-js`
+eagerly builds a realtime socket that needs Node 22+, and this repo runs Node 20.
+Kept out of `npm test` (needs Docker). All 41 pass, including: the slot claim
+(`role = 'player'` with the right `slot_player_id`), the organizer notification
+with the review comment, the legacy two-arg `respond_betting_terms` call still
+resolving, `is_betting_active` false → true → false across a re-finalize, and
+every RLS negative.
+
+> ### Open issue: the migrations don't carry their own table grants
+>
+> On a fresh local database **every** table is unreadable by `authenticated` —
+> `permission denied for table notifications`, and the same for `profiles`,
+> `live_rounds`, everything. Recent Supabase CLI versions ship a hardened default
+> ACL for schema `public`: tables created by `postgres` grant anon/authenticated
+> only `Dxtm` (truncate/references/trigger/maintain), **not**
+> select/insert/update/delete. RLS filters rows only *after* table privileges are
+> checked, so no policy can compensate.
+>
+> The hosted project was provisioned under the older default (full `arwdDxtm`),
+> which is why the shipped app works today — this is latent, not a live outage.
+> But the migration chain is not self-contained: a fresh project, a restore, or a
+> platform default change would produce a completely non-functional app.
+>
+> `verify-invites-e2e.mjs` compensates **for the local database only**, in a
+> clearly-marked fixture. Deciding whether the repo should own its grants (a
+> migration adding explicit `grant`s per table, in line with each table's RLS) is
+> a separate, security-sensitive call — deliberately not made here.
+
+**Remaining manual/PWA pass** (needs a browser, not covered above):
 invite → accept → assert membership with the **correct role and claimed slot** →
 organizer gets `game_invite_responded`; decline a second invite → "not available"
 copy, no membership; finalize terms → late-joiner trigger fires → send back with
