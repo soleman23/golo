@@ -235,12 +235,23 @@ export default function ScoringPage() {
 
     if (isLiveScorer && roundStatus !== 'complete') {
       ;(async () => {
-        const rs = useRoundStore.getState()
+        let rs = useRoundStore.getState()
+        const needsHydrate =
+          !rs.round?.roundId ||
+          rs.round.roundId !== liveRoundId ||
+          rs.status === 'setup' ||
+          rs.status == null
+        if (needsHydrate) {
+          const row = await fetchLiveRound(liveRoundId)
+          if (cancelled) return
+          if (row?.state) hydrateFromServer(row.state, { force: true })
+          rs = useRoundStore.getState()
+        }
         const ensured = await ensureLiveScorerAccess({
           roundId: liveRoundId,
           state: serializeRoundState(rs),
           roster: rs.players,
-          courseName: round?.course ?? '',
+          courseName: round?.course ?? rs.round?.course ?? '',
         })
         if (cancelled) return
         if (!ensured.ok) {

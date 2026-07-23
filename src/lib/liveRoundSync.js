@@ -166,11 +166,22 @@ export function detachLiveSync() {
   }
 }
 
-export function hydrateFromServer(liveState) {
+export function hydrateFromServer(liveState, { force = false } = {}) {
   if (!liveState) return
   const { role } = useLiveRoundStore.getState()
-  // Scorers own local state while scoring; never overwrite from server echoes.
-  if (role === 'scorer') return
+  const local = useRoundStore.getState()
+  const localId = local.round?.roundId ?? null
+  const incomingId = liveState.round?.roundId ?? null
+  const localEmpty =
+    !localId ||
+    local.status === 'setup' ||
+    local.status == null ||
+    (Object.keys(local.scores ?? {}).length === 0 && Object.keys(liveState.scores ?? {}).length > 0)
+  const mismatch = !!(incomingId && localId && incomingId !== localId)
+  const skipScorerEcho = role === 'scorer' && !force && !localEmpty && !mismatch
+  // Scorers own local state while actively scoring; still hydrate on reopen when
+  // local is empty / wrong round so we never push a blank board afterward.
+  if (skipScorerEcho) return
   useRoundStore.getState().hydrateFromLiveState(liveState)
 }
 

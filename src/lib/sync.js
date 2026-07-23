@@ -11,7 +11,7 @@ import { GHIN_ENABLED } from './featureFlags'
 import { syncGhinHandicap, isGhinConfiguredResponse } from './ghin/client'
 import { isGhinConnected } from './ghin/eligibility'
 import { fetchRounds, saveRound as dbSaveRound } from './db/rounds'
-import { assertLiveScorer, probeLivePatch, serializeRoundState } from './db/liveRounds'
+import { assertLiveScorer } from './db/liveRounds'
 
 /**
  * Bridges the local Zustand stores with Supabase on login/logout.
@@ -158,11 +158,7 @@ export async function syncOnLogin(userId, { force = false } = {}) {
         // as "round not found") must NOT kill an otherwise-valid session —
         // schedulePush/ensureLiveScorerAccess re-verify when scoring resumes.
         const check = await assertLiveScorer(live.liveRoundId)
-        let denied = check.reason === 'not scorer' || check.reason === 'round not live'
-        if (check.ok) {
-          const probe = await probeLivePatch(live.liveRoundId, serializeRoundState(rs))
-          if (!probe.ok && /not authorized/i.test(probe.reason ?? '')) denied = true
-        }
+        const denied = check.reason === 'not scorer' || check.reason === 'round not live'
         if (denied) {
           teardownLiveSync()
           useLiveRoundStore.getState().clearSession()
