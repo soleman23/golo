@@ -395,7 +395,7 @@ const SKIN_TYPES = [
   { key: 'standardSkin', name: 'Standard Skin', tag: 'Low score wins', desc: 'Lowest unique score on a hole wins the skin; ties carry over.', base: true },
   { key: 'carryoverSkin', name: 'Carryover Skin', tag: 'Banked skins', desc: 'A tied hole stacks the skin onto the next, growing the payout until won outright.', base: false },
   { key: 'birdieBonusSkin', name: 'Birdie Skin', tag: 'Birdie+', desc: 'Every birdie-or-better wins its own flat skin, separate from the standard low-score skin.', base: true },
-  { key: 'eagleBonusSkin', name: 'Eagle Skin', tag: 'Carries', desc: 'Eagle-or-better carries hole to hole until exactly one player wins it outright.', base: true },
+  { key: 'eagleBonusSkin', name: 'Eagle Skin', tag: 'Eagle+', desc: 'Every eagle-or-better wins its own flat skin, separate from the standard low-score skin.', base: true },
   { key: 'greenie', name: 'Greenie', tag: 'Par 3s', desc: 'Par-3 CTP plus par or better. One winner; unclaimed Greenies carry to the next par 3. Cannot combine with CTP skin.', base: false },
   { key: 'sandie', name: 'Sandie', tag: 'Sand save', desc: 'Flag players who were in a bunker; each par-or-better sand save wins a flat skin.', base: false },
   { key: 'closestToPin', name: 'Closest to Pin', tag: 'Par 3s', desc: 'Nearest the flag on par 3s. Flag one winner per hole live during scoring; pays the base value head-to-head. Cannot combine with Greenie.', base: false },
@@ -536,16 +536,13 @@ function initState() {
     COURSES.find((c) => c.name === round?.course)
 
   const profile = useProfileStore.getState()
-  // Explicit You home club only — don't silently default to demo/history courses.
+  // Explicit You home club only — don't silently default to a far seed course.
   const homeCourse = profile.homeClub?.trim()
     ? matchCourseInCatalog(COURSES, profile.homeClub.trim())
     : null
-  const fallbackCourse =
-    VISIBLE_COURSE_IDS.map((id) => COURSES.find((c) => c.id === id))
-      .filter(Boolean)
-      .find((c) => !isExcludedFromNearby(c.id, c.name)) ??
-    COURSES.find((c) => !isExcludedFromNearby(c.id, c.name)) ??
-    COURSES[0]
+  // Structural fallback for tee/card math only; geo correction + step validation
+  // prevent continuing on a far/demo default the user never picked.
+  const fallbackCourse = COURSES.find((c) => c.id === 'losttracks') ?? COURSES[0]
   const initialCourse = courseMatch ?? homeCourse ?? fallbackCourse
   const card = courseMatch
     ? defaultCard(holes, round?.pars, round?.strokeIndex)
@@ -1473,6 +1470,16 @@ export default function SetupWizard() {
   const readyPlayers = st.players.filter((p) => isReady(p))
   const everyoneReady = st.players.every((p) => isReady(p))
   const validStep = (step) => {
+    if (step === 0) {
+      if (!st.courseId || !course) return false
+      // Explicit pick or You home club is always fine.
+      if (userPickedCourse.current) return true
+      if (profileHomeClub?.trim() && matchCourseInCatalog([course], profileHomeClub.trim())) return true
+      // While geo is still resolving, allow the temporary default through.
+      if (geoStatus !== GEO_STATUS.READY) return true
+      // Nearby is ready — only continue if the silent default is actually near you.
+      return isNearbyCatalogCandidate(course, geoRegion)
+    }
     if (step === 1) {
       if (!organizer || !isReady(organizer)) return false
       if (!everyoneReady || readyPlayers.length < 2) return false
@@ -1497,6 +1504,9 @@ export default function SetupWizard() {
   const valid = (isReview ? validStep(1) && validStep(3) : validStep(st.step))
     && !(isReview && scorecardLoading)
   let hintText = ''
+  if (!valid && st.step === 0) {
+    hintText = 'Pick a course near you to continue.'
+  }
   if (!valid && st.step === 1) {
     if (!organizer || !organizer.name?.trim()) hintText = 'Add your name to continue.'
     else if (liveRoundsEnabled && st.players.some((p) => p.name?.trim() && p.inviteGuest && !hasContact(p))) {

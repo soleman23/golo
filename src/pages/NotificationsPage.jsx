@@ -164,7 +164,9 @@ export default function NotificationsPage() {
               <span style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.4)', marginTop: 4 }}>{relTime(n.created_at)}</span>
             </span>
           </button>
-          <button type="button" onClick={() => archive(n.id)} aria-label="Archive notification" style={S.archiveBtn}>✕</button>
+          {!actionableInvite && (
+            <button type="button" onClick={() => archive(n.id)} aria-label="Archive notification" style={S.archiveBtn}>✕</button>
+          )}
         </div>
         {actionableInvite && (
           <div style={S.inviteActions}>
