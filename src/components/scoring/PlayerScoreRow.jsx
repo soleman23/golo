@@ -17,7 +17,7 @@ const scoreBadge = {
 }
 
 /**
- * Compact horizontal score row for foursomes (3+ players).
+ * Horizontal score row shared by every group size.
  * Avatar + name left, net badges center, ± score controls right.
  */
 export default function PlayerScoreRow({
