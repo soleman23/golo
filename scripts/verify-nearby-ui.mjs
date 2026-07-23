@@ -118,7 +118,8 @@ try {
     )
   } else {
     const nearbyPoolText = await page.locator('[data-course-list]').innerText()
-    check(!/Pinehurst\s+No\.?\s*2|Sole\s+CC|Tetherow/i.test(nearbyPoolText), 'excluded courses stay out of the nearby list')
+    check(!/Pinehurst\s+No\.?\s*2|Sole\s+CC|Tetherow|Harbor\s+Dunes|Lincoln\s+Park/i.test(nearbyPoolText), 'excluded courses stay out of the nearby list')
+    check(!/>50 mi/i.test(nearbyPoolText), 'nearby list has no >50 mi catalogue rows')
   }
 
   const pagination = page.locator('[data-course-pagination]')

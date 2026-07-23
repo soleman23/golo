@@ -32,6 +32,8 @@ import {
   dedupeNcrdbAgainstCatalog,
   courseDistanceLabel,
   parseCourseRegion,
+  regionMatches,
+  haversineMiles,
   enrichRegionWithCatalog,
   ncrdbHitMatchesRegion,
   sortNcrdbHitsByRegion,
@@ -150,9 +152,17 @@ const COURSES = [
 // lets us manage the catalogue.
 const VISIBLE_COURSE_IDS = ['tetherow', 'losttracks', 'pinehurst']
 const COURSE_PAGE_SIZE = 4
-// Demo / sample courses — keep for scorecard lookup, but never mix into nearby.
-const NEARBY_EXCLUDED_COURSE_IDS = new Set(['pinehurst', 'tetherow'])
-const NEARBY_EXCLUDED_COURSE_NAMES = new Set(['pinehurst no 2', 'sole cc', 'tetherow'])
+// Seeded sample courses — keep for scorecard lookup, but never mix into nearby.
+const NEARBY_EXCLUDED_COURSE_IDS = new Set(['pinehurst', 'tetherow', 'harbor', 'lincoln'])
+const NEARBY_EXCLUDED_COURSE_NAMES = new Set([
+  'pinehurst no 2',
+  'sole cc',
+  'tetherow',
+  'harbor dunes',
+  'lincoln park',
+])
+/** Catalog courses farther than this are not "near you". */
+const NEARBY_MAX_MILES = 50
 
 const nearbyCourseNameKey = (name) =>
   String(name ?? '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
@@ -160,6 +170,21 @@ const nearbyCourseNameKey = (name) =>
 const isExcludedFromNearby = (id, name) =>
   NEARBY_EXCLUDED_COURSE_IDS.has(String(id ?? '').trim().toLowerCase()) ||
   NEARBY_EXCLUDED_COURSE_NAMES.has(nearbyCourseNameKey(name))
+
+function courseMilesFromRegion(course, region) {
+  const lat = course?.latitude ?? course?.lat
+  const lng = course?.longitude ?? course?.lng
+  if (lat == null || lng == null || region?.lat == null || region?.lng == null) return null
+  return haversineMiles(region.lat, region.lng, lat, lng)
+}
+
+/** Whether a catalogue course belongs in the NEAR YOU list for the active region. */
+function isNearbyCatalogCandidate(course, region) {
+  if (!course || isExcludedFromNearby(course.id, course.name)) return false
+  const miles = courseMilesFromRegion(course, region)
+  if (miles != null) return miles <= NEARBY_MAX_MILES
+  return regionMatches(course.loc, region)
+}
 
 const ncrdbValue = (course, ...keys) => {
   for (const key of keys) {
@@ -979,17 +1004,25 @@ export default function SetupWizard() {
     })
   }, [coursesFromDb, catalog])
 
-  // If nearby is ready and the silent default is a hidden demo course, move off it.
+  // If nearby is ready and the silent default is a far/demo course, move off it.
   useEffect(() => {
     if (userPickedCourse.current) return
-    if (geoStatus !== GEO_STATUS.READY) return
+    if (geoStatus !== GEO_STATUS.READY || !geoRegion) return
     const selected = catalog.find((c) => c.id === st.courseId)
-    if (!selected || !isExcludedFromNearby(selected.id, selected.name)) return
+    if (!selected) return
     if (profileHomeClub?.trim() && matchCourseInCatalog([selected], profileHomeClub.trim())) return
+    if (isNearbyCatalogCandidate(selected, geoRegion)) return
 
-    const next =
-      catalog.find((c) => !isExcludedFromNearby(c.id, c.name)) ??
-      null
+    const home =
+      profileHomeClub?.trim()
+        ? matchCourseInCatalog(catalog, profileHomeClub.trim())
+        : null
+    const nearest = sortCoursesByDistance(
+      catalog.filter((c) => isNearbyCatalogCandidate(c, geoRegion)),
+      geoRegion.lat,
+      geoRegion.lng,
+    )[0]
+    const next = home ?? nearest ?? null
     if (!next || next.id === st.courseId) return
     const card = cardForCourse(next, st.holes)
     setSt((s) => ({
@@ -1000,7 +1033,7 @@ export default function SetupWizard() {
       strokeIndex: card.strokeIndex,
       bets: betsWithNormalizedLdHole(s.bets, card.pars),
     }))
-  }, [geoStatus, catalog, st.courseId, st.holes, profileHomeClub])
+  }, [geoStatus, geoRegion, catalog, st.courseId, st.holes, profileHomeClub])
 
   // Open every step at the top of the scroll, not wherever the previous step
   // left the shared scroll container.
@@ -1959,7 +1992,7 @@ export default function SetupWizard() {
       : matchCourseInCatalog(visible, profileHomeClub.trim())
     let catalogMatches = visible.filter((candidate) => {
       if (homeCourse && candidate.id === homeCourse.id) return false
-      if (showNearby && isExcludedFromNearby(candidate.id, candidate.name)) return false
+      if (showNearby && !isNearbyCatalogCandidate(candidate, geoRegion)) return false
       return !q || `${candidate.name} ${candidate.loc ?? ''}`.toLowerCase().includes(q)
     })
     if (!q) {
