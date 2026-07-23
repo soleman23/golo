@@ -15,13 +15,52 @@ const eventChannels = new Map()
 let lastPushed = null
 let hadSyncFailure = false
 
+/**
+ * Structured detail for a score change, so the durable notification + toast can
+ * read "Dave made 4 on 7 (bogey)" instead of a bare "Scores updated". Reports
+ * the first changed cell (scores[playerId][hole]) plus a count when several
+ * landed in one debounce window. Names only — no email/phone — matching the
+ * PII redaction in serializeRoundState.
+ */
+function scoreChangePayload(state, prev) {
+  const cur = state.scores ?? {}
+  const old = prev.scores ?? {}
+  const pars = state.round?.pars ?? {}
+  let changed = null
+  let count = 0
+  for (const pid of Object.keys(cur)) {
+    const curHoles = cur[pid] ?? {}
+    const oldHoles = old[pid] ?? {}
+    for (const h of Object.keys(curHoles)) {
+      if (curHoles[h] !== oldHoles[h]) {
+        count += 1
+        if (!changed) {
+          changed = { pid, hole: Number(h), newScore: curHoles[h], prevScore: oldHoles[h] ?? null }
+        }
+      }
+    }
+  }
+  if (!changed) return {}
+  const player = (state.players ?? []).find((p) => p.id === changed.pid)
+  const par = pars[changed.hole] ?? null
+  return {
+    playerId: changed.pid,
+    playerName: player?.name ?? null,
+    hole: changed.hole,
+    newScore: changed.newScore,
+    prevScore: changed.prevScore,
+    toPar: par != null && changed.newScore != null ? changed.newScore - par : null,
+    changedCount: count,
+  }
+}
+
 function detectEvent(state, prev) {
   if (!prev) return null
   if (state.currentHole !== prev.currentHole) {
     return { type: 'hole_changed', payload: { hole: state.currentHole } }
   }
   if (JSON.stringify(state.scores) !== JSON.stringify(prev.scores)) {
-    return { type: 'score_updated', payload: {} }
+    return { type: 'score_updated', payload: scoreChangePayload(state, prev) }
   }
   if (JSON.stringify(state.sideGameFlags) !== JSON.stringify(prev.sideGameFlags)) {
     return { type: 'side_game_flagged', payload: {} }
@@ -206,6 +245,32 @@ export function subscribeToLiveEvents(liveRoundId, onEvent) {
   return () => {
     removeEventChannel(liveRoundId)
   }
+}
+
+/**
+ * Subscribe to the signed-in user's own notification rows. Handles INSERT (a new
+ * notification) and UPDATE (a coalesce bump that re-surfaces a row, or a
+ * read/archive echo from another device) — the fan-out trigger uses ON CONFLICT
+ * DO UPDATE, so re-alerts arrive as UPDATEs. RLS + the user_id filter guarantee
+ * a player never receives another user's rows.
+ */
+export function subscribeToMyNotifications(userId, { onInsert, onUpdate } = {}) {
+  if (!isSupabaseConfigured || !userId) return () => {}
+  const channel = supabase
+    .channel(`my-notifications-${userId}`)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
+      (payload) => { if (payload.new) onInsert?.(payload.new) },
+    )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
+      (payload) => { if (payload.new) onUpdate?.(payload.new) },
+    )
+    .subscribe()
+
+  return () => { supabase.removeChannel(channel) }
 }
 
 /** Stop scorer push + the current session's round-state channel only. */

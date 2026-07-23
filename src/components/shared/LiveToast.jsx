@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import useNotificationStore from '../../store/notificationStore'
 import { hexA } from '../../lib/colors'
 
@@ -6,9 +7,21 @@ const ACCENT = '#d4f23a'
 const ACCENT_DARK = '#13250a'
 
 export default function LiveToast() {
+  const navigate = useNavigate()
   const toasts = useNotificationStore((s) => s.toasts)
   const dismiss = useNotificationStore((s) => s.dismissToast)
   const clearAll = useNotificationStore((s) => s.clearToasts)
+  const markRead = useNotificationStore((s) => s.markRead)
+
+  // Tapping a toast opens its deep-link (and marks the backing notification
+  // read); toasts without an action just dismiss.
+  const handleOpen = (t) => {
+    if (t.actionUrl) {
+      if (t.notificationId) markRead(t.notificationId)
+      navigate(t.actionUrl)
+    }
+    dismiss(t.id)
+  }
 
   useEffect(() => {
     if (!toasts.length) return undefined
@@ -63,8 +76,8 @@ export default function LiveToast() {
         <div
           key={t.id}
           role="status"
-          onClick={() => dismiss(t.id)}
-          title="Tap to dismiss"
+          onClick={() => handleOpen(t)}
+          title={t.actionUrl ? 'Tap to open' : 'Tap to dismiss'}
           style={{
             pointerEvents: 'auto',
             cursor: 'pointer',
