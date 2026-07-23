@@ -4,7 +4,6 @@ import useNotificationStore, { selectUnreadCount } from '../store/notificationSt
 import useProfileStore from '../store/profileStore'
 import { hexA } from '../lib/colors'
 import AppHeader from '../components/shared/AppHeader'
-import PushSetupCard from '../components/shared/PushSetupCard'
 import {
   NOTIFICATION_CATEGORIES,
   fetchPreferences,
@@ -174,8 +173,6 @@ export default function NotificationsPage() {
               )
             })}
           </div>
-
-          <PushSetupCard />
         </div>
       </div>
     </div>

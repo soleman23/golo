@@ -5,6 +5,7 @@ import useRoundStore from '../store/roundStore'
 import useHistoryStore from '../store/historyStore'
 import useProfileStore from '../store/profileStore'
 import useAuthStore from '../store/authStore'
+import useNotificationStore, { selectUnreadCount } from '../store/notificationStore'
 import { uploadAvatar, removeAvatar } from '../lib/db/avatars'
 import { fetchProfile } from '../lib/db/profiles'
 import useAdmin from '../hooks/useAdmin'
@@ -112,9 +113,7 @@ export default function YouPage() {
   const setVenmo = useProfileStore((s) => s.setVenmo)
   const ghinSync = useProfileStore((s) => s.ghinSync)
   const setGhinSync = useProfileStore((s) => s.setGhinSync)
-  const notifySettle = useProfileStore((s) => s.notifySettle)
-  const notifyLive = useProfileStore((s) => s.notifyLive)
-  const setNotify = useProfileStore((s) => s.setNotify)
+  const unreadCount = useNotificationStore(selectUnreadCount)
   const authEnabled = useAuthStore((s) => s.enabled)
   const authEmail = useAuthStore((s) => s.user?.email ?? null)
   const authUserId = useAuthStore((s) => s.user?.id ?? null)
@@ -531,10 +530,6 @@ export default function YouPage() {
     setVenmoOpen(false)
   }
 
-  const toggleNotify = () => {
-    const on = notifySettle || notifyLive
-    setNotify(!on, !on) // single tap flips both settle-up + live-round alerts
-  }
 
   const handleSignOut = () => {
     openConfirm('signOut')
@@ -640,7 +635,7 @@ export default function YouPage() {
       <div style={S.scrim} />
 
       <div style={S.column}>
-        <AppHeader accent={ACCENT} backTo="/" logo="wordmark" rightAction="pin" currentPage="You" showTitle={false} />
+        <AppHeader accent={ACCENT} backTo="/" logo="wordmark" rightAction="pin" currentPage="You" showTitle={false} showBell />
 
         <input
           ref={fileInputRef}
@@ -1017,9 +1012,9 @@ export default function YouPage() {
             <SettingRow
               icon="🔔"
               title="Notifications"
-              sub="Settle-up & live rounds"
-              onClick={toggleNotify}
-              badge={(notifySettle || notifyLive) ? { label: 'On', on: true } : { label: 'Off', on: false }}
+              sub="Inbox & alert settings"
+              onClick={() => navigate('/notifications')}
+              badge={unreadCount > 0 ? { label: `${unreadCount} new`, on: true } : { label: 'Open', on: false }}
               divider
             />
             <SettingRow icon="📋" title="Round history" sub={`${rounds.length} saved`} onClick={() => navigate('/history')} divider />

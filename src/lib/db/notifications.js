@@ -68,43 +68,6 @@ export async function archiveNotification(id) {
   return { error }
 }
 
-/** Upsert the current browser's Web Push subscription into notification_devices
- *  (provider-neutral schema; platform=web / provider=web_push). RLS scopes it to
- *  the signed-in user; the unique (user_id, endpoint) key keeps it idempotent. */
-export async function saveDevice({ endpoint, p256dh, auth }) {
-  if (!isSupabaseConfigured || !endpoint) return { error: null }
-  const { data: authData } = await supabase.auth.getUser()
-  const uid = authData?.user?.id
-  if (!uid) return { error: { message: 'not authenticated' } }
-  const row = {
-    user_id: uid,
-    platform: 'web',
-    provider: 'web_push',
-    endpoint_or_token: endpoint,
-    web_p256dh: p256dh,
-    web_auth: auth,
-    enabled: true,
-    last_seen_at: new Date().toISOString(),
-    revoked_at: null,
-  }
-  const { error } = await supabase
-    .from('notification_devices')
-    .upsert(row, { onConflict: 'user_id,endpoint_or_token' })
-  if (error) console.error('[db] saveDevice', error)
-  return { error }
-}
-
-/** Mark a device subscription disabled (e.g. the user turned push off here). */
-export async function revokeDeviceByEndpoint(endpoint) {
-  if (!isSupabaseConfigured || !endpoint) return { error: null }
-  const { error } = await supabase
-    .from('notification_devices')
-    .update({ enabled: false, revoked_at: new Date().toISOString() })
-    .eq('endpoint_or_token', endpoint)
-  if (error) console.error('[db] revokeDeviceByEndpoint', error)
-  return { error }
-}
-
 /** Per-category preference rows for the signed-in user (may be empty — the
  *  server falls back to the legacy profile booleans when a row is absent). */
 export async function fetchPreferences() {

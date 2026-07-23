@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import useAuthStore from '../../store/authStore'
 import useNotificationStore from '../../store/notificationStore'
 import { subscribeToMyNotifications } from '../../lib/liveRoundSync'
@@ -24,7 +24,6 @@ const KICKER = {
 export default function LiveNotifications() {
   const userId = useAuthStore((s) => s.user?.id ?? null)
   const location = useLocation()
-  const navigate = useNavigate()
 
   // Read the current path through a ref so the subscription callback always sees
   // the latest route without re-subscribing on every navigation.
@@ -32,17 +31,6 @@ export default function LiveNotifications() {
   useEffect(() => {
     pathRef.current = location.pathname
   }, [location.pathname])
-
-  // A push notification click posts a message from the service worker; route to
-  // the deep-link inside the SPA (focuses this tab rather than opening a new one).
-  useEffect(() => {
-    if (!('serviceWorker' in navigator)) return undefined
-    const onMessage = (e) => {
-      if (e.data?.type === 'notification-click' && e.data.url) navigate(e.data.url)
-    }
-    navigator.serviceWorker.addEventListener('message', onMessage)
-    return () => navigator.serviceWorker.removeEventListener('message', onMessage)
-  }, [navigate])
 
   const hydrateInbox = useNotificationStore((s) => s.hydrateInbox)
   const resetInbox = useNotificationStore((s) => s.resetInbox)

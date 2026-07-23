@@ -130,36 +130,36 @@ export default function AppHeader({
             </button>
           )}
           <div style={{ flex: '0 0 auto', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {rightAction === 'help' && (
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4))' }} aria-hidden="true">
-              <circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.62)" strokeWidth="1.8" />
-              <path d="M9.4 9.1a2.6 2.6 0 0 1 4.8 1.3c0 1.7-2.2 2-2.2 3.4" stroke="rgba(255,255,255,.62)" strokeWidth="1.8" strokeLinecap="round" />
-              <circle cx="12" cy="17" r="1.1" fill="rgba(255,255,255,.62)" />
-            </svg>
-          )}
-          {rightAction === 'menu' && (
-            <svg width="22" height="22" viewBox="0 0 24 24" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4))' }} aria-hidden="true">
-              <g fill="rgba(255,255,255,.65)"><circle cx="12" cy="5" r="1.9" /><circle cx="12" cy="12" r="1.9" /><circle cx="12" cy="19" r="1.9" /></g>
-            </svg>
-          )}
-          {rightAction === 'pin' && (
-            <button type="button" onClick={() => setMenuOpen((v) => !v)} aria-label="Open menu" style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-              <PinMark accent={accent} width={28} height={29} style={{ filter: 'drop-shadow(0 3px 9px rgba(0,0,0,.5))' }} />
-            </button>
-          )}
-          {rightAction === 'refresh' && (
-            <button
-              type="button"
-              onClick={() => onRightAction?.()}
-              aria-label="Refresh"
-              style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-            >
+            {rightAction === 'help' && (
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4))' }} aria-hidden="true">
-                <path d="M20 12a8 8 0 1 1-2.2-5.5" stroke={accent} strokeWidth="2.2" strokeLinecap="round" />
-                <path d="M20 4v5h-5" stroke={accent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.62)" strokeWidth="1.8" />
+                <path d="M9.4 9.1a2.6 2.6 0 0 1 4.8 1.3c0 1.7-2.2 2-2.2 3.4" stroke="rgba(255,255,255,.62)" strokeWidth="1.8" strokeLinecap="round" />
+                <circle cx="12" cy="17" r="1.1" fill="rgba(255,255,255,.62)" />
               </svg>
-            </button>
-          )}
+            )}
+            {rightAction === 'menu' && (
+              <svg width="22" height="22" viewBox="0 0 24 24" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4))' }} aria-hidden="true">
+                <g fill="rgba(255,255,255,.65)"><circle cx="12" cy="5" r="1.9" /><circle cx="12" cy="12" r="1.9" /><circle cx="12" cy="19" r="1.9" /></g>
+              </svg>
+            )}
+            {rightAction === 'pin' && (
+              <button type="button" onClick={() => setMenuOpen((v) => !v)} aria-label="Open menu" style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                <PinMark accent={accent} width={28} height={29} style={{ filter: 'drop-shadow(0 3px 9px rgba(0,0,0,.5))' }} />
+              </button>
+            )}
+            {rightAction === 'refresh' && (
+              <button
+                type="button"
+                onClick={() => onRightAction?.()}
+                aria-label="Refresh"
+                style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4))' }} aria-hidden="true">
+                  <path d="M20 12a8 8 0 1 1-2.2-5.5" stroke={accent} strokeWidth="2.2" strokeLinecap="round" />
+                  <path d="M20 4v5h-5" stroke={accent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
 
