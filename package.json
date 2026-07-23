@@ -19,6 +19,7 @@
     "verify:press-bets": "node scripts/verify-press-bets.mjs",
     "verify:game-invites": "node scripts/verify-game-invites.mjs",
     "verify:invites-e2e": "node scripts/verify-invites-e2e.mjs",
+    "verify:notifications-ui": "node scripts/verify-notifications-ui.mjs",
     "verify:nearby": "node scripts/verify-nearby.mjs",
     "verify:nearby-pipeline": "node scripts/verify-nearby-pipeline.mjs",
     "verify:nearby-ui": "node scripts/verify-nearby-ui.mjs",
