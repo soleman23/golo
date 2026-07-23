@@ -41,6 +41,7 @@ import { normalizeSkinsLdHole, resolveLdHoleNumber } from '../engines/skins'
 import { isSupabaseConfigured } from '../lib/supabaseClient'
 import { serializeRoundState, ensureLiveScorerAccess, liveRoundUserMessage } from '../lib/db/liveRounds'
 import { finalizeBettingTerms, buildTermsSnapshot } from '../lib/db/betting'
+import { sendGameInvites } from '../lib/db/notifications'
 import { teardownLiveSync } from '../lib/liveRoundSync'
 import useNotificationStore from '../store/notificationStore'
 import AppHeader from '../components/shared/AppHeader'
@@ -603,6 +604,7 @@ function initState() {
     players,
     bets,
     started: false,
+    inviteSummary: null, // { invited, alreadyIn } after Start Round sends direct invites
   }
 }
 
@@ -1557,6 +1559,22 @@ export default function SetupWizard() {
           await finalizeBettingTerms(live.liveRoundId, buildTermsSnapshot(rsNow), null)
         }
       }
+      // Direct invites to the roster's verified accounts (Flow A). Built from the
+      // wizard's own player rows — they carry userId, which commit() strips from
+      // the persisted roster. Excludes the organizer. No-op with no live scorer.
+      const sendInvites = async () => {
+        const live = useLiveRoundStore.getState()
+        if (!live.liveRoundId || live.role !== 'scorer') return
+        const inviteeIds = st.players
+          .filter((p) => p.userId && p.userId !== userId)
+          .map((p) => p.userId)
+        if (!inviteeIds.length) return
+        const { data } = await sendGameInvites(live.liveRoundId, inviteeIds)
+        if (!data) return
+        const invited = data.invited ?? 0
+        const alreadyIn = (data.skipped ?? []).filter((s) => s.reason === 'already_member').length
+        patch({ inviteSummary: { invited, alreadyIn } })
+      }
       if (liveRoundsEnabled) {
         const rs = useRoundStore.getState()
         const roundId = rs.round?.roundId
@@ -1595,6 +1613,7 @@ export default function SetupWizard() {
                   scorerName: me?.name?.trim() || displayName(me) || 'Scorer',
                 })
                 await lockBets()
+                await sendInvites()
                 patch({ started: true })
                 return
               }
@@ -1633,6 +1652,7 @@ export default function SetupWizard() {
         useLiveRoundStore.getState().clearSession()
       }
       await lockBets()
+      await sendInvites()
       patch({ started: true })
     }
   }
@@ -2621,6 +2641,12 @@ export default function SetupWizard() {
           <div style={{ width: 66, height: 66, borderRadius: '50%', margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, fontWeight: 800, color: ACCENT_DARK, background: ACCENT, boxShadow: `0 8px 24px ${hexA(ACCENT, 0.45)}` }}>✓</div>
           <div style={{ fontSize: 23, fontWeight: 800, color: '#fff', letterSpacing: '-0.3px' }}>You're all set</div>
           <div style={{ fontSize: 14, color: 'rgba(255,255,255,.62)', marginTop: 8, lineHeight: 1.5 }}>{course.name} · {tee.name} tees · {readyPlayers.length} players</div>
+          {st.inviteSummary?.invited > 0 && (
+            <div style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 7, background: hexA(ACCENT, 0.14), border: `1px solid ${hexA(ACCENT, 0.4)}`, borderRadius: 9999, padding: '6px 13px', fontSize: 12.5, fontWeight: 800, color: ACCENT }}>
+              ✉️ {st.inviteSummary.invited} invite{st.inviteSummary.invited === 1 ? '' : 's'} sent
+              {st.inviteSummary.alreadyIn > 0 ? ` · ${st.inviteSummary.alreadyIn} already in` : ''}
+            </div>
+          )}
           <button onClick={() => navigate('/scoring')} style={{ marginTop: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: 54, borderRadius: 16, background: ACCENT, color: ACCENT_DARK, fontSize: 16, fontWeight: 800, border: 'none', cursor: 'pointer', boxShadow: `0 8px 22px ${hexA(ACCENT, 0.45)}` }}>Start scoring →</button>
           <button onClick={() => patch({ started: false })} style={{ marginTop: 9, width: '100%', minHeight: 48, borderRadius: 14, background: 'transparent', border: 'none', fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,.6)', cursor: 'pointer' }}>Back to setup</button>
         </div>

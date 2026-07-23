@@ -96,3 +96,67 @@ export async function upsertPreference(eventType, patch) {
   if (error) console.error('[db] upsertPreference', error)
   return { error }
 }
+
+/* ----------------------------------------------------------- game invites --
+ * Player-to-player invites (Flow A, migration 0033). All writes go through
+ * SECURITY DEFINER RPCs — the browser never inserts an invite or a notification.
+ */
+
+/**
+ * Invite verified players to a live round. `inviteeIds` are auth user ids (from
+ * the setup roster's resolved verified accounts). Returns
+ * { invited, skipped: [{ id, name?, reason }] }; the server skips (never errors
+ * on) anyone unverified, already a member, or already invited.
+ */
+export async function sendGameInvites(roundId, inviteeIds) {
+  if (!isSupabaseConfigured || !roundId) return { data: null, error: null }
+  const ids = [...new Set((inviteeIds ?? []).filter(Boolean))]
+  if (!ids.length) return { data: { invited: 0, skipped: [] }, error: null }
+  const { data, error } = await supabase.rpc('send_game_invites', {
+    p_round_id: roundId,
+    p_invitee_ids: ids,
+  })
+  if (error) console.error('[db] sendGameInvites', error)
+  return { data, error }
+}
+
+/**
+ * Accept or deny an invite (only ever the caller's own). On accept the server
+ * joins the round — claiming the caller's roster slot when it matches, else
+ * viewer — and the 0025 trigger enqueues any pending betting acceptance.
+ * Returns { data: { status, role? } | { status, already } | { status:'expired' } }.
+ */
+export async function respondGameInvite(inviteId, accept) {
+  if (!isSupabaseConfigured || !inviteId) return { data: null, error: 'not configured' }
+  const { data, error } = await supabase.rpc('respond_game_invite', {
+    p_invite_id: inviteId,
+    p_accept: accept,
+  })
+  if (error) console.error('[db] respondGameInvite', error)
+  return { data, error }
+}
+
+/** Invite roster + response status for a round (any member). No contact fields:
+ *  each row is { invitee_id, name, status, responded_at }. */
+export async function fetchInviteStatus(roundId) {
+  if (!isSupabaseConfigured || !roundId) return []
+  const { data, error } = await supabase.rpc('invite_status_for_round', { p_round_id: roundId })
+  if (error) {
+    console.error('[db] fetchInviteStatus', error)
+    return []
+  }
+  return data ?? []
+}
+
+/** The signed-in user's upcoming games (accepted invites / pending betting), for
+ *  the locker. Each row: { round_id, course_name, status, organizer_name,
+ *  started_at, has_terms, terms_status }. */
+export async function fetchUpcomingGames() {
+  if (!isSupabaseConfigured) return []
+  const { data, error } = await supabase.rpc('my_upcoming_games')
+  if (error) {
+    console.error('[db] fetchUpcomingGames', error)
+    return []
+  }
+  return data ?? []
+}

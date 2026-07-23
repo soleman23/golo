@@ -28,7 +28,9 @@ const ACCENT_DARK = '#13250a'
 const STATUS_STYLE = {
   accepted: { label: 'Accepted', color: '#bef264', bg: 'rgba(190,242,100,.14)' },
   pending: { label: 'Pending', color: 'rgba(255,255,255,.7)', bg: 'rgba(255,255,255,.08)' },
-  declined: { label: 'Declined', color: '#fb7185', bg: 'rgba(251,113,133,.14)' },
+  // "Declined" is surfaced as "Sent back" — the send-back-for-review path stores
+  // the same status plus a comment (0033).
+  declined: { label: 'Sent back', color: '#fb7185', bg: 'rgba(251,113,133,.14)' },
   superseded: { label: 'Superseded', color: 'rgba(255,255,255,.4)', bg: 'rgba(255,255,255,.05)' },
 }
 
@@ -45,6 +47,8 @@ export default function BettingReviewPage() {
   const [names, setNames] = useState({})
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  const [reviewOpen, setReviewOpen] = useState(false) // send-back sheet
+  const [comment, setComment] = useState('')
 
   const load = useCallback(async () => {
     const t = await fetchCurrentTerms(roundId)
@@ -72,13 +76,18 @@ export default function BettingReviewPage() {
   const allAccepted = acceptances.length > 0 && acceptances.every((a) => a.status === 'accepted')
   const amCreator = !!terms && terms.created_by === myUid
 
-  const respond = async (accept) => {
+  const respond = async (accept, note = null) => {
     if (!terms?.id || busy) return
     setBusy(true)
     setError(null)
-    const { error: err } = await respondBettingTerms(terms.id, accept)
-    if (err) setError(typeof err === 'string' ? err : err.message ?? 'Could not save your response.')
-    else await load()
+    const { error: err } = await respondBettingTerms(terms.id, accept, note)
+    if (err) {
+      setError(typeof err === 'string' ? err : err.message ?? 'Could not save your response.')
+    } else {
+      setReviewOpen(false)
+      setComment('')
+      await load()
+    }
     setBusy(false)
   }
 
@@ -153,17 +162,24 @@ export default function BettingReviewPage() {
               {/* my response */}
               {mine && mine.status === 'pending' && (
                 <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-                  <button type="button" onClick={() => respond(false)} disabled={busy} style={S.declineBtn}>Decline</button>
+                  <button type="button" onClick={() => setReviewOpen(true)} disabled={busy} style={S.declineBtn}>Review</button>
                   <button type="button" onClick={() => respond(true)} disabled={busy} style={S.acceptBtn}>{busy ? '…' : 'Accept terms'}</button>
                 </div>
               )}
               {mine && mine.status !== 'pending' && (
                 <div style={{ ...S.card, marginTop: 4 }}>
                   <span style={{ fontSize: 13.5, fontWeight: 700, color: 'rgba(255,255,255,.7)' }}>
-                    You {mine.status === 'accepted' ? 'accepted these terms.' : mine.status === 'declined' ? 'declined — you’re out of the bet.' : 'are no longer on the current terms.'}
+                    You {mine.status === 'accepted' ? 'accepted these terms.' : mine.status === 'declined' ? 'sent these terms back to the organizer.' : 'are no longer on the current terms.'}
                   </span>
                   {mine.status === 'declined' && (
-                    <button type="button" onClick={() => respond(true)} disabled={busy} style={{ ...S.acceptBtn, marginTop: 10 }}>Change to accept</button>
+                    <>
+                      {mine.decline_comment && (
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,.55)', marginTop: 6, lineHeight: 1.4 }}>
+                          “{mine.decline_comment}”
+                        </div>
+                      )}
+                      <button type="button" onClick={() => respond(true)} disabled={busy} style={{ ...S.acceptBtn, marginTop: 10 }}>Change to accept</button>
+                    </>
                   )}
                 </div>
               )}
@@ -180,12 +196,17 @@ export default function BettingReviewPage() {
                 const st = STATUS_STYLE[a.status] ?? STATUS_STYLE.pending
                 const name = names[a.user_id] ?? 'Player'
                 return (
-                  <div key={a.id} style={S.row}>
-                    <span style={{ ...S.avatar, background: a.user_id === myUid ? ACCENT : '#2dd4bf', color: a.user_id === myUid ? ACCENT_DARK : '#fff' }}>{initial(name)}</span>
-                    <span style={{ flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {name}{a.user_id === myUid ? ' (you)' : ''}
-                    </span>
-                    <span style={{ fontSize: 11.5, fontWeight: 800, color: st.color, background: st.bg, padding: '4px 10px', borderRadius: 9999 }}>{st.label}</span>
+                  <div key={a.id} style={S.rowWrap}>
+                    <div style={S.row}>
+                      <span style={{ ...S.avatar, background: a.user_id === myUid ? ACCENT : '#2dd4bf', color: a.user_id === myUid ? ACCENT_DARK : '#fff' }}>{initial(name)}</span>
+                      <span style={{ flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {name}{a.user_id === myUid ? ' (you)' : ''}
+                      </span>
+                      <span style={{ fontSize: 11.5, fontWeight: 800, color: st.color, background: st.bg, padding: '4px 10px', borderRadius: 9999 }}>{st.label}</span>
+                    </div>
+                    {a.status === 'declined' && a.decline_comment && (
+                      <div style={S.rowComment}>“{a.decline_comment}”</div>
+                    )}
                   </div>
                 )
               })}
@@ -195,6 +216,31 @@ export default function BettingReviewPage() {
           )}
         </div>
       </div>
+
+      {/* send-back-for-review sheet */}
+      {reviewOpen && (
+        <div style={S.sheetWrap} role="dialog" aria-modal="true" aria-label="Send terms back for review">
+          <div onClick={() => !busy && setReviewOpen(false)} style={S.sheetScrim} />
+          <div style={S.sheet}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: '#fff' }}>Send back for review</div>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: 'rgba(255,255,255,.6)', marginTop: 6, lineHeight: 1.45 }}>
+              The organizer gets a notification to double-check the terms and resubmit. Add a note if you want to say what to change.
+            </div>
+            <textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Optional — e.g. “$5 skins is too steep for me”"
+              rows={3}
+              maxLength={280}
+              style={S.textarea}
+            />
+            <button type="button" onClick={() => respond(false, comment)} disabled={busy} style={{ ...S.acceptBtn, width: '100%', marginTop: 4 }}>
+              {busy ? 'Sending…' : 'Send back to organizer'}
+            </button>
+            <button type="button" onClick={() => setReviewOpen(false)} disabled={busy} style={S.sheetCancel}>Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -208,11 +254,19 @@ const S = {
   banner: { background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid', borderRadius: 18, padding: '14px 16px', marginBottom: 6 },
   sectionLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: 'rgba(255,255,255,.5)', margin: '18px 2px 9px' },
   card: { background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.13)', borderRadius: 16, padding: '10px 15px' },
-  row: { display: 'flex', alignItems: 'center', gap: 11, background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 14, padding: '10px 13px', marginBottom: 8 },
+  rowWrap: { marginBottom: 8 },
+  row: { display: 'flex', alignItems: 'center', gap: 11, background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 14, padding: '10px 13px' },
+  rowComment: { fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,.55)', lineHeight: 1.4, padding: '7px 13px 0 58px' },
   avatar: { flex: '0 0 auto', width: 34, height: 34, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14 },
   acceptBtn: { flex: 1, minHeight: 50, borderRadius: 15, border: 'none', background: ACCENT, color: ACCENT_DARK, fontSize: 15, fontWeight: 800, cursor: 'pointer' },
   declineBtn: { flex: '0 0 auto', minHeight: 50, padding: '0 18px', borderRadius: 15, border: '1px solid rgba(251,113,133,.5)', background: 'rgba(251,113,133,.12)', color: '#fb7185', fontSize: 15, fontWeight: 800, cursor: 'pointer' },
   relockBtn: { width: '100%', minHeight: 46, borderRadius: 14, marginTop: 10, border: `1px solid ${hexA(ACCENT, 0.4)}`, background: hexA(ACCENT, 0.1), color: ACCENT, fontSize: 14, fontWeight: 800, cursor: 'pointer' },
   scoringBtn: { width: '100%', minHeight: 50, borderRadius: 15, marginTop: 18, border: '1px solid rgba(255,255,255,.18)', background: 'rgba(255,255,255,.08)', color: '#fff', fontSize: 15, fontWeight: 800, cursor: 'pointer' },
   empty: { fontSize: 13.5, color: 'rgba(255,255,255,.55)', background: 'rgba(20,28,24,.5)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 16, padding: 18, textAlign: 'center', marginTop: 10 },
+
+  sheetWrap: { position: 'fixed', inset: 0, zIndex: 70, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' },
+  sheetScrim: { position: 'absolute', inset: 0, background: 'rgba(0,0,0,.6)' },
+  sheet: { position: 'relative', width: '100%', maxWidth: 480, background: 'rgba(14,20,16,.94)', backdropFilter: 'blur(26px)', WebkitBackdropFilter: 'blur(26px)', borderTop: '1px solid rgba(255,255,255,.14)', borderRadius: '24px 24px 0 0', padding: '22px 20px calc(22px + env(safe-area-inset-bottom))' },
+  textarea: { width: '100%', boxSizing: 'border-box', margin: '14px 0 12px', minHeight: 84, borderRadius: 14, border: '1px solid rgba(255,255,255,.16)', background: 'rgba(255,255,255,.06)', color: '#fff', fontSize: 14, fontWeight: 600, fontFamily: 'inherit', padding: '11px 13px', resize: 'vertical' },
+  sheetCancel: { width: '100%', minHeight: 48, marginTop: 9, borderRadius: 14, border: 'none', background: 'transparent', color: 'rgba(255,255,255,.6)', fontSize: 14, fontWeight: 700, cursor: 'pointer' },
 }

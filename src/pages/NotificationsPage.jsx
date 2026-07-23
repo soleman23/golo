@@ -8,6 +8,7 @@ import {
   NOTIFICATION_CATEGORIES,
   fetchPreferences,
   upsertPreference,
+  respondGameInvite,
 } from '../lib/db/notifications'
 
 /**
@@ -25,6 +26,10 @@ const TYPE_ICON = {
   side_game_flagged: '🎲',
   round_finished: '💸',
   player_joined: '👋',
+  game_invite_received: '✉️',
+  game_invite_responded: '✅',
+  betting_terms_requested: '🤝',
+  betting_terms_responded: '📝',
 }
 
 function relTime(iso) {
@@ -55,11 +60,14 @@ export default function NotificationsPage() {
   const markRead = useNotificationStore((s) => s.markRead)
   const markAllRead = useNotificationStore((s) => s.markAllRead)
   const archive = useNotificationStore((s) => s.archive)
+  const pushToast = useNotificationStore((s) => s.pushToast)
 
   const notifyLive = useProfileStore((s) => s.notifyLive)
   const notifySettle = useProfileStore((s) => s.notifySettle)
 
   const [prefs, setPrefs] = useState(null) // event_type → { in_app_enabled, push_enabled }
+  const [invBusy, setInvBusy] = useState({}) // invite_id → true while its RPC is in flight
+  const [invErr, setInvErr] = useState({})   // invite_id → error message
 
   // Refresh from the server on mount (the inbox may already be hydrated by the
   // always-on LiveNotifications bridge, but a direct visit / hard refresh needs it).
@@ -97,25 +105,77 @@ export default function NotificationsPage() {
     if (n.action_url) navigate(n.action_url)
   }
 
+  // Accept/Deny a game invite from its card. Both buttons disable while the RPC
+  // is in flight; on error the message shows and they re-enable.
+  const respondInvite = async (n, accept) => {
+    const inviteId = n.payload?.invite_id
+    if (!inviteId || invBusy[inviteId]) return
+    setInvBusy((b) => ({ ...b, [inviteId]: true }))
+    setInvErr((e) => ({ ...e, [inviteId]: null }))
+    const { data, error } = await respondGameInvite(inviteId, accept)
+    if (error) {
+      setInvErr((e) => ({ ...e, [inviteId]: error.message || 'Could not respond. Try again.' }))
+      setInvBusy((b) => ({ ...b, [inviteId]: false }))
+      return
+    }
+    markRead(n.id)          // the server also cleared it; reflect it immediately
+    await hydrateInbox()    // pull the settled row (read → the buttons drop away)
+    const status = data?.status
+    if (status === 'expired') {
+      pushToast({ kicker: 'GAME INVITE', title: 'That game is no longer live.' })
+    } else if (accept) {
+      pushToast({ kicker: 'GAME INVITE', title: "You're in — see your locker." })
+      navigate('/you')
+    } else {
+      pushToast({ kicker: 'GAME INVITE', title: 'Organizer notified.' })
+    }
+    setInvBusy((b) => ({ ...b, [inviteId]: false }))
+  }
+
   // Plain render helpers (not components) so state isn't reset each render.
-  const renderItem = (n) => (
-    <div key={n.id} style={{ ...S.item, border: `1px solid ${n.read_at ? 'rgba(255,255,255,.1)' : hexA(ACCENT, 0.4)}` }}>
-      <button type="button" onClick={() => openItem(n)} style={S.itemMain} aria-label={`${n.title}. ${n.message}`}>
-        <span style={S.icon}>{TYPE_ICON[n.type] ?? '🔔'}</span>
-        <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            {!n.read_at && <span style={S.unreadDot} aria-hidden="true" />}
-            <span style={{ fontSize: 14.5, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.title}</span>
-          </span>
-          {n.message && (
-            <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,.6)', marginTop: 2, lineHeight: 1.35 }}>{n.message}</span>
-          )}
-          <span style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.4)', marginTop: 4 }}>{relTime(n.created_at)}</span>
-        </span>
-      </button>
-      <button type="button" onClick={() => archive(n.id)} aria-label="Archive notification" style={S.archiveBtn}>✕</button>
-    </div>
-  )
+  const renderItem = (n) => {
+    // Actionable while the invite is still open: has a live round + not yet acted
+    // on (responding marks it read). round_id null = the round was deleted.
+    const actionableInvite =
+      n.type === 'game_invite_received' && n.payload?.invite_id && n.round_id && !n.read_at
+    const inviteId = n.payload?.invite_id
+    const busy = actionableInvite ? !!invBusy[inviteId] : false
+    const err = actionableInvite ? invErr[inviteId] : null
+
+    return (
+      <div key={n.id} style={{ ...S.item, border: `1px solid ${n.read_at ? 'rgba(255,255,255,.1)' : hexA(ACCENT, 0.4)}` }}>
+        <div style={{ display: 'flex', alignItems: 'stretch', gap: 4 }}>
+          <button type="button" onClick={() => openItem(n)} style={S.itemMain} aria-label={`${n.title}. ${n.message}`}>
+            <span style={S.icon}>{TYPE_ICON[n.type] ?? '🔔'}</span>
+            <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                {!n.read_at && <span style={S.unreadDot} aria-hidden="true" />}
+                <span style={{ fontSize: 14.5, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.title}</span>
+              </span>
+              {n.message && (
+                <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,.6)', marginTop: 2, lineHeight: 1.35 }}>{n.message}</span>
+              )}
+              <span style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.4)', marginTop: 4 }}>{relTime(n.created_at)}</span>
+            </span>
+          </button>
+          <button type="button" onClick={() => archive(n.id)} aria-label="Archive notification" style={S.archiveBtn}>✕</button>
+        </div>
+        {actionableInvite && (
+          <div style={S.inviteActions}>
+            {err && <span style={S.inviteError}>{err}</span>}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" disabled={busy} onClick={() => respondInvite(n, false)} style={{ ...S.inviteBtn, ...S.inviteDeny, opacity: busy ? 0.55 : 1, cursor: busy ? 'not-allowed' : 'pointer' }}>
+                Deny
+              </button>
+              <button type="button" disabled={busy} onClick={() => respondInvite(n, true)} style={{ ...S.inviteBtn, ...S.inviteAccept, opacity: busy ? 0.55 : 1, cursor: busy ? 'not-allowed' : 'pointer' }}>
+                {busy ? '…' : 'Accept'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div style={S.root}>
@@ -198,8 +258,13 @@ const S = {
 
   groupLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: 'rgba(255,255,255,.5)', margin: '14px 2px 8px' },
 
-  item: { display: 'flex', alignItems: 'stretch', gap: 4, background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderRadius: 16, marginBottom: 9, overflow: 'hidden' },
+  item: { display: 'flex', flexDirection: 'column', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderRadius: 16, marginBottom: 9, overflow: 'hidden' },
   itemMain: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 11, padding: '12px 6px 12px 13px', background: 'transparent', border: 'none', cursor: 'pointer' },
+  inviteActions: { padding: '0 13px 12px 58px', display: 'flex', flexDirection: 'column', gap: 7 },
+  inviteError: { fontSize: 12, fontWeight: 700, color: '#fb7185' },
+  inviteBtn: { flex: 1, borderRadius: 11, padding: '10px 12px', fontSize: 13.5, fontWeight: 800, border: 'none', fontFamily: 'inherit' },
+  inviteAccept: { background: ACCENT, color: '#13250a' },
+  inviteDeny: { background: 'rgba(255,255,255,.1)', color: '#fff', border: '1px solid rgba(255,255,255,.16)' },
   icon: { flex: '0 0 auto', width: 34, height: 34, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.12)' },
   unreadDot: { flex: '0 0 auto', width: 8, height: 8, borderRadius: '50%', background: ACCENT },
   archiveBtn: { flex: '0 0 auto', width: 40, border: 'none', borderLeft: '1px solid rgba(255,255,255,.08)', background: 'transparent', color: 'rgba(255,255,255,.4)', fontSize: 15, fontWeight: 700, cursor: 'pointer' },

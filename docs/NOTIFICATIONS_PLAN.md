@@ -259,20 +259,29 @@ course/game, organizer, status pill — "Awaiting betting terms" (disabled) or
 
 ## Test plan
 
-Following `scripts/verify-press-bets.mjs` house style (service key, local only):
+**Built: `scripts/verify-game-invites.mjs`** (48 assertions, in `npm test`).
+A *structural* check over the 0033 SQL — hermetic, so it runs in CI with no
+credentials. It guards: the single SELECT-only RLS policy, the verified
+predicate, the skip-don't-error paths, the `for update` race lock, the
+slot-claim/viewer fallback, payload PII hygiene, the revoke/grant posture, and —
+most valuably — that a redefined `notif_category` still maps **every** type
+0024/0025 mapped. Verified by mutation: dropping a betting case, adding an INSERT
+policy, or granting `notif_category` each make it fail.
 
-- **`scripts/verify-game-invites.mjs`** — A creates a round → invites verified B →
-  assert B's notification row; B accepts → assert membership **with the correct
-  role and claimed slot** + A's `game_invite_responded`; B declines a second
-  invite → assert the "not available" copy and no membership. Plus RLS negatives
-  for a non-party C.
-- **`scripts/verify-betting-responses.mjs`** — finalize → invitee accepts invite
-  (late-joiner trigger fires) → sends terms back with a comment → assert the
-  organizer notification carries the comment and `is_betting_active()` is false →
-  organizer re-finalizes → assert supersede + re-notify, still false → all accept
-  → true.
+> The repo has **no service-role key** and `npm test` is deliberately hermetic
+> (the network-dependent verifiers live outside it as `verify:*` scripts). A
+> two-account integration test can't run in CI, so the behavioural pass stays
+> manual — see below.
 
-Add both to `package.json`'s `test` script.
+**Manual/staging pass** (needs the migration applied + two accounts):
+invite → accept → assert membership with the **correct role and claimed slot** →
+organizer gets `game_invite_responded`; decline a second invite → "not available"
+copy, no membership; finalize terms → late-joiner trigger fires → send back with
+a comment → organizer notification carries it and `is_betting_active()` is false
+→ re-finalize supersedes + re-notifies → all accept → true. RLS negative: a
+non-party C can read neither the invite nor the notifications. Also: bell badge
+increments live across two browsers, unread survives reload, and live scoring
+toasts still behave after the `LiveNotifications` rewrite.
 
 **Manual/PWA pass:** bell badge increments live across two browsers/accounts;
 Accept lands on `/you` with the upcoming-games card; terms round-trip including

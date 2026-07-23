@@ -38,11 +38,17 @@ export async function finalizeBettingTerms(roundId, terms, maxExposure = null) {
   return { data, error }
 }
 
-export async function respondBettingTerms(termsId, accept) {
+/**
+ * Accept, or send the terms back for review. `comment` rides along on a
+ * send-back (accept = false) and reaches the organizer in their notification —
+ * see migration 0033, which also notifies the terms creator on every response.
+ */
+export async function respondBettingTerms(termsId, accept, comment = null) {
   if (!isSupabaseConfigured || !termsId) return { error: 'not configured' }
   const { error } = await supabase.rpc('respond_betting_terms', {
     p_terms_id: termsId,
     p_accept: accept,
+    p_comment: accept ? null : (comment?.trim() || null),
   })
   if (error) console.error('[db] respondBettingTerms', error)
   return { error }
@@ -70,7 +76,7 @@ export async function fetchAcceptances(termsId) {
   if (!isSupabaseConfigured || !termsId) return []
   const { data, error } = await supabase
     .from('round_betting_acceptances')
-    .select('id, terms_id, user_id, status, accepted_at, declined_at')
+    .select('id, terms_id, user_id, status, accepted_at, declined_at, decline_comment')
     .eq('terms_id', termsId)
   if (error) {
     console.error('[db] fetchAcceptances', error)
