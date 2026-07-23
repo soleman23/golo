@@ -370,7 +370,6 @@ export default function HomePage() {
           title={greeting}
           currentPage="Home"
           showBack={false}
-          showBell
         />
 
         {/* scrollable body -------------------------------------------------- */}

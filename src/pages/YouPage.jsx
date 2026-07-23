@@ -651,7 +651,7 @@ export default function YouPage() {
       <div style={S.scrim} />
 
       <div style={S.column}>
-        <AppHeader accent={ACCENT} backTo="/" logo="wordmark" rightAction="pin" currentPage="You" showTitle={false} showBell />
+        <AppHeader accent={ACCENT} backTo="/" logo="wordmark" rightAction="pin" currentPage="You" showTitle={false} />
 
         <input
           ref={fileInputRef}
