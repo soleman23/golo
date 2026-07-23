@@ -178,8 +178,14 @@ export async function assertLiveScorer(roundId) {
 }
 
 /**
- * Verify the signed-in user can score this live round.
- * Never writes state — a prior "probe" patched empty/stale local state over the board.
+ * Confirm the signed-in user can score this live round, (re)registering it if
+ * needed. When the round is already live for this user, returns immediately
+ * WITHOUT writing (`state` is unused on that path). Otherwise it re-registers
+ * via start_live_round, which persists `state` — the only write this makes.
+ *
+ * It never "probe"-patches to test access: the old flow did, and an empty/stale
+ * local `state` could overwrite the live board. Callers must therefore pass a
+ * hydrated `state` (see ScoringPage's force-hydrate before this call).
  */
 export async function ensureLiveScorerAccess({ roundId, state, roster, courseName }) {
   if (!isSupabaseConfigured || !roundId) return { ok: false, reason: 'not configured' }
