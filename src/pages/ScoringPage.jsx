@@ -34,8 +34,8 @@ import ScorecardGrid from '../components/scoring/ScorecardGrid'
  * Recreates the glass-over-turf design (Golo Golf - Scoring (Immersive).dc.html):
  * a full-bleed course photo, frosted player cards with oversized numerals, an
  * electric-lime accent, tappable ± / keypad scoring, ‹ › hole navigation, a
- * progress dot strip, a persistent Active Bets strip, and bottom-sheet
- * Leaderboard / Bets / Keypad / Finish overlays. Inline styles match the
+ * progress dot strip, and bottom-sheet Leaderboard / Bets / Keypad / Finish
+ * overlays. Inline styles match the
  * prototype rather than fighting the app's light Tailwind theme — the same
  * approach used by SetupWizard.
  *
@@ -155,13 +155,13 @@ export default function ScoringPage() {
   const getStrokeAllocations = useRoundStore((s) => s.getStrokeAllocations)
   const createPressBet = useRoundStore((s) => s.createPressBet)
 
-  const [sheet, setSheet] = useState(null) // 'leaderboard' | 'bets' | 'finish' | 'press' | null
+  const [sheet, setSheet] = useState(null) // 'leaderboard' | 'betDetail' | 'finish' | 'press' | null
+  const [selectedBetId, setSelectedBetId] = useState(null)
   const [keypadFor, setKeypadFor] = useState(null) // { id, hole } | null
   const [lbView, setLbView] = useState(() => (round?.scoring === 'gross' ? 'gross' : 'net')) // 'net' | 'gross' | 'money' | 'card'
   const [cardNine, setCardNine] = useState('front') // scorecard view: 'front' | 'back'
   const [copiedInvite, setCopiedInvite] = useState(false)
   const [liveLoading, setLiveLoading] = useState(false)
-  const [headerCollapsed, setHeaderCollapsed] = useState(() => players.length >= 4)
   const liveEndedHandled = useRef(false)
 
   const liveRole = useLiveRoundRole()
@@ -235,12 +235,23 @@ export default function ScoringPage() {
 
     if (isLiveScorer && roundStatus !== 'complete') {
       ;(async () => {
-        const rs = useRoundStore.getState()
+        let rs = useRoundStore.getState()
+        const needsHydrate =
+          !rs.round?.roundId ||
+          rs.round.roundId !== liveRoundId ||
+          rs.status === 'setup' ||
+          rs.status == null
+        if (needsHydrate) {
+          const row = await fetchLiveRound(liveRoundId)
+          if (cancelled) return
+          if (row?.state) hydrateFromServer(row.state, { force: true })
+          rs = useRoundStore.getState()
+        }
         const ensured = await ensureLiveScorerAccess({
           roundId: liveRoundId,
           state: serializeRoundState(rs),
           roster: rs.players,
-          courseName: round?.course ?? '',
+          courseName: round?.course ?? rs.round?.course ?? '',
         })
         if (cancelled) return
         if (!ensured.ok) {
@@ -499,6 +510,28 @@ export default function ScoringPage() {
     wolfBet, bbbBet, wolfPicks, bbbFlags, totalHoles, isScramble,
   ])
 
+  const selectedBet = pills.find((b) => b.id === selectedBetId) ?? null
+  const selectedBetConfig = bets.find((b) => b.id === selectedBetId) ?? null
+  const selectedBetDetailLines = useMemo(() => {
+    if (!selectedBet || !selectedBetConfig) return []
+
+    const scoreEntityIds = isScramble
+      ? teams
+          .filter((team) =>
+            !selectedBetConfig.playerIds?.length ||
+            team.playerIds?.some((playerId) => selectedBetConfig.playerIds.includes(playerId))
+          )
+          .map((team) => team.id)
+      : playersInBet(players, selectedBetConfig).map((player) => player.id)
+
+    return (selectedBet.detailLines ?? []).filter((line) => {
+      const match = String(line).match(/^\s*Hole\s+(\d+)\s*:/i)
+      if (!match) return true
+      const hole = Number(match[1])
+      return scoreEntityIds.length > 0 && scoreEntityIds.every((id) => scoreValue(scores[id]?.[hole]) != null)
+    })
+  }, [selectedBet, selectedBetConfig, isScramble, teams, players, scores])
+
   // Progress dots: current hole is a wide accent pill; played holes bright.
   const dots = useMemo(() => {
     const probe = entities[0]?.id
@@ -685,7 +718,9 @@ export default function ScoringPage() {
     title: 'Scoring',
     contextPill: courseLabel,
     pillAlign: 'right',
-    titleCollapsed: headerCollapsed,
+    // Keep header height stable while the score list scrolls. Tying this to
+    // scrollTop caused a resize -> scrollTop reset -> resize feedback loop.
+    titleCollapsed: players.length >= 4,
     currentPage: 'Play',
   }
 
@@ -779,12 +814,6 @@ export default function ScoringPage() {
     (ctpBet && !readOnly) ||
     (ldBet && !readOnly) ||
     (skinsActive && !readOnly)
-
-  // Collapse the header title row as the score list scrolls (hysteresis avoids flicker).
-  const onListScroll = (e) => {
-    const y = e.currentTarget.scrollTop
-    setHeaderCollapsed((c) => (c ? y >= 8 : y > 26))
-  }
 
   /* --------------------------------------------------------------- entity card */
 
@@ -963,7 +992,7 @@ export default function ScoringPage() {
               {entities.map(compactRow)}
             </div>
             {hasFoursomeSidePanels && (
-              <div className="golo-scroll" onScroll={onListScroll} style={S.scroll}>
+              <div className="golo-scroll" style={S.scroll}>
                 {isMatchplay && matchInfoList.length > 0 && !readOnly && matchInfoList.map((info) => (
                   <MatchPanel
                     key={`${info.side1.id}-${info.side2.id}`}
@@ -1023,7 +1052,7 @@ export default function ScoringPage() {
             )}
           </>
         ) : (
-        <div className="golo-scroll" onScroll={onListScroll} style={S.scroll}>
+        <div className="golo-scroll" style={S.scroll}>
           {isMatchplay && matchInfoList.length > 0 && !readOnly && matchInfoList.map((info) => (
             <MatchPanel
               key={`${info.side1.id}-${info.side2.id}`}
@@ -1085,48 +1114,6 @@ export default function ScoringPage() {
             />
           )}
         </div>
-        )}
-
-        {/* active bets ------------------------------------------------------- */}
-        {(pills.length > 0 || (overallPurseBet && !readOnly)) && (
-          <div style={{ flex: '0 0 auto', padding: useFoursomeDense ? '4px 14px 0' : '8px 14px 0', boxSizing: 'border-box' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: useFoursomeDense ? '0 2px 4px' : '0 2px 8px' }}>
-              <div style={S.activeLabel}>ACTIVE BETS</div>
-              {overallPurseBet && activePressCount > 0 && (
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.45)' }}>
-                  {activePressCount}/{MAX_ACTIVE_PRESSES} presses
-                </span>
-              )}
-            </div>
-            <div className="no-scrollbar" style={S.betRow}>
-              {pills.map((b) => (
-                <button key={b.id} type="button" onClick={() => setSheet('bets')} style={S.betChip}>
-                  <span style={S.betChipTitle}>
-                    <BetGlyph bet={b} size={16} />
-                    <span style={S.betChipTitleText}>{b.title}</span>
-                  </span>
-                  <span style={S.betChipStatus}>{b.status}</span>
-                </button>
-              ))}
-              {overallPurseBet && !readOnly && pressEligibility.allowed && (
-                <button
-                  type="button"
-                  onClick={() => setSheet('press')}
-                  style={{
-                    ...S.betChip,
-                    border: `1px solid ${hexA(ACCENT, 0.55)}`,
-                    background: hexA(ACCENT, 0.1),
-                  }}
-                >
-                  <span style={{ ...S.betChipTitle, color: ACCENT }}>
-                    <Icon name="wager" size={16} color={ACCENT} />
-                    <span style={S.betChipTitleText}>Press</span>
-                  </span>
-                  <span style={{ ...S.betChipStatus, color: ACCENT }}>{pressChipLabel.replace(/^Press · /, '')}</span>
-                </button>
-              )}
-            </div>
-          </div>
         )}
 
         {/* bottom nav -------------------------------------------------------- */}
@@ -1323,20 +1310,82 @@ export default function ScoringPage() {
               )}
 
               {/* money on the line — the card wants the full height for holes */}
-              {lbView !== 'card' && pills.length > 0 && (
+              {lbView !== 'card' && (pills.length > 0 || (overallPurseBet && !readOnly) || (liveRoundId && bets.length > 0)) && (
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '18px 4px 9px' }}>
                     <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: 'rgba(255,255,255,.5)' }}>MONEY ON THE LINE</span>
+                    {overallPurseBet && activePressCount > 0 && (
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.45)' }}>
+                        {activePressCount}/{MAX_ACTIVE_PRESSES} presses
+                      </span>
+                    )}
                   </div>
                   {pills.map((b) => (
-                    <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 16, padding: '11px 13px', marginBottom: 9 }}>
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedBetId(b.id)
+                        setSheet('betDetail')
+                      }}
+                      aria-label={`View ${b.title} details`}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', fontFamily: 'inherit', color: 'inherit', cursor: 'pointer', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 16, padding: '11px 13px', marginBottom: 9 }}
+                    >
                       <span style={{ width: 38, height: 38, borderRadius: 12, flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.1)' }}><BetGlyph bet={b} size={20} /></span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>{b.title}</div>
+                        <div style={{ fontSize: 11.5, fontWeight: 600, color: 'rgba(255,255,255,.42)', marginTop: 2 }}>Tap for hole details</div>
                       </div>
                       <span style={{ fontSize: 13, fontWeight: 800, color: ACCENT, textAlign: 'right', flex: '0 0 auto' }}>{b.status}</span>
-                    </div>
+                      <span aria-hidden="true" style={{ color: 'rgba(255,255,255,.38)', fontSize: 20, lineHeight: 1 }}>›</span>
+                    </button>
                   ))}
+                  {activePresses.map((press) => {
+                    const downName = press.targetTeamId
+                      ? teams.find((t) => t.id === press.targetTeamId)?.name
+                      : players.find((p) => p.id === press.targetPlayerId)?.name
+                    const upName = press.opponentTeamId
+                      ? teams.find((t) => t.id === press.opponentTeamId)?.name
+                      : players.find((p) => p.id === press.opponentPlayerId)?.name
+                    return (
+                      <div key={press.id} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(20,28,24,.5)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 16, padding: '11px 13px', marginBottom: 9 }}>
+                        <span style={{ width: 38, height: 38, borderRadius: 12, flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: hexA(ACCENT, 0.1), border: `1px solid ${hexA(ACCENT, 0.28)}` }}>
+                          <Icon name="wager" size={20} color={ACCENT} />
+                        </span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>Press x{press.multiplier} · ${press.pressStake}</div>
+                          <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,.48)', marginTop: 2 }}>{downName} vs {upName} · from hole {press.startHole}</div>
+                        </div>
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: ACCENT }}>{press.originalBetAction === 'close' ? 'Original closed' : 'Original live'}</span>
+                      </div>
+                    )
+                  })}
+                  {overallPurseBet && !readOnly && pressEligibility.allowed && (
+                    <button
+                      type="button"
+                      onClick={() => setSheet('press')}
+                      style={{ width: '100%', minHeight: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, borderRadius: 16, border: `1px solid ${hexA(ACCENT, 0.45)}`, background: hexA(ACCENT, 0.1), color: ACCENT, padding: '0 15px', marginBottom: 9, fontSize: 13.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}
+                    >
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                        <Icon name="wager" size={18} color={ACCENT} />
+                        {pressChipLabel}
+                      </span>
+                      <span aria-hidden="true" style={{ fontSize: 20 }}>›</span>
+                    </button>
+                  )}
+                  {liveRoundId && bets.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSheet(null)
+                        navigate(`/betting/${liveRoundId}`)
+                      }}
+                      style={{ width: '100%', minHeight: 46, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, borderRadius: 14, border: '1px solid rgba(255,255,255,.1)', background: 'rgba(255,255,255,.05)', color: 'rgba(255,255,255,.72)', padding: '0 15px', marginBottom: 4, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+                    >
+                      Review betting terms &amp; acceptance
+                      <span aria-hidden="true">›</span>
+                    </button>
+                  )}
                 </>
               )}
 
@@ -1354,80 +1403,28 @@ export default function ScoringPage() {
         </div>
       )}
 
-      {sheet === 'bets' && (
-        <Sheet onClose={() => setSheet(null)} title="Active Bets">
-          {pills.length === 0 && activePresses.length === 0 && (
-            <div style={{ padding: '14px 18px', color: 'rgba(255,255,255,.5)', fontSize: 14 }}>No games on — just keeping score.</div>
-          )}
-          {pills.map((b) => (
-            <div key={b.id} style={{ padding: '14px 18px', borderTop: '1px solid rgba(255,255,255,.07)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, fontWeight: 700, color: '#fff' }}>
-                  <BetGlyph bet={b} size={18} />
-                  {b.title}
-                </span>
-                <span style={{ fontSize: 13, fontWeight: 800, color: ACCENT, textAlign: 'right' }}>{b.status}</span>
+      {sheet === 'betDetail' && selectedBet && (
+        <Sheet onClose={() => setSheet('leaderboard')} title={selectedBet.title}>
+          <div style={{ padding: '8px 18px 14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, borderRadius: 16, padding: '13px 14px', background: hexA(ACCENT, 0.08), border: `1px solid ${hexA(ACCENT, 0.22)}` }}>
+              <span style={{ width: 40, height: 40, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,.08)' }}>
+                <BetGlyph bet={selectedBet} size={21} />
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.2, color: 'rgba(255,255,255,.45)' }}>LIVE STATUS</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: ACCENT, marginTop: 2 }}>{selectedBet.status}</div>
               </div>
-              {b.detailLines?.length > 0 && (
-                <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  {b.detailLines.map((line, i) => (
-                    <div key={i} style={{ fontSize: 12.5, color: 'rgba(255,255,255,.5)' }}>{line}</div>
-                  ))}
-                </div>
-              )}
             </div>
-          ))}
-          {activePresses.length > 0 && (
-            <>
-              <div style={{ padding: '12px 18px 6px', fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: 'rgba(255,255,255,.45)', borderTop: pills.length ? '1px solid rgba(255,255,255,.07)' : 'none' }}>
-                ACTIVE PRESSES
-              </div>
-              {activePresses.map((press) => {
-                const downName = press.targetTeamId
-                  ? teams.find((t) => t.id === press.targetTeamId)?.name
-                  : players.find((p) => p.id === press.targetPlayerId)?.name
-                const upName = press.opponentTeamId
-                  ? teams.find((t) => t.id === press.opponentTeamId)?.name
-                  : players.find((p) => p.id === press.opponentPlayerId)?.name
-                const origLine =
-                  press.originalBetAction === 'close'
-                    ? `Original closed thru hole ${press.startHole - 1}`
-                    : 'Original continued'
-                return (
-                  <div key={press.id} style={{ padding: '12px 18px', borderTop: '1px solid rgba(255,255,255,.07)' }}>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>
-                      Press x{press.multiplier} · ${press.pressStake} · from hole {press.startHole}
-                    </div>
-                    <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', marginTop: 4 }}>
-                      {downName} vs {upName}
-                    </div>
-                    <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.45)', marginTop: 2 }}>{origLine}</div>
-                  </div>
-                )
-              })}
-            </>
-          )}
-          {overallPurseBet && !readOnly && pressEligibility.allowed && (
-            <div style={{ padding: '14px 18px', borderTop: '1px solid rgba(255,255,255,.07)' }}>
-              <button
-                type="button"
-                onClick={() => setSheet('press')}
-                style={{
-                  width: '100%',
-                  minHeight: 48,
-                  borderRadius: 14,
-                  border: `1px solid ${hexA(ACCENT, 0.45)}`,
-                  background: hexA(ACCENT, 0.1),
-                  color: ACCENT,
-                  fontSize: 14,
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                }}
-              >
-                {pressChipLabel}
-              </button>
+          </div>
+          <div style={{ padding: '0 18px 7px', fontSize: 11, fontWeight: 800, letterSpacing: 1.3, color: 'rgba(255,255,255,.45)' }}>COMPLETED HOLES</div>
+          {selectedBetDetailLines.length > 0 ? (
+            <div style={{ padding: '0 18px 18px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {selectedBetDetailLines.map((line, i) => (
+                <div key={i} style={{ fontSize: 13, lineHeight: 1.4, color: 'rgba(255,255,255,.68)', background: 'rgba(255,255,255,.045)', border: '1px solid rgba(255,255,255,.07)', borderRadius: 12, padding: '10px 12px' }}>{line}</div>
+              ))}
             </div>
+          ) : (
+            <div style={{ padding: '2px 18px 22px', color: 'rgba(255,255,255,.48)', fontSize: 13 }}>No completed holes yet.</div>
           )}
         </Sheet>
       )}
@@ -1435,7 +1432,7 @@ export default function ScoringPage() {
       {sheet === 'press' && overallPurseBet && pressEligibility.allowed && (
         <PressSheet
           onClose={(created) => {
-            setSheet(null)
+            setSheet('leaderboard')
             if (created?.startHole) {
               useNotificationStore.getState().pushToast({
                 kicker: 'PRESS',
@@ -1759,12 +1756,6 @@ const S = {
 
   panel: { background: 'rgba(20,28,24,.46)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 20, padding: 15, boxShadow: '0 10px 30px rgba(0,0,0,.3)' },
 
-  activeLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: 'rgba(255,255,255,.55)', padding: '0 2px 8px' },
-  betRow: { display: 'flex', gap: 9, overflowX: 'auto', paddingBottom: 2, width: '100%', boxSizing: 'border-box' },
-  betChip: { display: 'flex', flexDirection: 'column', gap: 3, textAlign: 'left', flex: '0 0 auto', minWidth: 154, maxWidth: 220, boxSizing: 'border-box', background: 'rgba(255,255,255,.12)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,.16)', borderRadius: 16, padding: '11px 13px', cursor: 'pointer', fontFamily: 'inherit' },
-  betChipTitle: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#fff', minWidth: 0 },
-  betChipTitleText: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 },
-  betChipStatus: { fontSize: 12, color: 'rgba(255,255,255,.62)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
 
   navBar: { display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(16,22,18,.55)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 22, padding: 8, boxShadow: '0 10px 30px rgba(0,0,0,.35)', boxSizing: 'border-box' },
   navSide: { display: 'flex', alignItems: 'center', gap: 6, minHeight: 52, padding: '0 12px', borderRadius: 15, background: 'transparent', border: 'none', fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,.85)', cursor: 'pointer', fontFamily: 'inherit', flex: '0 0 auto' },

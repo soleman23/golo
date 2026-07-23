@@ -187,13 +187,14 @@ export default function HomePage() {
   }
 
   const openLiveWatch = (row) => {
+    // Apply server snapshot first (force) so scorer reopen cannot no-op hydrate.
+    if (row.state) hydrateFromServer(row.state, { force: true })
     useLiveRoundStore.getState().setSession({
       liveRoundId: row.id,
       inviteCode: row.invite_code,
       role: row.role,
       scorerName: row.state?.players?.[0]?.name ?? 'Scorer',
     })
-    if (row.state) hydrateFromServer(row.state)
     navigate('/scoring')
   }
 
@@ -369,6 +370,7 @@ export default function HomePage() {
           title={greeting}
           currentPage="Home"
           showBack={false}
+          showBell
         />
 
         {/* scrollable body -------------------------------------------------- */}

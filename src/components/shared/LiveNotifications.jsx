@@ -1,97 +1,78 @@
 import { useEffect, useRef } from 'react'
+import { useLocation } from 'react-router-dom'
 import useAuthStore from '../../store/authStore'
-import useProfileStore from '../../store/profileStore'
-import useLiveRoundStore from '../../store/liveRoundStore'
 import useNotificationStore from '../../store/notificationStore'
-import { fetchMyActiveLiveRounds, fetchLiveRoundEvents } from '../../lib/db/liveRounds'
-import { subscribeToLiveEvents } from '../../lib/liveRoundSync'
+import { subscribeToMyNotifications } from '../../lib/liveRoundSync'
 import { isSupabaseConfigured } from '../../lib/supabaseClient'
 
-function eventCopy(type, payload, courseName) {
-  switch (type) {
-    case 'round_started':
-      return { kicker: 'LIVE ROUND', title: `Round started${courseName ? ` · ${courseName}` : ''}` }
-    case 'player_joined':
-      return { kicker: 'LIVE ROUND', title: 'Someone joined the round', body: payload?.role === 'player' ? 'A roster player claimed their spot.' : 'A viewer is watching.' }
-    case 'score_updated':
-      return { kicker: 'SCORES', title: 'Scores updated' }
-    case 'hole_changed':
-      return { kicker: 'LIVE ROUND', title: `Now on hole ${payload?.hole ?? '—'}` }
-    case 'side_game_flagged':
-      return { kicker: 'SIDE GAME', title: 'Side game updated' }
-    case 'round_finished':
-      return { kicker: 'SETTLE UP', title: 'Round finished', body: 'Head to History when results are saved.' }
-    default:
-      return { kicker: 'LIVE ROUND', title: 'Round update' }
-  }
+/**
+ * Bridges the durable public.notifications table to the in-app experience:
+ * hydrates the inbox on login, keeps it live via Realtime, and raises a transient
+ * toast for incoming/re-surfaced items. The bell badge + inbox read from the same
+ * store, so unread state is consistent everywhere. Toasts (not the inbox) are
+ * suppressed when the user is already on the screen the notification links to.
+ */
+
+const KICKER = {
+  score_updated: 'SCORES',
+  hole_changed: 'LIVE ROUND',
+  side_game_flagged: 'SIDE GAME',
+  round_finished: 'SETTLE UP',
+  player_joined: 'LIVE ROUND',
 }
 
-function shouldNotify(type, notifyLive, notifySettle) {
-  if (type === 'round_finished') return notifySettle
-  return notifyLive
-}
-
-/** Subscribes to live_round_events for active memberships; respects profile prefs. */
 export default function LiveNotifications() {
   const userId = useAuthStore((s) => s.user?.id ?? null)
-  const notifyLive = useProfileStore((s) => s.notifyLive)
-  const notifySettle = useProfileStore((s) => s.notifySettle)
-  const liveRoundId = useLiveRoundStore((s) => s.liveRoundId)
-  const pushToast = useNotificationStore((s) => s.pushToast)
-  const markSeen = useNotificationStore((s) => s.markEventSeen)
+  const location = useLocation()
 
-  const roundsRef = useRef([])
+  // Read the current path through a ref so the subscription callback always sees
+  // the latest route without re-subscribing on every navigation.
+  const pathRef = useRef(location.pathname)
+  useEffect(() => {
+    pathRef.current = location.pathname
+  }, [location.pathname])
+
+  const hydrateInbox = useNotificationStore((s) => s.hydrateInbox)
+  const resetInbox = useNotificationStore((s) => s.resetInbox)
+  const addIncoming = useNotificationStore((s) => s.addIncoming)
+  const applyServerUpdate = useNotificationStore((s) => s.applyServerUpdate)
+  const pushToast = useNotificationStore((s) => s.pushToast)
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !userId) return undefined
-
-    let cancelled = false
-    const cleanups = []
-
-    async function wire() {
-      const rounds = await fetchMyActiveLiveRounds()
-      if (cancelled) return
-      roundsRef.current = rounds
-
-      for (const r of rounds) {
-        const lastSeen = useNotificationStore.getState().lastSeenFor(r.id)
-        const backlog = await fetchLiveRoundEvents(r.id)
-        if (cancelled) return
-
-        if (!lastSeen && backlog.length) {
-          markSeen(r.id, backlog[backlog.length - 1].id)
-        } else {
-          let afterMarker = !lastSeen
-          for (const ev of backlog) {
-            if (!afterMarker) {
-              if (ev.id === lastSeen) afterMarker = true
-              continue
-            }
-            if (!shouldNotify(ev.type, notifyLive, notifySettle)) continue
-            if (ev.type === 'round_started' && r.role === 'scorer') continue
-            const copy = eventCopy(ev.type, ev.payload, r.course_name)
-            pushToast({ ...copy, liveRoundId: r.id })
-            markSeen(r.id, ev.id)
-          }
-        }
-
-        const unsub = subscribeToLiveEvents(r.id, (ev) => {
-          if (!shouldNotify(ev.type, notifyLive, notifySettle)) return
-          if (ev.type === 'round_started' && r.role === 'scorer') return
-          const copy = eventCopy(ev.type, ev.payload, r.course_name)
-          pushToast({ ...copy, liveRoundId: r.id })
-          markSeen(r.id, ev.id)
-        })
-        cleanups.push(unsub)
-      }
+    if (!isSupabaseConfigured || !userId) {
+      resetInbox()
+      return undefined
     }
 
-    wire()
-    return () => {
-      cancelled = true
-      cleanups.forEach((fn) => fn())
+    hydrateInbox()
+
+    const toastFor = (n) => {
+      // Redundant when the user is already viewing that exact screen.
+      if (n.action_url && pathRef.current === n.action_url) return
+      pushToast({
+        kicker: KICKER[n.type] ?? 'GOLO',
+        title: n.title || 'Round update',
+        body: n.message || undefined,
+        actionUrl: n.action_url || undefined,
+        notificationId: n.id,
+      })
     }
-  }, [userId, liveRoundId, notifyLive, notifySettle, pushToast, markSeen])
+
+    const unsub = subscribeToMyNotifications(userId, {
+      onInsert: (n) => {
+        addIncoming(n)
+        if (!n.read_at) toastFor(n)
+      },
+      onUpdate: (n) => {
+        applyServerUpdate(n)
+        // Re-alert only on a server re-surface (unread bump) — not on the
+        // read/archive echoes our own actions produce.
+        if (!n.archived_at && !n.read_at) toastFor(n)
+      },
+    })
+
+    return () => { unsub() }
+  }, [userId, hydrateInbox, resetInbox, addIncoming, applyServerUpdate, pushToast])
 
   return null
 }

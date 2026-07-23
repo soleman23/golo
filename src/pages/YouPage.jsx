@@ -5,6 +5,8 @@ import useRoundStore from '../store/roundStore'
 import useHistoryStore from '../store/historyStore'
 import useProfileStore from '../store/profileStore'
 import useAuthStore from '../store/authStore'
+import useNotificationStore, { selectUnreadCount } from '../store/notificationStore'
+import { fetchUpcomingGames } from '../lib/db/notifications'
 import { uploadAvatar, removeAvatar } from '../lib/db/avatars'
 import { fetchProfile } from '../lib/db/profiles'
 import useAdmin from '../hooks/useAdmin'
@@ -112,9 +114,7 @@ export default function YouPage() {
   const setVenmo = useProfileStore((s) => s.setVenmo)
   const ghinSync = useProfileStore((s) => s.ghinSync)
   const setGhinSync = useProfileStore((s) => s.setGhinSync)
-  const notifySettle = useProfileStore((s) => s.notifySettle)
-  const notifyLive = useProfileStore((s) => s.notifyLive)
-  const setNotify = useProfileStore((s) => s.setNotify)
+  const unreadCount = useNotificationStore(selectUnreadCount)
   const authEnabled = useAuthStore((s) => s.enabled)
   const authEmail = useAuthStore((s) => s.user?.email ?? null)
   const authUserId = useAuthStore((s) => s.user?.id ?? null)
@@ -123,6 +123,7 @@ export default function YouPage() {
   const initialGhinStatus = GHIN_ENABLED ? searchParams.get('ghin') : null
 
   const [editing, setEditing] = useState(false)
+  const [upcoming, setUpcoming] = useState([]) // accepted invites / pending betting terms
   const [uploading, setUploading] = useState(false)
   const [avatarError, setAvatarError] = useState(null)
   const [confirmAction, setConfirmAction] = useState(null)
@@ -206,6 +207,20 @@ export default function YouPage() {
     const t = setTimeout(() => setGhinToast(null), 2600)
     return () => clearTimeout(t)
   }, [ghinToast])
+
+  // Games I've accepted an invite to, or where I still owe a betting acceptance.
+  // Server-fetched on mount — no local state to go stale.
+  useEffect(() => {
+    if (!authUserId) {
+      setUpcoming([])
+      return undefined
+    }
+    let cancelled = false
+    fetchUpcomingGames().then((rows) => {
+      if (!cancelled) setUpcoming(rows)
+    })
+    return () => { cancelled = true }
+  }, [authUserId])
 
   const openGhin = () => {
     setGhinError(null)
@@ -531,10 +546,6 @@ export default function YouPage() {
     setVenmoOpen(false)
   }
 
-  const toggleNotify = () => {
-    const on = notifySettle || notifyLive
-    setNotify(!on, !on) // single tap flips both settle-up + live-round alerts
-  }
 
   const handleSignOut = () => {
     openConfirm('signOut')
@@ -640,7 +651,7 @@ export default function YouPage() {
       <div style={S.scrim} />
 
       <div style={S.column}>
-        <AppHeader accent={ACCENT} backTo="/" logo="wordmark" rightAction="pin" currentPage="You" showTitle={false} />
+        <AppHeader accent={ACCENT} backTo="/" logo="wordmark" rightAction="pin" currentPage="You" showTitle={false} showBell />
 
         <input
           ref={fileInputRef}
@@ -735,6 +746,47 @@ export default function YouPage() {
 
         {/* scrollable body -------------------------------------------------- */}
         <div className="golo-scroll" style={S.scroll}>
+          {/* UPCOMING GAMES — invites you accepted / terms awaiting your call */}
+          {!editing && upcoming.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ ...S.sectionRow, marginBottom: 9 }}>
+                <span style={S.sectionLabel}>UPCOMING GAMES</span>
+                <span style={S.sectionSub}>{upcoming.length}</span>
+              </div>
+              {upcoming.map((g) => {
+                // Three states: terms not locked yet · my call outstanding · settled.
+                const needsMe = g.has_terms && g.terms_status === 'pending'
+                const pill = !g.has_terms
+                  ? { label: 'Awaiting betting terms', color: 'rgba(255,255,255,.62)', bg: 'rgba(255,255,255,.08)' }
+                  : needsMe
+                    ? { label: 'Terms ready · review now', color: ACCENT_DARK, bg: ACCENT }
+                    : { label: 'You’re all set', color: '#bef264', bg: 'rgba(190,242,100,.14)' }
+                return (
+                  <button
+                    key={g.round_id}
+                    type="button"
+                    disabled={!g.has_terms}
+                    onClick={() => g.has_terms && navigate(`/betting/${g.round_id}`)}
+                    style={{ ...S.upcomingCard, cursor: g.has_terms ? 'pointer' : 'default' }}
+                  >
+                    <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                      <span style={{ display: 'block', fontSize: 15, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {g.course_name || 'Round'}
+                      </span>
+                      <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,.55)', marginTop: 2 }}>
+                        with {g.organizer_name}
+                      </span>
+                      <span style={{ display: 'inline-block', marginTop: 8, fontSize: 11, fontWeight: 800, color: pill.color, background: pill.bg, padding: '4px 10px', borderRadius: 9999 }}>
+                        {pill.label}
+                      </span>
+                    </span>
+                    {g.has_terms && <span aria-hidden="true" style={{ color: ACCENT, fontSize: 17, fontWeight: 800 }}>→</span>}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
           {/* profile editor */}
           {editing && (
             <div style={{ ...S.glassCard, marginBottom: 14 }}>
@@ -1017,9 +1069,9 @@ export default function YouPage() {
             <SettingRow
               icon="🔔"
               title="Notifications"
-              sub="Settle-up & live rounds"
-              onClick={toggleNotify}
-              badge={(notifySettle || notifyLive) ? { label: 'On', on: true } : { label: 'Off', on: false }}
+              sub="Inbox & alert settings"
+              onClick={() => navigate('/notifications')}
+              badge={unreadCount > 0 ? { label: `${unreadCount} new`, on: true } : { label: 'Open', on: false }}
               divider
             />
             <SettingRow icon="📋" title="Round history" sub={`${rounds.length} saved`} onClick={() => navigate('/history')} divider />
@@ -1448,6 +1500,7 @@ const S = {
   sectionRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '18px 2px 9px' },
   sectionLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: 'rgba(255,255,255,.5)' },
   sectionSub: { fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.42)' },
+  upcomingCard: { width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 11, background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.13)', borderRadius: 16, padding: '13px 15px', marginBottom: 8, fontFamily: 'inherit', textAlign: 'left' },
 
   badge: { position: 'relative', overflow: 'hidden', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid', borderRadius: 16, padding: '13px 9px', textAlign: 'center', boxShadow: '0 6px 16px rgba(0,0,0,.2)' },
 

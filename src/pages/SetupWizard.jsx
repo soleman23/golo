@@ -19,7 +19,7 @@ import {
 } from '../lib/scorecardData'
 import { courseFromNcrdb } from '../lib/courseValidation'
 import { getCourseImage } from '../lib/courseImages'
-import { defaultHomeCourse } from '../lib/homeCourse'
+import { defaultHomeCourse, matchCourseInCatalog } from '../lib/homeCourse'
 import {
   GEO_STATUS,
   getDevicePosition,
@@ -28,10 +28,12 @@ import {
 } from '../lib/geolocation'
 import { reverseGeocode, forwardGeocode } from '../lib/reverseGeocode'
 import {
-  sortCoursesForNearby,
+  sortCoursesByDistance,
   dedupeNcrdbAgainstCatalog,
   courseDistanceLabel,
   parseCourseRegion,
+  regionMatches,
+  haversineMiles,
   enrichRegionWithCatalog,
   ncrdbHitMatchesRegion,
   sortNcrdbHitsByRegion,
@@ -40,6 +42,8 @@ import {
 import { normalizeSkinsLdHole, resolveLdHoleNumber } from '../engines/skins'
 import { isSupabaseConfigured } from '../lib/supabaseClient'
 import { serializeRoundState, ensureLiveScorerAccess, liveRoundUserMessage } from '../lib/db/liveRounds'
+import { finalizeBettingTerms, buildTermsSnapshot } from '../lib/db/betting'
+import { sendGameInvites } from '../lib/db/notifications'
 import { teardownLiveSync } from '../lib/liveRoundSync'
 import useNotificationStore from '../store/notificationStore'
 import AppHeader from '../components/shared/AppHeader'
@@ -147,6 +151,40 @@ const COURSES = [
 // for data lookup (by id) but are hidden from the list until admin tooling
 // lets us manage the catalogue.
 const VISIBLE_COURSE_IDS = ['tetherow', 'losttracks', 'pinehurst']
+const COURSE_PAGE_SIZE = 4
+// Seeded sample courses — keep for scorecard lookup, but never mix into nearby.
+const NEARBY_EXCLUDED_COURSE_IDS = new Set(['pinehurst', 'tetherow', 'harbor', 'lincoln'])
+const NEARBY_EXCLUDED_COURSE_NAMES = new Set([
+  'pinehurst no 2',
+  'sole cc',
+  'tetherow',
+  'harbor dunes',
+  'lincoln park',
+])
+/** Catalog courses farther than this are not "near you". */
+const NEARBY_MAX_MILES = 50
+
+const nearbyCourseNameKey = (name) =>
+  String(name ?? '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+
+const isExcludedFromNearby = (id, name) =>
+  NEARBY_EXCLUDED_COURSE_IDS.has(String(id ?? '').trim().toLowerCase()) ||
+  NEARBY_EXCLUDED_COURSE_NAMES.has(nearbyCourseNameKey(name))
+
+function courseMilesFromRegion(course, region) {
+  const lat = course?.latitude ?? course?.lat
+  const lng = course?.longitude ?? course?.lng
+  if (lat == null || lng == null || region?.lat == null || region?.lng == null) return null
+  return haversineMiles(region.lat, region.lng, lat, lng)
+}
+
+/** Whether a catalogue course belongs in the NEAR YOU list for the active region. */
+function isNearbyCatalogCandidate(course, region) {
+  if (!course || isExcludedFromNearby(course.id, course.name)) return false
+  const miles = courseMilesFromRegion(course, region)
+  if (miles != null) return miles <= NEARBY_MAX_MILES
+  return regionMatches(course.loc, region)
+}
 
 const ncrdbValue = (course, ...keys) => {
   for (const key of keys) {
@@ -498,12 +536,14 @@ function initState() {
     COURSES.find((c) => c.name === round?.course)
 
   const profile = useProfileStore.getState()
-  const historyRounds = useHistoryStore.getState().rounds
-  const homeCourse = defaultHomeCourse(COURSES, {
-    homeClub: profile.homeClub,
-    rounds: historyRounds,
-  })
-  const initialCourse = courseMatch ?? homeCourse ?? COURSES.find((c) => c.id === 'pinehurst') ?? COURSES[0]
+  // Explicit You home club only — don't silently default to a far seed course.
+  const homeCourse = profile.homeClub?.trim()
+    ? matchCourseInCatalog(COURSES, profile.homeClub.trim())
+    : null
+  // Structural fallback for tee/card math only; geo correction + step validation
+  // prevent continuing on a far/demo default the user never picked.
+  const fallbackCourse = COURSES.find((c) => c.id === 'losttracks') ?? COURSES[0]
+  const initialCourse = courseMatch ?? homeCourse ?? fallbackCourse
   const card = courseMatch
     ? defaultCard(holes, round?.pars, round?.strokeIndex)
     : cardForCourse(initialCourse, holes)
@@ -602,6 +642,7 @@ function initState() {
     players,
     bets,
     started: false,
+    inviteSummary: null, // { invited, alreadyIn } after Start Round sends direct invites
   }
 }
 
@@ -628,6 +669,11 @@ export default function SetupWizard() {
   const [st, setSt] = useState(initState)
   const patch = (p) => setSt((s) => ({ ...s, ...p }))
   const userPickedCourse = useRef(false)
+  const [coursePicked, setCoursePicked] = useState(false)
+  const markCoursePicked = () => {
+    userPickedCourse.current = true
+    setCoursePicked(true)
+  }
 
   // Course catalogue: starts with the bundled fallback list, then swaps in the
   // backend's visible setup catalogue once it loads (when Supabase is configured).
@@ -635,9 +681,12 @@ export default function SetupWizard() {
   const [catalog, setCatalog] = useState(COURSES)
   const [coursesFromDb, setCoursesFromDb] = useState(false)
   const [ncrdbResults, setNcrdbResults] = useState([])
+  const [ncrdbResultsQuery, setNcrdbResultsQuery] = useState('')
   const [ncrdbLoading, setNcrdbLoading] = useState(false)
   const [ncrdbError, setNcrdbError] = useState('')
   const [ncrdbSelectingId, setNcrdbSelectingId] = useState(null)
+  const [courseListExpanded, setCourseListExpanded] = useState(false)
+  const [courseCollapsed, setCourseCollapsed] = useState(false)
   // Compatibility scorecard lookup for catalogue courses. NCRDB imports arrive
   // already enriched by the same shared resolver, so they never land here.
   const [scorecardLookup, setScorecardLookup] = useState({
@@ -878,18 +927,22 @@ export default function SetupWizard() {
     const q = st.courseQuery.trim()
     if (!isSupabaseConfigured || q.length < 3) {
       setNcrdbResults([])
+      setNcrdbResultsQuery('')
       setNcrdbLoading(false)
       setNcrdbError('')
       return undefined
     }
 
     let cancelled = false
+    setNcrdbResults([])
+    setNcrdbResultsQuery('')
     setNcrdbLoading(true)
     setNcrdbError('')
     const timer = setTimeout(async () => {
       const { data, error } = await searchNcrdbCourses({ clubName: q, clubCountry: 'USA' })
       if (cancelled) return
       setNcrdbResults(data?.courses ?? [])
+      setNcrdbResultsQuery(q.toLowerCase())
       setNcrdbError(error?.message ?? '')
       setNcrdbLoading(false)
     }, 350)
@@ -928,18 +981,15 @@ export default function SetupWizard() {
     }
   }, [st.showAccountPicker, accountSearch, liveRoundsEnabled])
 
-  // When the DB catalogue loads, default to home course if it wasn't in the bundled list.
+  // When the DB catalogue loads, default to the You home club if it wasn't in the bundled list.
   useEffect(() => {
     if (!coursesFromDb || userPickedCourse.current) return
     const { round } = useRoundStore.getState()
     if (round && round.status !== 'complete') return
 
     const profile = useProfileStore.getState()
-    const historyRounds = useHistoryStore.getState().rounds
-    const homeCourse = defaultHomeCourse(catalog, {
-      homeClub: profile.homeClub,
-      rounds: historyRounds,
-    })
+    if (!profile.homeClub?.trim()) return
+    const homeCourse = matchCourseInCatalog(catalog, profile.homeClub.trim())
     if (!homeCourse) return
 
     setSt((s) => {
@@ -955,6 +1005,37 @@ export default function SetupWizard() {
       }
     })
   }, [coursesFromDb, catalog])
+
+  // If nearby is ready and the silent default is a far/demo course, move off it.
+  useEffect(() => {
+    if (userPickedCourse.current) return
+    if (geoStatus !== GEO_STATUS.READY || !geoRegion) return
+    const selected = catalog.find((c) => c.id === st.courseId)
+    if (!selected) return
+    if (profileHomeClub?.trim() && matchCourseInCatalog([selected], profileHomeClub.trim())) return
+    if (isNearbyCatalogCandidate(selected, geoRegion)) return
+
+    const home =
+      profileHomeClub?.trim()
+        ? matchCourseInCatalog(catalog, profileHomeClub.trim())
+        : null
+    const nearest = sortCoursesByDistance(
+      catalog.filter((c) => isNearbyCatalogCandidate(c, geoRegion)),
+      geoRegion.lat,
+      geoRegion.lng,
+    )[0]
+    const next = home ?? nearest ?? null
+    if (!next || next.id === st.courseId) return
+    const card = cardForCourse(next, st.holes)
+    setSt((s) => ({
+      ...s,
+      courseId: next.id,
+      teeIdx: 1,
+      pars: card.pars,
+      strokeIndex: card.strokeIndex,
+      bets: betsWithNormalizedLdHole(s.bets, card.pars),
+    }))
+  }, [geoStatus, geoRegion, catalog, st.courseId, st.holes, profileHomeClub])
 
   // Open every step at the top of the scroll, not wherever the previous step
   // left the shared scroll container.
@@ -1239,11 +1320,21 @@ export default function SetupWizard() {
   }
 
   /* ---- course selection ---- */
+  const collapseCourseBrowser = () => {
+    setCourseCollapsed(true)
+    requestAnimationFrame(() => {
+      bodyRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+    })
+  }
+
   // Switching course loads its real card (pars + stroke index) and resets the
   // tee; courses without their own data fall back to a generic par-4 card.
   const selectCourse = (id) => {
-    if (id === st.courseId) return
-    userPickedCourse.current = true
+    markCoursePicked()
+    if (id === st.courseId) {
+      collapseCourseBrowser()
+      return
+    }
     const c =
       catalog.find((x) => x.id === id) ??
       COURSES.find((x) => x.id === id)
@@ -1267,6 +1358,7 @@ export default function SetupWizard() {
         scheduleNearbyFetch(fallback, { force: true })
       }
     }
+    collapseCourseBrowser()
   }
 
   const selectNcrdbCourse = async (hit) => {
@@ -1319,7 +1411,7 @@ export default function SetupWizard() {
       scorecardCached: !!data?.enrichment?.cached,
       ...(latitude != null && longitude != null ? { latitude, longitude } : {}),
     }
-    userPickedCourse.current = true
+    markCoursePicked()
     setCatalog((items) => {
       const exists = items.some((item) => item.id === importedCourse.id)
       return exists
@@ -1340,6 +1432,7 @@ export default function SetupWizard() {
         bets: betsWithNormalizedLdHole(s.bets, card.pars),
       }
     })
+    collapseCourseBrowser()
   }
 
   /* ---- course card ---- */
@@ -1382,6 +1475,16 @@ export default function SetupWizard() {
   const readyPlayers = st.players.filter((p) => isReady(p))
   const everyoneReady = st.players.every((p) => isReady(p))
   const validStep = (step) => {
+    if (step === 0) {
+      if (!st.courseId || !course) return false
+      // Explicit pick or You home club is always fine.
+      if (coursePicked) return true
+      if (profileHomeClub?.trim() && matchCourseInCatalog([course], profileHomeClub.trim())) return true
+      // While geo is still resolving, allow the temporary default through.
+      if (geoStatus !== GEO_STATUS.READY) return true
+      // Nearby is ready — only continue if the silent default is actually near you.
+      return isNearbyCatalogCandidate(course, geoRegion)
+    }
     if (step === 1) {
       if (!organizer || !isReady(organizer)) return false
       if (!everyoneReady || readyPlayers.length < 2) return false
@@ -1406,6 +1509,9 @@ export default function SetupWizard() {
   const valid = (isReview ? validStep(1) && validStep(3) : validStep(st.step))
     && !(isReview && scorecardLoading)
   let hintText = ''
+  if (!valid && st.step === 0) {
+    hintText = 'Pick a course near you to continue.'
+  }
   if (!valid && st.step === 1) {
     if (!organizer || !organizer.name?.trim()) hintText = 'Add your name to continue.'
     else if (liveRoundsEnabled && st.players.some((p) => p.name?.trim() && p.inviteGuest && !hasContact(p))) {
@@ -1546,6 +1652,42 @@ export default function SetupWizard() {
     if (st.step < 4) patch({ step: st.step + 1 })
     else {
       commit()
+      // Freeze the betting terms once the live round + scorer exist, so joiners
+      // must accept them. The organizer auto-accepts (they set it up). No-op with
+      // no live session or no bets.
+      const lockBets = async () => {
+        const live = useLiveRoundStore.getState()
+        const rsNow = useRoundStore.getState()
+        if (live.liveRoundId && live.role === 'scorer' && (rsNow.bets?.length ?? 0) > 0) {
+          await finalizeBettingTerms(live.liveRoundId, buildTermsSnapshot(rsNow), null)
+        }
+      }
+      // Direct invites to the roster's verified accounts (Flow A). Built from the
+      // wizard's own player rows — they carry userId, which commit() strips from
+      // the persisted roster. Excludes the organizer. No-op with no live scorer.
+      const sendInvites = async () => {
+        const live = useLiveRoundStore.getState()
+        if (!live.liveRoundId || live.role !== 'scorer') return
+        const inviteeIds = st.players
+          .filter((p) => p.userId && p.userId !== userId)
+          .map((p) => p.userId)
+        if (!inviteeIds.length) return
+        const { data, error } = await sendGameInvites(live.liveRoundId, inviteeIds)
+        if (error || !data) {
+          // Never let this fail silently — the organizer would assume their
+          // players were notified. The share link still works as a fallback.
+          useNotificationStore.getState().pushToast({
+            kicker: 'GAME INVITES',
+            title: 'Could not send invites',
+            body: 'Share the invite link instead — the round itself started fine.',
+            duration: 8000,
+          })
+          return
+        }
+        const invited = data.invited ?? 0
+        const alreadyIn = (data.skipped ?? []).filter((s) => s.reason === 'already_member').length
+        patch({ inviteSummary: { invited, alreadyIn } })
+      }
       if (liveRoundsEnabled) {
         const rs = useRoundStore.getState()
         const roundId = rs.round?.roundId
@@ -1583,6 +1725,8 @@ export default function SetupWizard() {
                   role: 'scorer',
                   scorerName: me?.name?.trim() || displayName(me) || 'Scorer',
                 })
+                await lockBets()
+                await sendInvites()
                 patch({ started: true })
                 return
               }
@@ -1620,6 +1764,8 @@ export default function SetupWizard() {
         teardownLiveSync()
         useLiveRoundStore.getState().clearSession()
       }
+      await lockBets()
+      await sendInvites()
       patch({ started: true })
     }
   }
@@ -1713,15 +1859,137 @@ export default function SetupWizard() {
 
   /* ----------------------------------------------------------- step bodies */
 
-  function sectionLabel(text, style) {
-    return <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: 'rgba(255,255,255,.5)', marginBottom: 10, ...style }}>{text}</div>
+  function sectionLabel(text, style = {}) {
+    const { margin, ...rest } = style
+    return <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: 'rgba(255,255,255,.5)', ...(margin != null ? { margin } : { marginBottom: 10 }), ...rest }}>{text}</div>
   }
 
-  function courseRowSubtitle(course) {
-    const distance = courseDistanceLabel(course, geoRegion?.lat, geoRegion?.lng)
+  function courseRowSubtitle(course, showDistance = true) {
+    const distance = showDistance
+      ? courseDistanceLabel(course, geoRegion?.lat, geoRegion?.lng)
+      : null
     const parts = [course.loc, `${course.holes} holes`]
     if (distance) parts.splice(1, 0, distance)
     return parts.filter(Boolean).join(' · ')
+  }
+
+  function orderCoursesByHistory(courses) {
+    const stats = new Map()
+    historyRounds.forEach((round, index) => {
+      const matched =
+        courses.find((candidate) => candidate.id === round?.courseId) ??
+        matchCourseInCatalog(courses, round?.course)
+      if (!matched) return
+
+      const parsedDate = Date.parse(round?.date ?? round?.completedAt ?? '')
+      const recency = Number.isFinite(parsedDate) ? parsedDate : historyRounds.length - index
+      const current = stats.get(matched.id) ?? { count: 0, recency: -Infinity }
+      stats.set(matched.id, {
+        count: current.count + 1,
+        recency: Math.max(current.recency, recency),
+      })
+    })
+
+    return [...courses].sort((a, b) => {
+      const aStats = stats.get(a.id)
+      const bStats = stats.get(b.id)
+      if (!!aStats !== !!bStats) return aStats ? -1 : 1
+      if (!aStats || !bStats) return 0
+      if (aStats.count !== bStats.count) return bStats.count - aStats.count
+      return bStats.recency - aStats.recency
+    })
+  }
+
+  function renderCatalogCourseCard(item, { cardKey, collapsed = false, showDistance = true } = {}) {
+    if (!item) return null
+    const selected = item.id === st.courseId
+    const commonStyle = {
+      width: '100%',
+      boxSizing: 'border-box',
+      display: 'flex',
+      alignItems: 'center',
+      gap: collapsed ? 14 : 12,
+      textAlign: 'left',
+      background: 'rgba(20,28,24,.5)',
+      backdropFilter: 'blur(20px)',
+      WebkitBackdropFilter: 'blur(20px)',
+      border: `1px solid ${selected ? hexA(ACCENT, 0.55) : 'rgba(255,255,255,.12)'}`,
+      borderRadius: collapsed ? 20 : 16,
+      padding: collapsed ? 14 : 12,
+      marginBottom: 10,
+      position: 'relative',
+    }
+    const content = (
+      <>
+        <span style={{ width: collapsed ? 68 : 54, height: collapsed ? 68 : 54, borderRadius: collapsed ? 15 : 12, flex: '0 0 auto', background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundImage: `url(${item.bg}), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)' }} />
+        <div style={{ flex: 1, minWidth: 0, paddingRight: collapsed ? 52 : 0 }}>
+          <div style={{ fontSize: collapsed ? 18 : 16, fontWeight: 800, color: '#fff' }}>{item.name}</div>
+          <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', marginTop: 2 }}>{courseRowSubtitle(item, showDistance)}</div>
+        </div>
+      </>
+    )
+
+    if (collapsed) {
+      return (
+        <div key={cardKey} data-course-kind="catalog" data-course-id={item.id} style={commonStyle}>
+          {content}
+          <button
+            type="button"
+            aria-label="Choose a different course"
+            onClick={(event) => {
+              event.stopPropagation()
+              setCourseCollapsed(false)
+              setCourseListExpanded(false)
+              if (st.courseQuery) patch({ courseQuery: '' })
+              requestAnimationFrame(() => {
+                bodyRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+              })
+            }}
+            style={{ position: 'absolute', top: 10, right: 10, width: 48, height: 48, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,.2)', background: 'rgba(8,15,11,.7)', color: '#fff', fontSize: 20, lineHeight: 1, cursor: 'pointer' }}
+          >
+            ×
+          </button>
+        </div>
+      )
+    }
+
+    return (
+      <button
+        key={cardKey}
+        type="button"
+        data-course-kind="catalog"
+        data-course-id={item.id}
+        aria-pressed={selected}
+        onClick={() => selectCourse(item.id)}
+        style={{ ...commonStyle, cursor: 'pointer' }}
+      >
+        {content}
+        <span style={{ width: 24, height: 24, borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${selected ? ACCENT : 'rgba(255,255,255,.3)'}`, background: selected ? ACCENT : 'transparent', color: ACCENT_DARK, fontSize: 14, fontWeight: 800 }}>{selected ? '✓' : ''}</span>
+      </button>
+    )
+  }
+
+  function renderNcrdbCourseCard(hit) {
+    const id = String(ncrdbCourseId(hit))
+    const picking = ncrdbSelectingId === id
+    return (
+      <button
+        type="button"
+        key={`ncrdb-${id}`}
+        data-course-kind="ncrdb"
+        data-course-id={id}
+        disabled={!!ncrdbSelectingId}
+        onClick={() => selectNcrdbCourse(hit)}
+        style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 16, padding: 12, marginBottom: 10, cursor: ncrdbSelectingId ? 'wait' : 'pointer', opacity: ncrdbSelectingId && !picking ? 0.55 : 1 }}
+      >
+        <span style={{ width: 54, height: 54, borderRadius: 12, flex: '0 0 auto', background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundImage: 'url(/courses/course.png), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)' }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{ncrdbCourseName(hit)}</div>
+          <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', marginTop: 1 }}>{ncrdbCourseLocation(hit) || 'USGA NCRDB'} · 18 holes</div>
+        </div>
+        <span style={{ minWidth: 72, height: 26, borderRadius: 999, flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${hexA(ACCENT, 0.35)}`, background: hexA(ACCENT, 0.12), color: ACCENT, fontSize: 11, fontWeight: 900, letterSpacing: 0.8 }}>{picking ? 'LOADING' : 'ADD'}</span>
+      </button>
+    )
   }
 
   function renderCourse() {
@@ -1733,165 +2001,164 @@ export default function SetupWizard() {
     const visible = coursesFromDb
       ? catalog
       : VISIBLE_COURSE_IDS.map((id) => catalog.find((c) => c.id === id)).filter(Boolean)
-    const ordered = sortCoursesForNearby(visible, {
-      homeClub: profileHomeClub,
-      rounds: historyRounds,
-      region: showNearby ? geoRegion : null,
-      userLat: geoRegion?.lat,
-      userLng: geoRegion?.lng,
+    // HOME COURSE section only when You has an explicit home club — not most-played history.
+    const homeCourse = q || !profileHomeClub?.trim()
+      ? null
+      : matchCourseInCatalog(visible, profileHomeClub.trim())
+    let catalogMatches = visible.filter((candidate) => {
+      if (homeCourse && candidate.id === homeCourse.id) return false
+      if (showNearby && !isNearbyCatalogCandidate(candidate, geoRegion)) return false
+      return !q || `${candidate.name} ${candidate.loc ?? ''}`.toLowerCase().includes(q)
     })
-    const matches = ordered.filter((c) => !q || (c.name + ' ' + (c.loc ?? '')).toLowerCase().includes(q))
+    if (!q) {
+      catalogMatches = showNearby && geoRegion?.lat != null && geoRegion?.lng != null
+        ? sortCoursesByDistance(catalogMatches, geoRegion.lat, geoRegion.lng)
+        : orderCoursesByHistory(catalogMatches)
+    }
     const showNcrdbSearch = isSupabaseConfigured && q.length >= 3
-    const remoteMatches = showNcrdbSearch
-      ? dedupeNcrdbAgainstCatalog(ordered, ncrdbResults, {
+    const remoteMatches = showNcrdbSearch && !ncrdbLoading && ncrdbResultsQuery === q
+      ? dedupeNcrdbAgainstCatalog(visible, ncrdbResults, {
           getId: ncrdbCourseId,
           getName: ncrdbCourseName,
           getLoc: ncrdbCourseLocation,
-        }).map(normalizedNcrdbCourse)
+        })
       : []
     const nearbyMatches = showNearby
-      ? dedupeNcrdbAgainstCatalog(ordered, nearbyNcrdb, {
+      ? dedupeNcrdbAgainstCatalog(visible, nearbyNcrdb, {
           getId: ncrdbCourseId,
           getName: ncrdbCourseName,
           getLoc: ncrdbCourseLocation,
-        }).map(normalizedNcrdbCourse)
+        }).filter((hit) => !isExcludedFromNearby(ncrdbCourseId(hit), ncrdbCourseName(hit)))
       : []
+    const mergedItems = [
+      ...catalogMatches.map((item) => ({ kind: 'catalog', item })),
+      ...(q ? remoteMatches : nearbyMatches).map((item) => ({ kind: 'ncrdb', item })),
+    ]
+    const shownItems = courseListExpanded
+      ? mergedItems
+      : mergedItems.slice(0, COURSE_PAGE_SIZE)
     const nearbyLabel = [geoRegion?.city, geoRegion?.stateCode || geoRegion?.state].filter(Boolean).join(', ')
     return (
       <div>
-        {sectionLabel('COURSE SEARCH')}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 11, background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.28)', borderRadius: 14, padding: '0 15px', marginBottom: 20 }}>
-          <span style={{ fontSize: 19, flex: '0 0 auto', lineHeight: 1 }}>🔍</span>
-          <input
-            value={st.courseQuery}
-            onChange={(e) => patch({ courseQuery: e.target.value })}
-            placeholder="Search courses…"
-            style={{ flex: 1, minHeight: 52, background: 'transparent', border: 'none', outline: 'none', color: '#fff', fontSize: 16, fontWeight: 700, fontFamily: 'inherit', padding: 0 }}
-          />
-          {q.length > 0 && (
-            <button onClick={() => patch({ courseQuery: '' })} style={{ width: 26, height: 26, borderRadius: '50%', flex: '0 0 auto', background: 'rgba(255,255,255,.12)', border: 'none', color: '#fff', fontSize: 15, cursor: 'pointer', lineHeight: 1 }}>×</button>
-          )}
-        </div>
-
-        {(geoStatus === GEO_STATUS.LOADING || nearbyLoading) && !q && (
-          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: ACCENT, marginBottom: 12 }}>
-            Finding courses near you…
-          </div>
-        )}
-        {geoStatus === GEO_STATUS.DENIED && !q && (
-          <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.4)', marginBottom: 12 }}>
-            Enable location to see nearby courses.
-          </div>
-        )}
-        {showNearby && (
-          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: ACCENT, marginBottom: 10 }}>
-            NEAR YOU{nearbyLabel ? ` · ${nearbyLabel}` : ' · sorted by distance'}
-          </div>
-        )}
-
-        {sectionLabel('COURSE')}
-        {matches.map((c) => {
-          const sel = c.id === st.courseId
-          return (
-            <button key={c.id} onClick={() => selectCourse(c.id)} style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${sel ? hexA(ACCENT, 0.55) : 'rgba(255,255,255,.12)'}`, borderRadius: 16, padding: 12, marginBottom: 10, cursor: 'pointer' }}>
-              <span style={{ width: 54, height: 54, borderRadius: 12, flex: '0 0 auto', background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundImage: `url(${c.bg}), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)' }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{c.name}</div>
-                <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', marginTop: 1 }}>{courseRowSubtitle(c)}</div>
-              </div>
-              <span style={{ width: 24, height: 24, borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${sel ? ACCENT : 'rgba(255,255,255,.3)'}`, background: sel ? ACCENT : 'transparent', color: ACCENT_DARK, fontSize: 14, fontWeight: 800 }}>{sel ? '✓' : ''}</span>
-            </button>
-          )
-        })}
-        {showNearby && (nearbyLoading || nearbyMatches.length > 0) && (
+        {courseCollapsed ? (
           <>
-            {sectionLabel('MORE NEARBY', { margin: matches.length ? '16px 0 10px' : undefined })}
-            {nearbyLoading && nearbyMatches.length === 0 && (
-              <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,.62)', background: 'rgba(20,28,24,.5)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 14, padding: 14, lineHeight: 1.5, marginBottom: 10 }}>
-                Loading nearby courses from USGA…
-              </div>
-            )}
-            {nearbyMatches.map((c) => {
-              const id = String(ncrdbCourseId(c))
-              const picking = ncrdbSelectingId === id
+            {sectionLabel('SELECTED COURSE')}
+            {renderCatalogCourseCard(course, { collapsed: true, showDistance: geoStatus === GEO_STATUS.READY })}
+            {sectionLabel('TEES', { margin: '18px 0 10px' })}
+            {tees.map((t, i) => {
+              const selected = i === st.teeIdx
               return (
-                <button key={`nearby-ncrdb-${id}`} disabled={!!ncrdbSelectingId} onClick={() => selectNcrdbCourse(c)} style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 16, padding: 12, marginBottom: 10, cursor: ncrdbSelectingId ? 'wait' : 'pointer', opacity: ncrdbSelectingId && !picking ? 0.55 : 1 }}>
-                  <span style={{ width: 54, height: 54, borderRadius: 12, flex: '0 0 auto', background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundImage: 'url(/courses/course.png), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)' }} />
+                <button key={t.name} type="button" onClick={() => patch({ teeIdx: i })} style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${selected ? hexA(ACCENT, 0.55) : 'rgba(255,255,255,.12)'}`, borderRadius: 14, padding: '11px 13px', marginBottom: 9, cursor: 'pointer' }}>
+                  <span style={{ width: 16, height: 16, borderRadius: '50%', flex: '0 0 auto', background: t.color, boxShadow: '0 0 0 2px rgba(255,255,255,.28)' }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{ncrdbCourseName(c)}</div>
-                    <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', marginTop: 1 }}>{ncrdbCourseLocation(c) || 'USGA NCRDB'} · 18 holes</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>{t.name} Tees</div>
+                    <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,.5)', marginTop: 1 }}>CR {t.rating} · Slope {t.slope} · Par {t.par}</div>
                   </div>
-                  <span style={{ minWidth: 72, height: 26, borderRadius: 999, flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${hexA(ACCENT, 0.35)}`, background: hexA(ACCENT, 0.12), color: ACCENT, fontSize: 11, fontWeight: 900, letterSpacing: 0.8 }}>{picking ? 'LOADING' : 'ADD'}</span>
+                  <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: selected ? ACCENT : '#fff' }}>{comma(t.yards)}</div>
+                    <div style={{ fontSize: 10, letterSpacing: 1, color: 'rgba(255,255,255,.45)' }}>YARDS</div>
+                  </div>
                 </button>
               )
             })}
           </>
-        )}
-        {showNearby && !nearbyLoading && nearbyMatches.length === 0 && isSupabaseConfigured && (
-          <button
-            type="button"
-            onClick={() => {
-              nearbyFetchedKey.current = ''
-              nearbyRetryCount.current = 0
-              fetchNearbyNcrdb(geoRegion, { force: true })
-            }}
-            style={{ width: '100%', boxSizing: 'border-box', marginTop: 4, marginBottom: 10, minHeight: 48, borderRadius: 14, border: '1px solid rgba(255,255,255,.18)', background: 'rgba(255,255,255,.08)', color: 'rgba(255,255,255,.72)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
-          >
-            Retry nearby courses
-          </button>
-        )}
-        {showNcrdbSearch && (
+        ) : (
           <>
-            {sectionLabel('SEARCH RESULTS', { margin: matches.length ? '16px 0 10px' : undefined })}
-            {ncrdbLoading && (
+            {sectionLabel('COURSE SEARCH')}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 11, background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.28)', borderRadius: 14, padding: '0 15px', marginBottom: 20 }}>
+              <span aria-hidden="true" style={{ fontSize: 19, flex: '0 0 auto', lineHeight: 1 }}>🔍</span>
+              <input
+                aria-label="Search courses"
+                value={st.courseQuery}
+                onChange={(event) => {
+                  setCourseListExpanded(false)
+                  patch({ courseQuery: event.target.value })
+                }}
+                placeholder="Search courses…"
+                style={{ flex: 1, minHeight: 52, background: 'transparent', border: 'none', outline: 'none', color: '#fff', fontSize: 16, fontWeight: 700, fontFamily: 'inherit', padding: 0 }}
+              />
+              {q.length > 0 && (
+                <button type="button" aria-label="Clear course search" onClick={() => {
+                  setCourseListExpanded(false)
+                  patch({ courseQuery: '' })
+                }} style={{ width: 26, height: 26, borderRadius: '50%', flex: '0 0 auto', background: 'rgba(255,255,255,.12)', border: 'none', color: '#fff', fontSize: 15, cursor: 'pointer', lineHeight: 1 }}>×</button>
+              )}
+            </div>
+
+            {(geoStatus === GEO_STATUS.LOADING || nearbyLoading) && !q && (
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: ACCENT, marginBottom: 12 }}>Finding courses near you…</div>
+            )}
+            {(geoStatus === GEO_STATUS.DENIED || geoStatus === GEO_STATUS.UNAVAILABLE) && !q && (
+              <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.4)', marginBottom: 12 }}>Enable location to see nearby courses.</div>
+            )}
+
+            {homeCourse && (
+              <>
+                {sectionLabel('HOME COURSE')}
+                <div data-home-course>
+                  {renderCatalogCourseCard(homeCourse, { showDistance: showNearby })}
+                </div>
+              </>
+            )}
+
+            {q
+              ? sectionLabel('SEARCH RESULTS', { margin: homeCourse ? '16px 0 10px' : undefined })
+              : showNearby
+                ? <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, color: ACCENT, margin: homeCourse ? '16px 0 10px' : '0 0 10px' }}>NEAR YOU{nearbyLabel ? ` · ${nearbyLabel}` : ' · sorted by distance'}</div>
+                : sectionLabel('YOUR COURSES', { margin: homeCourse ? '16px 0 10px' : undefined })}
+
+            <div data-course-list>
+              {shownItems.map(({ kind, item }) => (
+                kind === 'catalog'
+                  ? renderCatalogCourseCard(item, { cardKey: `catalog-${item.id}`, showDistance: showNearby || !!q })
+                  : renderNcrdbCourseCard(item)
+              ))}
+            </div>
+
+            {(showNcrdbSearch ? ncrdbLoading : nearbyLoading) && (
               <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,.62)', background: 'rgba(20,28,24,.5)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 14, padding: 14, lineHeight: 1.5, marginBottom: 10 }}>
-                Searching courses...
+                {showNcrdbSearch ? 'Searching courses…' : 'Loading nearby courses from USGA…'}
               </div>
             )}
-            {!ncrdbLoading && remoteMatches.map((c) => {
-              const id = String(ncrdbCourseId(c))
-              const picking = ncrdbSelectingId === id
-              return (
-                <button key={`ncrdb-${id}`} disabled={!!ncrdbSelectingId} onClick={() => selectNcrdbCourse(c)} style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 16, padding: 12, marginBottom: 10, cursor: ncrdbSelectingId ? 'wait' : 'pointer', opacity: ncrdbSelectingId && !picking ? 0.55 : 1 }}>
-                  <span style={{ width: 54, height: 54, borderRadius: 12, flex: '0 0 auto', background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundImage: 'url(/courses/course.png), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)' }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{ncrdbCourseName(c)}</div>
-                    <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', marginTop: 1 }}>{ncrdbCourseLocation(c) || 'USGA NCRDB'} · 18 holes</div>
-                  </div>
-                  <span style={{ minWidth: 72, height: 26, borderRadius: 999, flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${hexA(ACCENT, 0.35)}`, background: hexA(ACCENT, 0.12), color: ACCENT, fontSize: 11, fontWeight: 900, letterSpacing: 0.8 }}>{picking ? 'LOADING' : 'ADD'}</span>
-                </button>
-              )
-            })}
+
+            {mergedItems.length > COURSE_PAGE_SIZE && (
+              <button
+                type="button"
+                data-course-pagination
+                onClick={() => setCourseListExpanded((expanded) => !expanded)}
+                style={{ width: '100%', boxSizing: 'border-box', marginTop: 2, marginBottom: 10, minHeight: 48, borderRadius: 14, border: `1px solid ${hexA(ACCENT, 0.35)}`, background: hexA(ACCENT, 0.1), color: ACCENT, fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                {courseListExpanded ? 'Show less' : 'Load more'}
+              </button>
+            )}
+
+            {showNearby && !nearbyLoading && nearbyMatches.length === 0 && isSupabaseConfigured && (
+              <button
+                type="button"
+                onClick={() => {
+                  nearbyFetchedKey.current = ''
+                  nearbyRetryCount.current = 0
+                  fetchNearbyNcrdb(geoRegion, { force: true })
+                }}
+                style={{ width: '100%', boxSizing: 'border-box', marginTop: 4, marginBottom: 10, minHeight: 48, borderRadius: 14, border: '1px solid rgba(255,255,255,.18)', background: 'rgba(255,255,255,.08)', color: 'rgba(255,255,255,.72)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                Retry nearby courses
+              </button>
+            )}
+
             {!ncrdbLoading && ncrdbError && (
               <div style={{ fontSize: 13.5, color: '#fecdd3', background: 'rgba(127,29,29,.3)', border: '1px solid rgba(251,113,133,.35)', borderRadius: 14, padding: 14, lineHeight: 1.5, marginBottom: 10 }}>
                 {ncrdbError}
               </div>
             )}
+
+            {mergedItems.length === 0 && !ncrdbLoading && !nearbyLoading && !ncrdbError && (
+              <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,.55)', background: 'rgba(20,28,24,.5)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 14, padding: 14, lineHeight: 1.5 }}>
+                {q ? `No courses match “${st.courseQuery}”.` : 'No courses are available yet.'}
+              </div>
+            )}
           </>
         )}
-        {matches.length === 0 && (!showNcrdbSearch || (!ncrdbLoading && remoteMatches.length === 0 && !ncrdbError)) && (
-          <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,.55)', background: 'rgba(20,28,24,.5)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 14, padding: 14, lineHeight: 1.5 }}>
-            No courses match “{st.courseQuery}”. More courses coming soon — for now pick from the list above.
-          </div>
-        )}
-
-        {sectionLabel('TEES', { margin: '18px 0 10px' })}
-        {tees.map((t, i) => {
-          const sel = i === st.teeIdx
-          return (
-            <button key={t.name} onClick={() => patch({ teeIdx: i })} style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${sel ? hexA(ACCENT, 0.55) : 'rgba(255,255,255,.12)'}`, borderRadius: 14, padding: '11px 13px', marginBottom: 9, cursor: 'pointer' }}>
-              <span style={{ width: 16, height: 16, borderRadius: '50%', flex: '0 0 auto', background: t.color, boxShadow: '0 0 0 2px rgba(255,255,255,.28)' }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>{t.name} Tees</div>
-                <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,.5)', marginTop: 1 }}>CR {t.rating} · Slope {t.slope} · Par {t.par}</div>
-              </div>
-              <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
-                <div style={{ fontSize: 16, fontWeight: 800, color: sel ? ACCENT : '#fff' }}>{comma(t.yards)}</div>
-                <div style={{ fontSize: 10, letterSpacing: 1, color: 'rgba(255,255,255,.45)' }}>YARDS</div>
-              </div>
-            </button>
-          )
-        })}
 
         {/* where the par/stroke-index card came from */}
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${hexA(scorecardNote.tone.startsWith('#') ? scorecardNote.tone : '#ffffff', 0.3)}`, borderRadius: 14, padding: '12px 13px', marginTop: 4 }}>
@@ -2608,6 +2875,12 @@ export default function SetupWizard() {
           <div style={{ width: 66, height: 66, borderRadius: '50%', margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, fontWeight: 800, color: ACCENT_DARK, background: ACCENT, boxShadow: `0 8px 24px ${hexA(ACCENT, 0.45)}` }}>✓</div>
           <div style={{ fontSize: 23, fontWeight: 800, color: '#fff', letterSpacing: '-0.3px' }}>You're all set</div>
           <div style={{ fontSize: 14, color: 'rgba(255,255,255,.62)', marginTop: 8, lineHeight: 1.5 }}>{course.name} · {tee.name} tees · {readyPlayers.length} players</div>
+          {st.inviteSummary?.invited > 0 && (
+            <div style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 7, background: hexA(ACCENT, 0.14), border: `1px solid ${hexA(ACCENT, 0.4)}`, borderRadius: 9999, padding: '6px 13px', fontSize: 12.5, fontWeight: 800, color: ACCENT }}>
+              ✉️ {st.inviteSummary.invited} invite{st.inviteSummary.invited === 1 ? '' : 's'} sent
+              {st.inviteSummary.alreadyIn > 0 ? ` · ${st.inviteSummary.alreadyIn} already in` : ''}
+            </div>
+          )}
           <button onClick={() => navigate('/scoring')} style={{ marginTop: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: 54, borderRadius: 16, background: ACCENT, color: ACCENT_DARK, fontSize: 16, fontWeight: 800, border: 'none', cursor: 'pointer', boxShadow: `0 8px 22px ${hexA(ACCENT, 0.45)}` }}>Start scoring →</button>
           <button onClick={() => patch({ started: false })} style={{ marginTop: 9, width: '100%', minHeight: 48, borderRadius: 14, background: 'transparent', border: 'none', fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,.6)', cursor: 'pointer' }}>Back to setup</button>
         </div>

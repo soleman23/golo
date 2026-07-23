@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import useNotificationStore, { selectUnreadCount } from '../../store/notificationStore'
 
 const DEFAULT_ACCENT = '#d4f23a'
 
@@ -69,9 +70,11 @@ export default function AppHeader({
   showTitle = true,
   titleCollapsed = false,
   showBack = true,
+  showBell = false,
   style,
 }) {
   const navigate = useNavigate()
+  const unread = useNotificationStore(selectUnreadCount)
   const [menuOpen, setMenuOpen] = useState(false)
   const hasKicker = String(kicker).trim().length > 0
   const hasPill = String(contextPill).trim().length > 0
@@ -96,51 +99,68 @@ export default function AppHeader({
   return (
     <div style={{ flex: '0 0 auto', display: 'block', color: '#fff', textShadow: '0 2px 12px rgba(0,0,0,.4)', paddingTop: 'max(8px, env(safe-area-inset-top))', ...style }}>
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, padding: '2px 14px 0', minHeight: 48 }}>
-        {showBack ? (
-          <button type="button" onClick={goBack} aria-label="Go back" style={{ flex: '0 0 auto', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
-            <svg width="23" height="23" viewBox="0 0 24 24" fill="none" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4))' }} aria-hidden="true">
-              <path d="M15 4.5l-7.2 7.5 7.2 7.5" stroke={accent} strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-        ) : (
-          <span aria-hidden="true" style={{ flex: '0 0 auto', width: 40, height: 40 }} />
-        )}
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', minWidth: 0 }}>
+          {showBack ? (
+            <button type="button" onClick={goBack} aria-label="Go back" style={{ flex: '0 0 auto', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+              <svg width="23" height="23" viewBox="0 0 24 24" fill="none" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4))' }} aria-hidden="true">
+                <path d="M15 4.5l-7.2 7.5 7.2 7.5" stroke={accent} strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          ) : (
+            <span aria-hidden="true" style={{ flex: '0 0 auto', width: 40, height: 40 }} />
+          )}
+        </div>
 
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0 }}>
+        <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0 }}>
           <HeaderLogo logo={logo} accent={accent} />
         </div>
 
-        <div style={{ flex: '0 0 auto', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {rightAction === 'help' && (
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4))' }} aria-hidden="true">
-              <circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.62)" strokeWidth="1.8" />
-              <path d="M9.4 9.1a2.6 2.6 0 0 1 4.8 1.3c0 1.7-2.2 2-2.2 3.4" stroke="rgba(255,255,255,.62)" strokeWidth="1.8" strokeLinecap="round" />
-              <circle cx="12" cy="17" r="1.1" fill="rgba(255,255,255,.62)" />
-            </svg>
-          )}
-          {rightAction === 'menu' && (
-            <svg width="22" height="22" viewBox="0 0 24 24" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4))' }} aria-hidden="true">
-              <g fill="rgba(255,255,255,.65)"><circle cx="12" cy="5" r="1.9" /><circle cx="12" cy="12" r="1.9" /><circle cx="12" cy="19" r="1.9" /></g>
-            </svg>
-          )}
-          {rightAction === 'pin' && (
-            <button type="button" onClick={() => setMenuOpen((v) => !v)} aria-label="Open menu" style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-              <PinMark accent={accent} width={28} height={29} style={{ filter: 'drop-shadow(0 3px 9px rgba(0,0,0,.5))' }} />
-            </button>
-          )}
-          {rightAction === 'refresh' && (
-            <button
-              type="button"
-              onClick={() => onRightAction?.()}
-              aria-label="Refresh"
-              style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-            >
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', minWidth: 0 }}>
+          {showBell && (
+            <button type="button" onClick={() => navigate('/notifications')} aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'} style={{ position: 'relative', flex: '0 0 auto', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4))' }} aria-hidden="true">
-                <path d="M20 12a8 8 0 1 1-2.2-5.5" stroke={accent} strokeWidth="2.2" strokeLinecap="round" />
-                <path d="M20 4v5h-5" stroke={accent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M12 3a5.5 5.5 0 0 0-5.5 5.5v3l-1.3 2.6a1 1 0 0 0 .9 1.4h11.8a1 1 0 0 0 .9-1.4l-1.3-2.6v-3A5.5 5.5 0 0 0 12 3Z" stroke={accent} strokeWidth="1.9" strokeLinejoin="round" />
+                <path d="M9.5 18.5a2.5 2.5 0 0 0 5 0" stroke={accent} strokeWidth="1.9" strokeLinecap="round" />
               </svg>
+              {unread > 0 && (
+                <span style={{ position: 'absolute', top: 2, right: 2, minWidth: 16, height: 16, padding: '0 4px', boxSizing: 'border-box', borderRadius: 9999, background: accent, color: '#13250a', fontSize: 10, fontWeight: 800, lineHeight: '16px', textAlign: 'center', boxShadow: '0 0 0 2px rgba(10,20,14,.55)' }}>
+                  {unread > 9 ? '9+' : unread}
+                </span>
+              )}
             </button>
           )}
+          <div style={{ flex: '0 0 auto', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {rightAction === 'help' && (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4))' }} aria-hidden="true">
+                <circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.62)" strokeWidth="1.8" />
+                <path d="M9.4 9.1a2.6 2.6 0 0 1 4.8 1.3c0 1.7-2.2 2-2.2 3.4" stroke="rgba(255,255,255,.62)" strokeWidth="1.8" strokeLinecap="round" />
+                <circle cx="12" cy="17" r="1.1" fill="rgba(255,255,255,.62)" />
+              </svg>
+            )}
+            {rightAction === 'menu' && (
+              <svg width="22" height="22" viewBox="0 0 24 24" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4))' }} aria-hidden="true">
+                <g fill="rgba(255,255,255,.65)"><circle cx="12" cy="5" r="1.9" /><circle cx="12" cy="12" r="1.9" /><circle cx="12" cy="19" r="1.9" /></g>
+              </svg>
+            )}
+            {rightAction === 'pin' && (
+              <button type="button" onClick={() => setMenuOpen((v) => !v)} aria-label="Open menu" style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                <PinMark accent={accent} width={28} height={29} style={{ filter: 'drop-shadow(0 3px 9px rgba(0,0,0,.5))' }} />
+              </button>
+            )}
+            {rightAction === 'refresh' && (
+              <button
+                type="button"
+                onClick={() => onRightAction?.()}
+                aria-label="Refresh"
+                style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4))' }} aria-hidden="true">
+                  <path d="M20 12a8 8 0 1 1-2.2-5.5" stroke={accent} strokeWidth="2.2" strokeLinecap="round" />
+                  <path d="M20 4v5h-5" stroke={accent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
 
         {menuOpen && rightAction === 'pin' && (

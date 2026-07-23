@@ -177,20 +177,15 @@ export async function assertLiveScorer(roundId) {
   return { ok: true, uid, inviteCode: row.invite_code }
 }
 
-/** Calls patch_live_round — the same gate used during scoring sync. */
-export async function probeLivePatch(roundId, state) {
-  if (!isSupabaseConfigured || !roundId || !state) return { ok: false, reason: 'not configured' }
-  const { error } = await patchLiveRound(roundId, state, null, {})
-  if (error) {
-    const msg = error?.message ?? String(error)
-    return { ok: false, reason: msg }
-  }
-  return { ok: true }
-}
-
 /**
- * Verify patch access; if missing, re-run start_live_round for this round id.
- * Returns invite code when the server accepts patches.
+ * Confirm the signed-in user can score this live round, (re)registering it if
+ * needed. When the round is already live for this user, returns immediately
+ * WITHOUT writing (`state` is unused on that path). Otherwise it re-registers
+ * via start_live_round, which persists `state` — the only write this makes.
+ *
+ * It never "probe"-patches to test access: the old flow did, and an empty/stale
+ * local `state` could overwrite the live board. Callers must therefore pass a
+ * hydrated `state` (see ScoringPage's force-hydrate before this call).
  */
 export async function ensureLiveScorerAccess({ roundId, state, roster, courseName }) {
   if (!isSupabaseConfigured || !roundId) return { ok: false, reason: 'not configured' }
@@ -200,10 +195,7 @@ export async function ensureLiveScorerAccess({ roundId, state, roster, courseNam
 
   const row = await fetchLiveRound(roundId)
   if (row?.status === 'live' && (row.scorer_user_id === uid || row.owner_id === uid)) {
-    const probe = await probeLivePatch(roundId, state)
-    if (probe.ok) {
-      return { ok: true, inviteCode: row.invite_code, uid }
-    }
+    return { ok: true, inviteCode: row.invite_code, uid }
   }
 
   const { data: res, error: liveErr } = await startLiveRound({ roundId, state, roster, courseName })
@@ -217,10 +209,7 @@ export async function ensureLiveScorerAccess({ roundId, state, roster, courseNam
     return { ok: false, reason: liveErr ?? 'start failed' }
   }
 
-  const probe = await probeLivePatch(roundId, state)
-  if (!probe.ok) {
-    return { ok: false, reason: probe.reason, inviteCode: res.invite_code }
-  }
+  // start_live_round already persisted `state`; do not re-patch (avoids wipe races).
   return { ok: true, inviteCode: res.invite_code, reRegistered: true, uid }
 }
 
