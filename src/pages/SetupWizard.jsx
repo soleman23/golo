@@ -669,6 +669,11 @@ export default function SetupWizard() {
   const [st, setSt] = useState(initState)
   const patch = (p) => setSt((s) => ({ ...s, ...p }))
   const userPickedCourse = useRef(false)
+  const [coursePicked, setCoursePicked] = useState(false)
+  const markCoursePicked = () => {
+    userPickedCourse.current = true
+    setCoursePicked(true)
+  }
 
   // Course catalogue: starts with the bundled fallback list, then swaps in the
   // backend's visible setup catalogue once it loads (when Supabase is configured).
@@ -1325,7 +1330,7 @@ export default function SetupWizard() {
   // Switching course loads its real card (pars + stroke index) and resets the
   // tee; courses without their own data fall back to a generic par-4 card.
   const selectCourse = (id) => {
-    userPickedCourse.current = true
+    markCoursePicked()
     if (id === st.courseId) {
       collapseCourseBrowser()
       return
@@ -1406,7 +1411,7 @@ export default function SetupWizard() {
       scorecardCached: !!data?.enrichment?.cached,
       ...(latitude != null && longitude != null ? { latitude, longitude } : {}),
     }
-    userPickedCourse.current = true
+    markCoursePicked()
     setCatalog((items) => {
       const exists = items.some((item) => item.id === importedCourse.id)
       return exists
@@ -1473,7 +1478,7 @@ export default function SetupWizard() {
     if (step === 0) {
       if (!st.courseId || !course) return false
       // Explicit pick or You home club is always fine.
-      if (userPickedCourse.current) return true
+      if (coursePicked) return true
       if (profileHomeClub?.trim() && matchCourseInCatalog([course], profileHomeClub.trim())) return true
       // While geo is still resolving, allow the temporary default through.
       if (geoStatus !== GEO_STATUS.READY) return true
