@@ -14,6 +14,10 @@
  *     npx supabase start && npx supabase db reset --local
  *     npm run verify:invites-e2e
  *
+ * It relies on migration 0034 for table privileges: without explicit grants a
+ * freshly-provisioned database denies every client read regardless of RLS, so a
+ * pass here also proves 0034 covers what the client actually touches.
+ *
  * Never point this at a remote project: it creates and deletes users.
  */
 
@@ -85,24 +89,6 @@ function exec(statement) {
   ], { encoding: 'utf8' })
 }
 
-/**
- * Local-only fixture. Recent Supabase CLI versions ship a hardened default ACL
- * for schema public — tables created by `postgres` grant anon/authenticated only
- * Dxtm (truncate/references/trigger/maintain), NOT select/insert/update/delete.
- * Hosted projects provisioned under the older default have the full grant, which
- * is why the shipped app reads these tables today. RLS filters rows only *after*
- * table privileges are checked, so without this the client sees
- * "permission denied" everywhere and nothing under test can run.
- *
- * This restores the classic posture for the local database only. It is NOT a
- * migration — whether the repo should carry its own grants is a separate call
- * (see docs/NOTIFICATIONS_PLAN.md).
- */
-function grantLocalTablePrivileges() {
-  exec(`grant select, insert, update, delete on all tables in schema public to anon, authenticated;
-        grant usage, select on all sequences in schema public to anon, authenticated;`)
-}
-
 const stamp = Date.now()
 const pw = 'test-password-123!'
 const created = []
@@ -144,7 +130,6 @@ async function cleanup() {
 
 try {
   /* ---------------------------------------------------------------- setup */
-  grantLocalTablePrivileges()
   const A = await makeUser('organizer', 'Ann Organizer')   // organizer/scorer
   const B = await makeUser('invitee', 'Bob Invitee')       // gets a roster slot
   const C = await makeUser('outsider', 'Cal Outsider')     // non-party, for RLS

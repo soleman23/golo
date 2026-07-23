@@ -285,25 +285,38 @@ with the review comment, the legacy two-arg `respond_betting_terms` call still
 resolving, `is_betting_active` false → true → false across a re-finalize, and
 every RLS negative.
 
-> ### Open issue: the migrations don't carry their own table grants
->
-> On a fresh local database **every** table is unreadable by `authenticated` —
-> `permission denied for table notifications`, and the same for `profiles`,
-> `live_rounds`, everything. Recent Supabase CLI versions ship a hardened default
-> ACL for schema `public`: tables created by `postgres` grant anon/authenticated
-> only `Dxtm` (truncate/references/trigger/maintain), **not**
-> select/insert/update/delete. RLS filters rows only *after* table privileges are
-> checked, so no policy can compensate.
->
-> The hosted project was provisioned under the older default (full `arwdDxtm`),
-> which is why the shipped app works today — this is latent, not a live outage.
-> But the migration chain is not self-contained: a fresh project, a restore, or a
-> platform default change would produce a completely non-functional app.
->
-> `verify-invites-e2e.mjs` compensates **for the local database only**, in a
-> clearly-marked fixture. Deciding whether the repo should own its grants (a
-> migration adding explicit `grant`s per table, in line with each table's RLS) is
-> a separate, security-sensitive call — deliberately not made here.
+### Found and fixed while testing: the migrations carried no table grants
+
+On a fresh database **every** table was unreadable by `authenticated` —
+`permission denied for table notifications`, and the same for `profiles`,
+`live_rounds`, everything. Recent Supabase versions ship a hardened default ACL
+for schema `public`: tables created by `postgres` grant anon/authenticated only
+`Dxtm` (truncate/references/trigger/maintain), **not**
+select/insert/update/delete. RLS filters rows only *after* table privileges are
+checked, so no policy could compensate.
+
+The hosted project was provisioned under the older default (full `arwdDxtm`), so
+this was latent rather than a live outage — but the chain was not self-contained:
+a fresh project, a restore, or a platform default change would have produced a
+completely non-functional app.
+
+**`0034_table_grants.sql`** makes the privileges explicit, following the
+precedent 0027 already set for `game_type_visibility`. The posture is
+deliberately *narrower* than the legacy Supabase default:
+
+| surface | grant |
+| --- | --- |
+| `courses`, `rounds`, `round_participants`, `profiles`, `notification_devices`, `notification_preferences` | select, insert, update, delete |
+| `notifications`, `live_rounds` | select, update |
+| `live_round_members`, `live_round_events`, `round_betting_terms`, `round_betting_acceptances`, `payment_requests`, `game_invites` | select |
+| `live_round_slots`, `notification_deliveries`, `course_scorecard_cache`, `ghin_connections`, `ghin_oauth_states` | **none** — server-only, definer RPCs |
+| `anon` | **nothing, anywhere** |
+
+Each grant mirrors that table's RLS policies exactly. A useful consequence: the
+browser can no longer INSERT a `notification` or a `game_invite` even at the
+privilege level, not just the policy level. Verified against a fresh
+`db reset` — `verify-invites-e2e.mjs` passes 41/41 with no fixture, so the
+migration alone covers everything the client touches.
 
 **Remaining manual/PWA pass** (needs a browser, not covered above):
 invite → accept → assert membership with the **correct role and claimed slot** →
