@@ -14,6 +14,27 @@ export const MIN_HANDICAP_INDEX = -10
 export const MAX_HANDICAP_INDEX = 54
 
 /**
+ * Format a stored handicap using conventional golfer notation.
+ *
+ * The app stores plus handicaps as negative numbers for calculation, while
+ * golfers write them with a leading plus. Callers choose one decimal for a
+ * Handicap Index and zero decimals for a calculated course handicap.
+ *
+ * @param {number|string|null|undefined} value
+ * @param {{ precision?: number, empty?: string }} [options]
+ * @returns {string}
+ */
+export function formatHandicap(value, { precision = 1, empty = '—' } = {}) {
+  if (value == null || value === '') return empty
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return empty
+
+  const normalized = Object.is(numeric, -0) ? 0 : numeric
+  const formatted = Math.abs(normalized).toFixed(precision)
+  return normalized < 0 ? `+${formatted}` : formatted
+}
+
+/**
  * Clamp a Handicap Index into range, rounded to one decimal.
  *
  * For steppers, which nudge an existing value rather than accept typed input.

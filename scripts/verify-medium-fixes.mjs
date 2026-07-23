@@ -2,7 +2,7 @@
  * Runtime checks for medium-severity bug fixes.
  */
 import { calculateStablefordPoints } from '../src/engines/stableford.js'
-import { allocateStrokes, parseHandicapIndex, clampHandicapIndex } from '../src/engines/handicap.js'
+import { allocateStrokes, parseHandicapIndex, clampHandicapIndex, formatHandicap } from '../src/engines/handicap.js'
 import { buildLeaderboard } from '../src/engines/scoring.js'
 import { calculateBonusSkins } from '../src/engines/skins.js'
 import { getPressEligibility } from '../src/engines/pressBets.js'
@@ -56,6 +56,16 @@ assert('clampHandicapIndex steps a plus handicap without snapping to scratch', c
 assert('clampHandicapIndex holds the floor', clampHandicapIndex(-11) === -10)
 assert('clampHandicapIndex holds the ceiling', clampHandicapIndex(99) === 54)
 assert('clampHandicapIndex agrees with parseHandicapIndex bounds', clampHandicapIndex(-10) === parseHandicapIndex('-10').value && clampHandicapIndex(54) === parseHandicapIndex('54').value)
+
+// Stored plus handicaps are negative for the engines but use golfer notation
+// everywhere they are displayed.
+assert('formatHandicap writes a stored plus index conventionally', formatHandicap(-2.4) === '+2.4')
+assert('formatHandicap leaves an ordinary index unsigned', formatHandicap(12.4) === '12.4')
+assert('formatHandicap formats scratch at index precision', formatHandicap(0) === '0.0')
+assert('formatHandicap normalizes negative zero', formatHandicap(-0) === '0.0')
+assert('formatHandicap uses the requested empty label', formatHandicap(null, { empty: 'Set' }) === 'Set')
+assert('formatHandicap rejects non-finite values', formatHandicap(Number.NaN) === '—' && formatHandicap(Infinity) === '—')
+assert('formatHandicap supports whole-number course handicaps', formatHandicap(-3, { precision: 0 }) === '+3' && formatHandicap(12, { precision: 0 }) === '12')
 
 // #12 leaderboard tiebreak by holes played
 const players = [{ id: 'a', name: 'Ann' }, { id: 'b', name: 'Bob' }]

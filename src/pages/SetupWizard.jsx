@@ -6,7 +6,7 @@ import useHistoryStore from '../store/historyStore'
 import useProfileStore from '../store/profileStore'
 import useAuthStore from '../store/authStore'
 import useLiveRoundStore from '../store/liveRoundStore'
-import { calculateCourseHandicap, clampHandicapIndex } from '../engines/handicap'
+import { calculateCourseHandicap, clampHandicapIndex, formatHandicap } from '../engines/handicap'
 import { hasContact, displayName, playerKey } from '../lib/identity'
 import { fetchCourses } from '../lib/db/courses'
 import { searchVerifiedPlayers, fetchPlayerContact } from '../lib/db/players'
@@ -2049,7 +2049,7 @@ export default function SetupWizard() {
                 addAccount,
                 (a) => {
                   const contact = a.emailMasked || a.phoneMasked || a.email || a.phone || ''
-                  const hdcp = a.handicapIndex != null ? ` · Hdcp ${Number(a.handicapIndex).toFixed(1)}` : ''
+                  const hdcp = a.handicapIndex != null ? ` · Hdcp ${formatHandicap(a.handicapIndex)}` : ''
                   return `${contact}${hdcp}`.trim() || displayName(a)
                 },
               )}
@@ -2143,7 +2143,7 @@ export default function SetupWizard() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, flex: '0 0 auto' }}>
             <button onClick={() => incHdcp(p.id, -1)} style={stepBtn}>−</button>
-            <span style={{ minWidth: 26, textAlign: 'center', fontSize: 17, fontWeight: 800, color: '#fff' }}>{p.hdcp}</span>
+            <span style={{ minWidth: 34, textAlign: 'center', fontSize: 17, fontWeight: 800, color: '#fff' }}>{formatHandicap(p.hdcp)}</span>
             <button onClick={() => incHdcp(p.id, 1)} style={stepBtn}>+</button>
           </div>
           {!isOrganizer && (
@@ -2568,7 +2568,7 @@ export default function SetupWizard() {
             <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(20,28,24,.5)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 9999, padding: '6px 13px 6px 6px' }}>
               <span style={{ width: 26, height: 26, borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: '#fff', background: p.color }}>{initial(p)}</span>
               <span style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>{displayName(p)}</span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,.5)' }}>H{p.hdcp}{isScramble ? ` · ${p.team}` : ''}</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,.5)' }}>H{formatHandicap(p.hdcp)}{isScramble ? ` · ${p.team}` : ''}</span>
             </div>
           ))}
         </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { adminListProfiles, adminUpdateProfile } from '../../lib/db/admin'
+import { formatHandicap } from '../../engines/handicap'
 import useAdminDesk from './useAdminDesk'
 
 const ACCENT = '#d4f23a'
@@ -129,7 +130,7 @@ export default function AdminPlayersPage() {
       <div style={S.list}>
         {profiles.map((profile, index) => {
           const busy = busyId === profile.id
-          const hcp = profile.handicapIndex == null ? '—' : String(profile.handicapIndex)
+          const hcp = formatHandicap(profile.handicapIndex)
           return (
             <div key={profile.id} style={S.card}>
               <div

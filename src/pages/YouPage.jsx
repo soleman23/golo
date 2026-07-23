@@ -8,7 +8,7 @@ import useAuthStore from '../store/authStore'
 import { uploadAvatar, removeAvatar } from '../lib/db/avatars'
 import { fetchProfile } from '../lib/db/profiles'
 import useAdmin from '../hooks/useAdmin'
-import { parseHandicapIndex, clampHandicapIndex } from '../engines/handicap'
+import { parseHandicapIndex, clampHandicapIndex, formatHandicap } from '../engines/handicap'
 import { GHIN_ENABLED } from '../lib/featureFlags'
 import { startGhinConnect, syncGhinHandicap, isGhinConfiguredResponse } from '../lib/ghin/client'
 import { isGhinConnected } from '../lib/ghin/eligibility'
@@ -266,7 +266,7 @@ export default function YouPage() {
   }
 
   const ghinSub = ghinLinked
-    ? `GHIN #${ghinNumber ?? '—'} · index ${profileHandicap != null ? Number(profileHandicap).toFixed(1) : '—'}`
+    ? `GHIN #${ghinNumber ?? '—'} · index ${formatHandicap(profileHandicap)}`
     : ghinPending
       ? 'Integration pending USGA approval'
       : ghinSync
@@ -276,7 +276,7 @@ export default function YouPage() {
   // Manual index — the only handicap path while GHIN is shelved. Setup seeds
   // each round's organizer card from this, and writes it back when you finish.
   const handicapSub = profileHandicap != null
-    ? `Index ${Number(profileHandicap).toFixed(1)} · seeds every round`
+    ? `Index ${formatHandicap(profileHandicap)} · seeds every round`
     : 'Set your index to seed every round'
 
   const openHandicap = () => {
@@ -333,7 +333,7 @@ export default function YouPage() {
 
     const liveMe = livePlayers.find((p) => meKey != null && playerKey(p) === meKey)
     const hdcp = liveMe?.handicapIndex ?? profileHandicap
-    const hdcpLabel = hdcp != null ? Number(hdcp).toFixed(1) : '—'
+    const hdcpLabel = formatHandicap(hdcp)
 
     // Home club = most-played course (history), else the live round's course.
     const courseFreq = {}
@@ -1008,7 +1008,7 @@ export default function YouPage() {
                 sub={handicapSub}
                 onClick={openHandicap}
                 badge={{
-                  label: profileHandicap != null ? Number(profileHandicap).toFixed(1) : 'Set',
+                  label: formatHandicap(profileHandicap, { empty: 'Set' }),
                   on: profileHandicap != null,
                 }}
                 divider
@@ -1180,7 +1180,7 @@ function GhinSheet({
         </div>
         {linked && (
           <div style={{ ...S.sheetBody, marginTop: 0, fontSize: 13, color: 'rgba(255,255,255,.72)' }}>
-            GHIN #{ghinNumber ?? '—'} · Index {handicapIndex != null ? Number(handicapIndex).toFixed(1) : '—'}
+            GHIN #{ghinNumber ?? '—'} · Index {formatHandicap(handicapIndex)}
             <div style={{ marginTop: 4, fontSize: 12, color: 'rgba(255,255,255,.5)' }}>{syncLabel}</div>
           </div>
         )}
