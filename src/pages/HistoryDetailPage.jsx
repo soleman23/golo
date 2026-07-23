@@ -6,6 +6,7 @@ import { getCourseImage } from '../lib/courseImages'
 import { betGlyphName } from '../engines/betResults'
 import { Icon } from '../components/shared/GoloIcons'
 import AppHeader from '../components/shared/AppHeader'
+import ScorecardGrid from '../components/scoring/ScorecardGrid'
 
 /**
  * HistoryDetailPage — one saved round, "glass-over-turf".
@@ -96,6 +97,7 @@ export default function HistoryDetailPage() {
 
   const [expanded, setExpanded] = useState({})
   const [toast, setToast] = useState('')
+  const [cardNine, setCardNine] = useState('front')
 
   // Round was deleted or the id is bad — back to the list.
   if (!round) return <Navigate to="/history" replace />
@@ -118,6 +120,21 @@ export default function HistoryDetailPage() {
   const summaryText = typeof round.summaryText === 'string' ? round.summaryText : ''
   const courseLabel = round.course || 'Saved round'
   const dateLabel = roundDateLabel(round)
+
+  // Scorecard: the snapshot already carries everything the grid needs. Score
+  // rows follow the round's format — teams in scramble, where scores are keyed
+  // by team id. The saved allocations are the raw per-player map, so re-apply
+  // the rule Scoring uses: scramble and gross rounds are played without strokes.
+  const scoringType = round.scoringType ?? 'stroke'
+  const isScramble = scoringType === 'scramble'
+  const totalHoles = round.holes ?? 18
+  const cardEntities = isScramble ? asArray(round.teams) : players
+  const cardScores = safeRecord(round.scores)
+  const cardAllocations =
+    isScramble || round.scoring === 'gross' ? {} : safeRecord(round.strokeAllocations)
+  const hasCard =
+    cardEntities.length > 0 &&
+    cardEntities.some((e) => Object.keys(safeRecord(cardScores[e?.id])).length > 0)
 
   const toggleGame = (i) => setExpanded((e) => ({ ...e, [i]: !e[i] }))
 
@@ -188,6 +205,42 @@ export default function HistoryDetailPage() {
                 <span style={{ width: 30, textAlign: 'right' }}>NET</span>
                 <span style={{ width: 34, textAlign: 'right' }}>PAR</span>
               </div>
+            </>
+          )}
+
+          {/* SCORECARD — same grid the live leaderboard renders, read-only here */}
+          {hasCard && (
+            <>
+              <div style={{ ...S.sectionLabel, margin: '20px 2px 9px' }}>SCORECARD</div>
+              {totalHoles > 9 && (
+                <div style={{ display: 'flex', gap: 4, marginBottom: 9 }}>
+                  {[['front', 'Front 9'], ['back', 'Back 9']].map(([id, label]) => {
+                    const on = cardNine === id
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => setCardNine(id)}
+                        style={{ flex: 1, minHeight: 34, borderRadius: 9999, cursor: 'pointer', fontSize: 12, fontWeight: 800, letterSpacing: 0.6, background: on ? hexA(ACCENT, 0.16) : 'rgba(255,255,255,.06)', border: `1px solid ${on ? hexA(ACCENT, 0.55) : 'rgba(255,255,255,.14)'}`, color: on ? ACCENT : 'rgba(255,255,255,.6)' }}
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+              <ScorecardGrid
+                entities={cardEntities}
+                scores={cardScores}
+                pars={safeRecord(round.pars)}
+                strokeIndex={safeRecord(round.strokeIndex)}
+                allocations={cardAllocations}
+                totalHoles={totalHoles}
+                nine={cardNine}
+                isStableford={scoringType === 'stableford'}
+                readOnly
+              />
             </>
           )}
 

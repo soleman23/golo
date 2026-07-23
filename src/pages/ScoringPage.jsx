@@ -1261,6 +1261,7 @@ export default function ScoringPage() {
                   nine={cardNine}
                   meEntityId={meEntityId}
                   readOnly={readOnly}
+                  isStableford={isStableford}
                   onCellTap={(id, hole) => setKeypadFor({ id, hole })}
                 />
               ) : leaderModel.empty ? (
