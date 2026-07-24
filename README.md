@@ -43,6 +43,19 @@ shared database:
    | `0022`–`0024` | Notifications + push delivery |
    | `0025`–`0028` | Betting terms and payment requests |
    | `0029`–`0031` | Course scorecard cache |
+   | `0033`–`0034` | Game invites; explicit table privileges |
+   | `0036` | Removes a dead anon grant left by `0034` |
+
+   There is no `0032` and there never will be — two abandoned course-photo
+   branches both claimed it with different contents, and `0033`/`0034` reached
+   production first. Migrations apply in version order and an out-of-order push
+   is refused, so the slot is permanently unusable. Don't renumber anything into
+   it.
+
+   Read `0034` before touching RLS: Postgres checks table privileges *before*
+   row-level security, so a new table needs an explicit grant for its policy to
+   matter at all. A perfect policy with no grant fails every client query with
+   `permission denied`.
 
    Verify a linked project with `node scripts/verify-production.mjs` (reads
    `.env.local`). See [docs/LAUNCH.md](docs/LAUNCH.md) for the full crew launch checklist.
