@@ -124,7 +124,10 @@ export async function sendGameInvites(roundId, inviteeIds) {
  * Accept or deny an invite (only ever the caller's own). On accept the server
  * joins the round — claiming the caller's roster slot when it matches, else
  * viewer — and the 0025 trigger enqueues any pending betting acceptance.
- * Returns { data: { status, role? } | { status, already } | { status:'expired' } }.
+ *
+ * Accept / already-accepted (while live) returns join-shaped hydrate fields:
+ *   { status, live_round_id, role, invite_code, state, course_name, already? }
+ * Decline / expired stay slim: { status, role? } | { status:'expired', message }.
  */
 export async function respondGameInvite(inviteId, accept) {
   if (!isSupabaseConfigured || !inviteId) return { data: null, error: 'not configured' }

@@ -165,7 +165,7 @@ export default function HistoryPage() {
                 <span style={S.sectionSub}>newest first</span>
               </div>
               {items.map((g) => (
-                <button key={g.key} onClick={() => navigate(`/history/${g.roundId}`)} style={S.roundRow}>
+                <button key={g.key} onClick={() => g.roundId && navigate(`/history/${g.roundId}`)} style={S.roundRow}>
                   <span style={{ ...S.roundThumb, backgroundImage: layeredCourseBg(g.bg), backgroundSize: 'cover', backgroundPosition: 'center' }} />
                   <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                     <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.course}</div>

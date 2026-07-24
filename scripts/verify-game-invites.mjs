@@ -1,6 +1,6 @@
 /**
- * verify-game-invites.mjs — structural assertions over migration 0033
- * (game invites + the respond_betting_terms rewrite).
+ * verify-game-invites.mjs — structural assertions over migrations 0033–0037
+ * (game invites, payment category restore, invite join parity, profile names).
  *
  * SCOPE: this is a static check of the migration SQL, not an integration test.
  * It runs hermetically (no network, no credentials) so it can live in `npm test`
@@ -9,10 +9,7 @@
  * still carries EVERY previously mapped type (dropping one silently re-routes
  * those notifications to the fallback category).
  *
- * The behavioural end-to-end pass (two accounts: invite → accept → membership +
- * slot claim → betting terms → send-back-with-comment) is a manual/staging step
- * documented in docs/NOTIFICATIONS_PLAN.md — it needs two real sessions and the
- * migration applied, neither of which exists in CI.
+ * The behavioural end-to-end pass lives in verify-invites-e2e.mjs (local Supabase).
  */
 
 import { readFileSync } from 'node:fs'
@@ -35,6 +32,10 @@ const migrations = resolve(repoRoot, 'supabase/migrations')
 const sql = readFileSync(resolve(migrations, '0033_game_invites.sql'), 'utf8')
 const sql0024 = readFileSync(resolve(migrations, '0024_push_delivery.sql'), 'utf8')
 const sql0025 = readFileSync(resolve(migrations, '0025_betting_terms.sql'), 'utf8')
+const sql0026 = readFileSync(resolve(migrations, '0026_payment_requests.sql'), 'utf8')
+const sql0035 = readFileSync(resolve(migrations, '0035_restore_payment_notif_category.sql'), 'utf8')
+const sql0036 = readFileSync(resolve(migrations, '0036_game_invite_join_parity.sql'), 'utf8')
+const sql0037 = readFileSync(resolve(migrations, '0037_get_profile_names.sql'), 'utf8')
 
 /* ------------------------------------------------------------ table + RLS */
 
@@ -58,24 +59,37 @@ assert(/using \(invitee_id = auth\.uid\(\) or inviter_id = auth\.uid\(\)\)/.test
 
 /* ------------------------------------------- notif_category carries forward */
 
-// Every type mapped by an earlier migration must still be mapped here, or its
-// notifications silently fall through to the generic category.
+// Every type mapped by an earlier migration must still be mapped in the LATEST
+// notif_category definition (0035), or notifications silently fall through.
 function mappedTypes(text) {
-  const body = text.slice(text.lastIndexOf('function public.notif_category'))
+  const marker = 'create or replace function public.notif_category'
+  const start = text.lastIndexOf(marker)
+  const body = start >= 0 ? text.slice(start) : ''
   const end = body.indexOf('$$;')
-  return new Set([...body.slice(0, end).matchAll(/when '([a-z_]+)'/g)].map((m) => m[1]))
+  return new Set([...body.slice(0, end < 0 ? body.length : end).matchAll(/when '([a-z_]+)'/g)].map((m) => m[1]))
 }
 
-const prior = new Set([...mappedTypes(sql0024), ...mappedTypes(sql0025)])
-const now = mappedTypes(sql)
-assert(prior.size > 0, 'baseline notif_category cases were found in 0024/0025')
+const prior = new Set([
+  ...mappedTypes(sql0024),
+  ...mappedTypes(sql0025),
+  ...mappedTypes(sql0026),
+])
+const now = mappedTypes(sql0035)
+assert(prior.size > 0, 'baseline notif_category cases were found in 0024/0025/0026')
 for (const t of prior) {
-  assert(now.has(t), `notif_category still maps '${t}' (regression guard)`)
+  assert(now.has(t), `notif_category still maps '${t}' (regression guard via 0035)`)
 }
 assert(now.has('game_invite_received') && now.has('game_invite_responded'),
-  'notif_category maps both new invite types')
-assert(/when 'betting_terms_requested' then 'betting'/.test(sql)
-  && /when 'betting_terms_responded' then 'betting'/.test(sql),
+  'notif_category maps both invite types')
+assert(now.has('payment_requested') && now.has('payment_confirmed'),
+  '0035 restores payment notification types')
+assert(/when 'payment_requested'\s+then 'payments'/.test(sql0035)
+  && /when 'payment_marked_sent'\s+then 'payments'/.test(sql0035)
+  && /when 'payment_confirmed'\s+then 'payments'/.test(sql0035)
+  && /when 'payment_disputed'\s+then 'payments'/.test(sql0035),
+  "payment types keep the 'payments' category")
+assert(/when 'betting_terms_requested' then 'betting'/.test(sql0035)
+  && /when 'betting_terms_responded' then 'betting'/.test(sql0035),
   "the betting types keep the 'betting' category")
 
 /* --------------------------------------------------- respond_betting_terms */
@@ -112,6 +126,51 @@ assert(/v_role := case when v_slot is not null then 'player' else 'viewer' end/.
   "role 'player' requires a claimed slot; otherwise viewer")
 assert(/v_slot := null;\s*-- already claimed/.test(sql),
   'a slot already claimed falls back to viewer rather than raising')
+
+/* ---------------------------------------------- 0036 invite join parity */
+
+assert(/on conflict \(round_id, invitee_id\) do update/.test(sql0036),
+  '0036 resurrects declined/expired/cancelled invites via upsert')
+assert(/status in \('declined', 'expired', 'cancelled'\)/.test(sql0036),
+  're-invite upsert only resets terminal non-accepted statuses')
+assert(/on conflict \(user_id, dedupe_key\) where dedupe_key is not null\s+do update set/.test(sql0036),
+  're-invite bumps the inbox notification (dedupe upsert)')
+assert(/'player_joined'/.test(sql0036) && /live_round_events/.test(sql0036),
+  'accept emits a player_joined live event')
+assert(/on conflict \(live_round_id, user_id\) do update/.test(sql0036),
+  'accept upgrades an existing viewer membership')
+assert(/live_round_members\.role = 'viewer'/.test(sql0036)
+  && /excluded\.role = 'player'/.test(sql0036),
+  'member upgrade only goes viewer → player')
+assert(/'live_round_id'/.test(sql0036) && /'invite_code'/.test(sql0036) && /'state'/.test(sql0036),
+  'accept returns join-shaped hydrate fields')
+assert(/account inactive/.test(sql0036),
+  'respond_game_invite rejects inactive accounts like join_live_round')
+assert(/unique_violation/.test(sql0036),
+  'slot race falls back to viewer instead of aborting Accept')
+assert(/jsonb_build_object\('role', v_role\)/.test(sql0036),
+  'player_joined event payload is role-only (no player_key PII)')
+assert(/after insert or update of role on public\.live_round_members/.test(sql0036),
+  'betting acceptance trigger fires on viewer→player role upgrade')
+assert(/'invite_code',\s*lr\.invite_code/.test(sql0036),
+  'my_upcoming_games includes invite_code')
+assert(/select m\.role from public\.live_round_members m/.test(sql0036),
+  'my_upcoming_games includes membership role')
+
+/* ---------------------------------------------------- 0037 profile names */
+
+assert(/create or replace function public\.get_profile_names\(p_ids uuid\[]\)/.test(sql0037),
+  'get_profile_names RPC is defined')
+assert(/returns table \(id uuid, name text, nickname text\)/.test(sql0037),
+  'get_profile_names returns only safe name columns')
+assert(/live_round_members me/.test(sql0037) && /them\.user_id = p\.id/.test(sql0037),
+  'get_profile_names is gated to shared live-round members')
+assert(/grant execute on function public\.get_profile_names\(uuid\[]\) to authenticated/.test(sql0037),
+  'get_profile_names is granted to authenticated')
+assert(!/grant execute on function public\.get_profile_names[\s\S]*to anon/.test(sql0037),
+  'get_profile_names is not granted to anon')
+assert(/revoke all on public\.public_profiles from anon/.test(sql0037),
+  'dead anon grant on public_profiles is revoked')
 
 /* ------------------------------------------------------------ payload hygiene */
 

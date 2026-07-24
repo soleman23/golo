@@ -85,13 +85,10 @@ export async function fetchAcceptances(termsId) {
   return data ?? []
 }
 
-/** Display names for a set of auth user ids (via the public_profiles view). */
+/** Display names for a set of auth user ids (via get_profile_names RPC). */
 export async function fetchProfileNames(ids) {
   if (!isSupabaseConfigured || !ids?.length) return {}
-  const { data, error } = await supabase
-    .from('public_profiles')
-    .select('id, name, nickname')
-    .in('id', ids)
+  const { data, error } = await supabase.rpc('get_profile_names', { p_ids: ids })
   if (error) {
     console.error('[db] fetchProfileNames', error)
     return {}

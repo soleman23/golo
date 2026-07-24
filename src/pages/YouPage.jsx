@@ -7,6 +7,9 @@ import useProfileStore from '../store/profileStore'
 import useAuthStore from '../store/authStore'
 import useNotificationStore, { selectUnreadCount } from '../store/notificationStore'
 import { fetchUpcomingGames } from '../lib/db/notifications'
+import { fetchLiveRound } from '../lib/db/liveRounds'
+import { hydrateFromServer } from '../lib/liveRoundSync'
+import useLiveRoundStore from '../store/liveRoundStore'
 import { uploadAvatar, removeAvatar } from '../lib/db/avatars'
 import { fetchProfile } from '../lib/db/profiles'
 import useAdmin from '../hooks/useAdmin'
@@ -115,6 +118,7 @@ export default function YouPage() {
   const ghinSync = useProfileStore((s) => s.ghinSync)
   const setGhinSync = useProfileStore((s) => s.setGhinSync)
   const unreadCount = useNotificationStore(selectUnreadCount)
+  const pushToast = useNotificationStore((s) => s.pushToast)
   const authEnabled = useAuthStore((s) => s.enabled)
   const authEmail = useAuthStore((s) => s.user?.email ?? null)
   const authUserId = useAuthStore((s) => s.user?.id ?? null)
@@ -124,6 +128,7 @@ export default function YouPage() {
 
   const [editing, setEditing] = useState(false)
   const [upcoming, setUpcoming] = useState([]) // accepted invites / pending betting terms
+  const [openLiveBusy, setOpenLiveBusy] = useState(null) // round_id while opening scoring
   const [uploading, setUploading] = useState(false)
   const [avatarError, setAvatarError] = useState(null)
   const [confirmAction, setConfirmAction] = useState(null)
@@ -764,22 +769,48 @@ export default function YouPage() {
                 <span style={S.sectionSub}>{upcoming.length}</span>
               </div>
               {upcoming.map((g) => {
-                // Three states: terms not locked yet · my call outstanding · settled.
+                // Four states: no terms · my call outstanding · sent back · settled.
                 const needsMe = g.has_terms && g.terms_status === 'pending'
+                const sentBack = g.has_terms && g.terms_status === 'declined'
                 const pill = !g.has_terms
                   ? { label: 'Awaiting betting terms', color: 'rgba(255,255,255,.62)', bg: 'rgba(255,255,255,.08)' }
                   : needsMe
                     ? { label: 'Terms ready · review now', color: ACCENT_DARK, bg: ACCENT }
-                    : { label: 'You’re all set', color: '#bef264', bg: 'rgba(190,242,100,.14)' }
+                    : sentBack
+                      ? { label: 'Terms sent back', color: '#fb7185', bg: 'rgba(251,113,133,.14)' }
+                      : { label: 'You’re all set', color: '#bef264', bg: 'rgba(190,242,100,.14)' }
+
+                const openScoring = async () => {
+                  if (openLiveBusy) return
+                  setOpenLiveBusy(g.round_id)
+                  try {
+                    const row = await fetchLiveRound(g.round_id)
+                    if (!row?.state || row.status !== 'live') {
+                      pushToast({ kicker: 'UPCOMING', title: 'That round is no longer live.' })
+                      setUpcoming((list) => list.filter((x) => x.round_id !== g.round_id))
+                      return
+                    }
+                    hydrateFromServer(row.state, { force: true })
+                    useLiveRoundStore.getState().setSession({
+                      liveRoundId: row.id,
+                      inviteCode: row.invite_code ?? g.invite_code,
+                      role: g.role ?? 'viewer',
+                      scorerName: row.state?.players?.[0]?.name ?? g.organizer_name ?? 'Scorer',
+                    })
+                    navigate('/scoring')
+                  } finally {
+                    setOpenLiveBusy(null)
+                  }
+                }
+
                 return (
-                  <button
-                    key={g.round_id}
-                    type="button"
-                    disabled={!g.has_terms}
-                    onClick={() => g.has_terms && navigate(`/betting/${g.round_id}`)}
-                    style={{ ...S.upcomingCard, cursor: g.has_terms ? 'pointer' : 'default' }}
-                  >
-                    <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                  <div key={g.round_id} style={S.upcomingCard}>
+                    <button
+                      type="button"
+                      onClick={openScoring}
+                      disabled={openLiveBusy === g.round_id}
+                      style={{ flex: 1, minWidth: 0, textAlign: 'left', background: 'none', border: 'none', padding: 0, cursor: openLiveBusy === g.round_id ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: openLiveBusy === g.round_id ? 0.7 : 1 }}
+                    >
                       <span style={{ display: 'block', fontSize: 15, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {g.course_name || 'Round'}
                       </span>
@@ -789,9 +820,20 @@ export default function YouPage() {
                       <span style={{ display: 'inline-block', marginTop: 8, fontSize: 11, fontWeight: 800, color: pill.color, background: pill.bg, padding: '4px 10px', borderRadius: 9999 }}>
                         {pill.label}
                       </span>
-                    </span>
-                    {g.has_terms && <span aria-hidden="true" style={{ color: ACCENT, fontSize: 17, fontWeight: 800 }}>→</span>}
-                  </button>
+                    </button>
+                    {g.has_terms ? (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/betting/${g.round_id}`)}
+                        aria-label={needsMe ? 'Review betting terms' : 'Open betting terms'}
+                        style={{ flex: '0 0 auto', background: 'none', border: 'none', color: ACCENT, fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', padding: '8px 0 8px 8px' }}
+                      >
+                        {needsMe ? 'Review →' : 'Terms →'}
+                      </button>
+                    ) : (
+                      <span aria-hidden="true" style={{ color: ACCENT, fontSize: 17, fontWeight: 800, paddingLeft: 8 }}>→</span>
+                    )}
+                  </div>
                 )
               })}
             </div>

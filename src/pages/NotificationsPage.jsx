@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useNotificationStore, { selectUnreadCount } from '../store/notificationStore'
 import useProfileStore from '../store/profileStore'
+import useLiveRoundStore from '../store/liveRoundStore'
+import { hydrateFromServer } from '../lib/liveRoundSync'
+import { fetchLiveRound } from '../lib/db/liveRounds'
 import { hexA } from '../lib/colors'
 import AppHeader from '../components/shared/AppHeader'
 import {
@@ -128,12 +131,40 @@ export default function NotificationsPage() {
     const status = data?.status
     if (status === 'expired') {
       pushToast({ kicker: 'GAME INVITE', title: 'That game is no longer live.' })
-    } else if (accept) {
-      pushToast({ kicker: 'GAME INVITE', title: "You're in — see your locker." })
-      navigate('/you')
-    } else {
-      pushToast({ kicker: 'GAME INVITE', title: 'Organizer notified.' })
+      return
     }
+    if (!accept) {
+      pushToast({ kicker: 'GAME INVITE', title: 'Organizer notified.' })
+      return
+    }
+
+    // Mirror JoinRoundPage / Home openLiveWatch: enter the live scoring session.
+    let liveRoundId = data?.live_round_id
+    let inviteCode = data?.invite_code
+    let role = data?.role ?? 'viewer'
+    let state = data?.state
+    if ((!liveRoundId || !state) && n.round_id) {
+      const row = await fetchLiveRound(n.round_id)
+      if (row) {
+        liveRoundId = liveRoundId ?? row.id
+        inviteCode = inviteCode ?? row.invite_code
+        state = state ?? row.state
+      }
+    }
+    if (liveRoundId && state) {
+      hydrateFromServer(state, { force: true })
+      useLiveRoundStore.getState().setSession({
+        liveRoundId,
+        inviteCode,
+        role,
+        scorerName: state?.players?.[0]?.name ?? 'Scorer',
+      })
+      pushToast({ kicker: 'GAME INVITE', title: "You're in — live scoring." })
+      navigate('/scoring', { replace: true })
+      return
+    }
+    pushToast({ kicker: 'GAME INVITE', title: "You're in — see your locker." })
+    navigate('/you')
   }
 
   // Plain render helpers (not components) so state isn't reset each render.

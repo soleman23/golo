@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useNotificationStore, { selectUnreadCount } from '../../store/notificationStore'
 
@@ -75,6 +75,7 @@ export default function AppHeader({
   const navigate = useNavigate()
   const unread = useNotificationStore(selectUnreadCount)
   const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef(null)
   const hasKicker = String(kicker).trim().length > 0
   const hasPill = String(contextPill).trim().length > 0
   const pillRight = hasPill && pillAlign === 'right'
@@ -90,6 +91,22 @@ export default function AppHeader({
     { label: 'Contact support', to: '/contact' },
   ]
 
+  useEffect(() => {
+    if (!menuOpen) return
+    const onPointerDown = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false)
+    }
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') setMenuOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [menuOpen])
+
   const goBack = () => {
     if (backTo === -1) navigate(-1)
     else navigate(backTo || '/')
@@ -102,7 +119,7 @@ export default function AppHeader({
 
   return (
     <div style={{ flex: '0 0 auto', display: 'block', color: '#fff', textShadow: '0 2px 12px rgba(0,0,0,.4)', paddingTop: 'max(8px, env(safe-area-inset-top))', ...style }}>
-      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, padding: '2px 14px 0', minHeight: 48 }}>
+      <div ref={menuRef} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, padding: '2px 14px 0', minHeight: 48 }}>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', minWidth: 0 }}>
           {showBack ? (
             <button type="button" onClick={goBack} aria-label="Go back" style={{ flex: '0 0 auto', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
