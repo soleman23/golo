@@ -147,6 +147,7 @@ export default function YouPage() {
   const [view, setView] = useState('season')
   const { isAdmin } = useAdmin()
   const fileInputRef = useRef(null)
+  const recentResultsRef = useRef(null)
   const venmoToastTimer = useRef(null)
   // Registered = backend on AND signed in; only they can upload to Storage.
   const canUploadAvatar = authEnabled && !!authUserId
@@ -466,6 +467,15 @@ export default function YouPage() {
           danger: true,
         }
       : null
+
+  useEffect(() => {
+    const scroller = recentResultsRef.current
+    if (!scroller || model?.form.length == null) return
+
+    // The newest round is the right-most bar. Start there while still letting
+    // players swipe left through older results.
+    scroller.scrollLeft = scroller.scrollWidth
+  }, [model?.form.length, view])
 
   const openConfirm = (action) => {
     setConfirmError(null)
@@ -941,15 +951,32 @@ export default function YouPage() {
                     <span style={S.sectionLabel}>RECENT RESULTS</span>
                     <span style={S.sectionSub}>last {model.form.length} rounds</span>
                   </div>
-                  <div style={{ ...S.glassCard, borderRadius: 20, padding: '16px 16px 14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 7, height: 96 }}>
-                      {model.form.map((f, i) => (
-                        <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, height: '100%', justifyContent: 'flex-end' }}>
-                          <span style={{ fontSize: 10, fontWeight: 800, color: f.up ? '#bef264' : '#fb7185' }}>{signed(f.net)}</span>
-                          <span style={{ width: '100%', borderRadius: '7px 7px 3px 3px', height: f.h, background: f.up ? ACCENT : '#fb7185', boxShadow: f.up ? `0 4px 12px ${hexA(ACCENT, 0.4)}` : 'none' }} />
-                          <span style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,.4)' }}>{f.tag}</span>
-                        </div>
-                      ))}
+                  <div style={{ ...S.glassCard, minWidth: 0, overflow: 'hidden', borderRadius: 20, padding: '16px 16px 14px' }}>
+                    <div
+                      ref={recentResultsRef}
+                      className="no-scrollbar"
+                      role="region"
+                      aria-label="Recent results chart. Swipe horizontally for older rounds."
+                      tabIndex={0}
+                      style={{
+                        width: '100%',
+                        maxWidth: '100%',
+                        minWidth: 0,
+                        overflowX: 'auto',
+                        overflowY: 'hidden',
+                        WebkitOverflowScrolling: 'touch',
+                        overscrollBehaviorX: 'contain',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-start', gap: 7, width: 'max-content', minWidth: '100%', height: 96 }}>
+                        {model.form.map((f, i) => (
+                          <div key={i} style={{ flex: '1 0 46px', width: 46, minWidth: 46, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, height: '100%', justifyContent: 'flex-end' }}>
+                            <span style={{ fontSize: 10, fontWeight: 800, color: f.up ? '#bef264' : '#fb7185', whiteSpace: 'nowrap' }}>{signed(f.net)}</span>
+                            <span style={{ width: '100%', borderRadius: '7px 7px 3px 3px', height: f.h, background: f.up ? ACCENT : '#fb7185', boxShadow: f.up ? `0 4px 12px ${hexA(ACCENT, 0.4)}` : 'none' }} />
+                            <span style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,.4)' }}>{f.tag}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 13, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,.08)' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.6)' }}><span style={{ width: 11, height: 11, borderRadius: 3, background: ACCENT }} />up</span>
