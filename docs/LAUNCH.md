@@ -22,17 +22,41 @@ After connecting the repo in Netlify, copy your site URL from **Site configurati
 
 ### Supabase migrations
 
-Run in order in **SQL Editor** (or Supabase CLI), if not already applied:
+Apply **every** file in `supabase/migrations/` in filename order:
 
-| File | Purpose |
+```bash
+npx --no-install supabase db push --linked
+```
+
+Prefer this over the SQL Editor — the editor applies the SQL without recording
+it in the migration history, and that drift has to be repaired by hand later.
+
+Milestones, for orientation only (the set grows — don't work from this list):
+
+| Migration | Purpose |
 |------|---------|
-| `supabase/migrations/0001_init.sql` | Tables, RLS, helpers |
-| `supabase/migrations/0002_seed_courses.sql` | Course catalogue |
-| `supabase/migrations/0003_avatars.sql` | Profile photos + storage bucket |
-| `supabase/migrations/0004_profile_handicap.sql` | Handicap on profile |
-| `supabase/migrations/0005_ghin.sql` | GHIN OAuth tokens, course mapping, post status |
-| `supabase/migrations/0011_admin_course_management.sql` | Admin course catalogue management |
-| `supabase/migrations/0012_complete_live_round_any_member.sql` | Any live member can end a live round |
+| `0001_init.sql` | Tables, RLS, helpers |
+| `0002_seed_courses.sql` | Course catalogue |
+| `0003_avatars.sql` | Profile photos + storage bucket |
+| `0012_admin_course_management.sql` | Admin course catalogue management |
+| `0013_complete_live_round_any_member.sql` | Any live member can end a live round |
+| `0018`–`0021` | Security hardening |
+| `0022`–`0024` | Notifications + push delivery |
+| `0025`–`0028` | Betting terms and payment requests |
+| `0029`–`0031` | Course scorecard cache |
+| `0033`–`0034` | Game invites; explicit table privileges |
+| `0036` | Removes a dead anon grant left by `0034` |
+
+There is no `0032` and there never will be — two abandoned course-photo
+branches both claimed that number with different contents, and `0033`/`0034`
+reached production first. Since Supabase applies migrations in version order and
+refuses an out-of-order push, the slot is permanently unusable. Don't "fix" the
+gap by renumbering anything into it.
+
+`0034` is worth reading before you touch RLS: Postgres checks table privileges
+*before* row-level security, so a table needs an explicit grant for a policy to
+matter at all. A new table with a perfect policy and no grant fails every
+client query with `permission denied`.
 
 Verify locally:
 
