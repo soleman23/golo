@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { adminListCourses, adminSetCourseVisibility, adminUpsertCourse } from '../../lib/db/admin'
-import { getCourseImage } from '../../lib/courseImages'
+import {
+  adminListCourses,
+  adminRemoveCourseImage,
+  adminSetCourseVisibility,
+  adminUpsertCourse,
+  adminUploadCourseImage,
+} from '../../lib/db/admin'
+import { getCourseImage, hasBundledImage } from '../../lib/courseImages'
+import CoursePhotoCredit from '../../components/shared/CoursePhotoCredit'
 import {
   COURSE_HOLES,
   isCourseReadyForSetup,
@@ -152,6 +159,42 @@ export default function CourseAdminPage() {
 
   const patchDraft = (patch) => {
     setDraft((current) => ({ ...current, ...patch }))
+  }
+
+  // A curated photo is stored against a saved course id, so it can't be attached
+  // to an unsaved draft — the button is disabled until the course exists.
+  const applyCourseImage = async (res, message) => {
+    setSaving(null)
+    if (res.error) {
+      setError(friendlyError(res.error))
+      return
+    }
+    if (res.course) {
+      replaceCourse(res.course)
+      patchDraft({
+        image_url: res.course.image_url ?? '',
+        image_source: res.course.image_source ?? '',
+        image_attribution: res.course.image_attribution ?? '',
+        image_attribution_url: res.course.image_attribution_url ?? '',
+      })
+    }
+    setNotice(message)
+  }
+
+  const uploadCourseImage = async (file) => {
+    if (!file || saving === 'image') return
+    setNotice('')
+    setError('')
+    setSaving('image')
+    await applyCourseImage(await adminUploadCourseImage(draft.id, file), 'Course photo updated.')
+  }
+
+  const removeCourseImage = async () => {
+    if (saving === 'image') return
+    setNotice('')
+    setError('')
+    setSaving('image')
+    await applyCourseImage(await adminRemoveCourseImage(draft.id), 'Course photo removed.')
   }
 
   const setHole = (hole, key, value) => {
@@ -345,6 +388,63 @@ export default function CourseAdminPage() {
                 <div style={S.kicker}>{selectedId === 'new' ? 'NEW COURSE' : 'EDIT COURSE'}</div>
                 <h2 style={S.editorTitle}>{draft.name || 'Untitled course'}</h2>
                 <p style={S.editorMeta}>{ready ? 'Ready to show in setup' : `${validationErrors.length} setup issue${validationErrors.length === 1 ? '' : 's'}`}</p>
+                <div style={S.imageActions}>
+                  <label
+                    style={{
+                      ...S.smallAction,
+                      ...(selectedId === 'new' || saving === 'image' ? S.disabledAction : null),
+                    }}
+                  >
+                    {saving === 'image' ? 'Working…' : 'Upload photo'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={selectedId === 'new' || saving === 'image'}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        // Reset so re-picking the same file still fires onChange.
+                        e.target.value = ''
+                        uploadCourseImage(file)
+                      }}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                  {draft.image_url && (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={removeCourseImage}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          removeCourseImage()
+                        }
+                      }}
+                      style={{ ...S.smallAction, ...(saving === 'image' ? S.disabledAction : null) }}
+                    >
+                      Remove photo
+                    </span>
+                  )}
+                  {draft.image_source && (
+                    <span style={S.imageSource}>
+                      {draft.image_source === 'curated' ? 'Curated' : `Auto · ${draft.image_source}`}
+                    </span>
+                  )}
+                </div>
+                <CoursePhotoCredit
+                  course={draft}
+                  style={{ position: 'static', display: 'inline-flex', marginTop: 8, maxWidth: '100%' }}
+                />
+                {selectedId !== 'new' && hasBundledImage(draft) && (
+                  // Stated before the upload, not after it: this course ships with
+                  // its own art, which getCourseImage resolves ahead of anything
+                  // stored, so an upload here would be accepted and then ignored.
+                  <p style={S.imageWarning}>
+                    This course uses bundled artwork, which takes precedence — an uploaded
+                    photo is stored but won&apos;t appear until its entry is removed from
+                    COURSE_IMAGES_BY_ID in src/lib/courseImages.js.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -713,6 +813,31 @@ const S = {
     alignItems: 'center',
     gap: 14,
     marginBottom: 16,
+  },
+  imageActions: {
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  disabledAction: {
+    opacity: 0.45,
+    cursor: 'not-allowed',
+  },
+  imageSource: {
+    fontSize: 11,
+    fontWeight: 800,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,.5)',
+  },
+  imageWarning: {
+    margin: '8px 0 0',
+    fontSize: 12,
+    fontWeight: 700,
+    lineHeight: 1.45,
+    color: '#facc15',
   },
   editorImage: {
     width: 82,

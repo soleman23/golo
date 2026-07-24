@@ -18,7 +18,8 @@ import {
   yardageMapFromTees,
 } from '../lib/scorecardData'
 import { courseFromNcrdb } from '../lib/courseValidation'
-import { getCourseImage } from '../lib/courseImages'
+import { getCourseImage, DEFAULT_COURSE_IMAGE } from '../lib/courseImages'
+import { fetchCourseImage } from '../lib/courseImageFetch'
 import { defaultHomeCourse, matchCourseInCatalog } from '../lib/homeCourse'
 import {
   GEO_STATUS,
@@ -47,6 +48,7 @@ import { sendGameInvites } from '../lib/db/notifications'
 import { teardownLiveSync } from '../lib/liveRoundSync'
 import useNotificationStore from '../store/notificationStore'
 import AppHeader from '../components/shared/AppHeader'
+import CoursePhotoCredit from '../components/shared/CoursePhotoCredit'
 import { Icon } from '../components/shared/GoloIcons'
 
 /**
@@ -1042,6 +1044,10 @@ export default function SetupWizard() {
   const bodyRef = useRef(null)
   useEffect(() => { bodyRef.current?.scrollTo(0, 0) }, [st.step])
 
+  // Late-resolving course-photo fetches check this before touching state.
+  const mountedRef = useRef(true)
+  useEffect(() => () => { mountedRef.current = false }, [])
+
   /* ---- derived ---- */
   const course =
     catalog.find((c) => c.id === st.courseId) ??
@@ -1418,6 +1424,30 @@ export default function SetupWizard() {
         ? items.map((item) => (item.id === importedCourse.id ? { ...item, ...importedCourse } : item))
         : [importedCourse, ...items]
     })
+
+    // Decoration, not a dependency: the course is already selected and usable.
+    // `course` is resolved from `catalog` by id, so patching the catalogue entry
+    // is what carries the photo to the hero and into commit()'s courseBg.
+    // Guarded on the live ref so a late resolve can't touch an unmounted wizard,
+    // or re-decorate a course the user has since navigated away from.
+    fetchCourseImage({ id: importedCourse.id, name: importedCourse.name, loc: importedCourse.loc })
+      .then((img) => {
+        if (!img?.imageUrl || !mountedRef.current) return
+        setCatalog((items) =>
+          items.map((item) =>
+            item.id === importedCourse.id
+              ? {
+                  ...item,
+                  image_url: img.imageUrl,
+                  image_source: img.source,
+                  image_attribution: img.attribution,
+                  image_attribution_url: img.attributionUrl,
+                }
+              : item
+          )
+        )
+      })
+      .catch(() => {})
     setSt((s) => {
       const card = importedCourse.pars || importedCourse.strokeIndex
         ? defaultCard(s.holes, importedCourse.pars, importedCourse.strokeIndex)
@@ -1547,6 +1577,9 @@ export default function SetupWizard() {
       courseId: course.id,
       course: course.name,
       courseBg: getCourseImage(course),
+      courseImageSource: course.image_source ?? null,
+      courseImageAttribution: course.image_attribution ?? null,
+      courseImageAttributionUrl: course.image_attribution_url ?? null,
       // Date is stamped now, the moment the user starts the round — no picker.
       date: today(),
       holes: st.holes,
@@ -1798,6 +1831,7 @@ export default function SetupWizard() {
       {/* course photo backdrop + dark overlay */}
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundImage: `url(${getCourseImage(course)}), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(6,14,9,.7) 0%, rgba(6,14,9,.5) 22%, rgba(6,16,10,.6) 55%, rgba(4,12,8,.92) 100%)', pointerEvents: 'none' }} />
+      <CoursePhotoCredit course={course} />
 
       {/* content column */}
       <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', maxWidth: 480, width: '100%', margin: '0 auto' }}>
@@ -1921,7 +1955,7 @@ export default function SetupWizard() {
     }
     const content = (
       <>
-        <span style={{ width: collapsed ? 68 : 54, height: collapsed ? 68 : 54, borderRadius: collapsed ? 15 : 12, flex: '0 0 auto', background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundImage: `url(${item.bg}), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)' }} />
+        <span style={{ width: collapsed ? 68 : 54, height: collapsed ? 68 : 54, borderRadius: collapsed ? 15 : 12, flex: '0 0 auto', background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundImage: `url(${getCourseImage(item)}), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)' }} />
         <div style={{ flex: 1, minWidth: 0, paddingRight: collapsed ? 52 : 0 }}>
           <div style={{ fontSize: collapsed ? 18 : 16, fontWeight: 800, color: '#fff' }}>{item.name}</div>
           <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', marginTop: 2 }}>{courseRowSubtitle(item, showDistance)}</div>
@@ -1982,7 +2016,10 @@ export default function SetupWizard() {
         onClick={() => selectNcrdbCourse(hit)}
         style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', background: 'rgba(20,28,24,.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 16, padding: 12, marginBottom: 10, cursor: ncrdbSelectingId ? 'wait' : 'pointer', opacity: ncrdbSelectingId && !picking ? 0.55 : 1 }}
       >
-        <span style={{ width: 54, height: 54, borderRadius: 12, flex: '0 0 auto', background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundImage: 'url(/courses/course.png), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)' }} />
+        {/* Search results are not in the catalogue yet — the default image only.
+            Fetching photos for every hit would burn provider quota on courses the
+            user never picks. */}
+        <span style={{ width: 54, height: 54, borderRadius: 12, flex: '0 0 auto', background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)', backgroundImage: `url(${DEFAULT_COURSE_IMAGE}), linear-gradient(135deg, #14532d 0%, #166534 40%, #0a2418 100%)`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.15)' }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{ncrdbCourseName(hit)}</div>
           <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.55)', marginTop: 1 }}>{ncrdbCourseLocation(hit) || 'USGA NCRDB'} · 18 holes</div>

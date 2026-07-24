@@ -24,6 +24,12 @@ export const courseFromDb = (r) => ({
   ...(r.ghin_facility_id ? { ghinFacilityId: r.ghin_facility_id } : {}),
   ...(r.ghin_course_id ? { ghinCourseId: r.ghin_course_id } : {}),
   ...(r.ghin_tee_sets ? { ghinTeeSets: r.ghin_tee_sets } : {}),
+  // Snake_case is kept as-is: getCourseImage() reads `image_url` / `image_source`
+  // off both DB courses and raw round payloads, so one spelling serves both.
+  ...(r.image_url ? { image_url: r.image_url } : {}),
+  ...(r.image_source ? { image_source: r.image_source } : {}),
+  ...(r.image_attribution ? { image_attribution: r.image_attribution } : {}),
+  ...(r.image_attribution_url ? { image_attribution_url: r.image_attribution_url } : {}),
 })
 
 /** GHIN mapping subset for score-posting eligibility checks. */
@@ -48,6 +54,24 @@ export async function fetchCourseGhinMapping(courseId) {
     return null
   }
   return ghinMappingFromCourse(data)
+}
+
+/**
+ * Current photo for one course. Rounds freeze `courseBg` at commit time, so a
+ * photo fetched after the round started is only visible through a fresh read.
+ *
+ * Goes through the RPC rather than selecting from `courses` directly: NCRDB
+ * imports never get a courses row, so their photo lives only in the deny-all
+ * course_image_cache and the RPC is the one path that can see both.
+ */
+export async function fetchStoredCourseImage(courseId) {
+  if (!isSupabaseConfigured || !courseId) return null
+  const { data, error } = await supabase.rpc('course_image_data', { p_course_id: courseId })
+  if (error) {
+    console.error('[db] fetchStoredCourseImage', error)
+    return null
+  }
+  return data?.imageUrl ? data : null
 }
 
 export async function fetchCourses({ visibleOnly = true } = {}) {

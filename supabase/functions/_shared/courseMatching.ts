@@ -236,9 +236,10 @@ export function bestCourseMatch(hint: CourseHint, candidates: GcaCourse[]) {
   return best
 }
 
-export function cacheIsFresh(fetchedAt: string, nowMs = Date.now()) {
+/** `ttlMs` defaults to the scorecard window; photo caching passes its own. */
+export function cacheIsFresh(fetchedAt: string, nowMs = Date.now(), ttlMs = GCA_CACHE_TTL_MS) {
   const fetchedMs = new Date(fetchedAt).getTime()
-  return Number.isFinite(fetchedMs) && nowMs - fetchedMs <= GCA_CACHE_TTL_MS
+  return Number.isFinite(fetchedMs) && nowMs - fetchedMs <= ttlMs
 }
 
 export function negativeCacheIsActive(retryAfter: string | null, nowMs = Date.now()) {
