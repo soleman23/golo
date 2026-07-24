@@ -1,14 +1,18 @@
 # Course photos — current handoff
 
-Branch: `feat/course-photos`
+Branch: `feat/course-photos-clean` — the photo pipeline rebuilt on current
+`main`. It replaces both earlier attempts: the original `feat/course-photos`
+(which also carried three commits now on `main` plus a `LiveNotifications`
+version predating the durable-inbox rewrite) and the abandoned
+`feature/course-images` / PR #13 (a strictly smaller backend-only subset that
+also granted public read on the storage bucket).
 
 Nothing in this feature is deployed. The migration and Edge Function must be
 deployed by the repository owner after review.
 
-Two pre-existing edits are unrelated to this work and must be preserved:
-
-- `scripts/verify-nearby-ui.mjs`
-- the `NEARBY_EXCLUDED_COURSE_*` block in `src/pages/SetupWizard.jsx`
+The `scripts/verify-nearby-ui.mjs` and `NEARBY_EXCLUDED_COURSE_*` edits that
+earlier drafts of this doc asked you to preserve are now on `main` (PR #14), so
+they need no special handling here.
 
 ## Current design
 
@@ -40,7 +44,7 @@ link while its overlay is open.
 
 ## Database/API changes
 
-`supabase/migrations/0032_course_images.sql` adds:
+`supabase/migrations/0035_course_images.sql` adds:
 
 - photo attribution fields to `courses` and `course_image_cache`
 - deny-all client RLS for the cache

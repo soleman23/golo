@@ -1,4 +1,11 @@
--- 0032 — Course photography.
+-- 0035 — Course photography.
+--
+-- Numbered 0035, not 0032: this work was written when 0032 was the next free
+-- slot, but 0033/0034 reached production first, so 0032 is now a permanent hole
+-- in the applied history. Supabase applies migrations in version order and
+-- refuses an out-of-order push, hence the renumber. (The abandoned
+-- feature/course-images branch claimed the same 0032 with different contents —
+-- another reason the number is unusable.)
 --
 -- Automatic photos use Unsplash's API and remain hotlinked to its CDN. We store
 -- only the returned URL and required creator credit metadata. Curated admin
